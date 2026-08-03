@@ -1,0 +1,432 @@
+/*
+ * Estilo do painel lateral e do palco de renderizacao.
+ *
+ * Decisao: o canvas nunca e a UNICA fonte de uma informacao (ADR-0009). Tudo
+ * que ele mostra tem equivalente textual/acessivel aqui no painel. Por isso
+ * o layout e "painel + palco", nunca "so canvas".
+ */
+
+:root {
+  --bg: #0f1115;
+  --painel-bg: #14161c;
+  --borda: #262a33;
+  --texto: #e7e9ee;
+  --texto-fraco: #9aa0ac;
+  --acento: #4f6df5;
+  --ok: #3f8f52;
+  --alerta: #e0a03f;
+  --perigo: #d94f4f;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--texto);
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.painel {
+  background: var(--painel-bg);
+  border-right: 1px solid var(--borda);
+  padding: 18px 16px 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.painel section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.marca h1 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+.marca p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--texto-fraco);
+  line-height: 1.4;
+}
+
+.fonte {
+  font-size: 11px;
+}
+.fonte-local { color: var(--texto-fraco); }
+.fonte-conectado { color: var(--ok); }
+.fonte-conectando { color: var(--alerta); }
+.fonte-reconectando { color: var(--alerta); }
+.fonte-falhou { color: var(--perigo); }
+.erro {
+  color: var(--perigo);
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
+.seletor-idioma {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.seletor-idioma label {
+  color: var(--texto-fraco);
+  margin-right: 4px;
+}
+.seletor-idioma select {
+  font-size: 11px;
+  background: var(--fundo-painel);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 3px;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--texto-fraco);
+  margin: 0;
+}
+
+.nota {
+  font-size: 11px;
+  color: var(--texto-fraco);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.kpi {
+  background: #191c23;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi span {
+  font-size: 10px;
+  color: var(--texto-fraco);
+}
+
+.kpi strong {
+  font-size: 18px;
+}
+
+.kpi.alerta {
+  border-color: var(--perigo);
+}
+
+.kpi.alerta strong {
+  color: var(--perigo);
+}
+
+.orcamento {
+  background: #191c23;
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.orcamento-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.barra {
+  height: 6px;
+  border-radius: 4px;
+  background: #262a33;
+  overflow: hidden;
+}
+
+.barra span {
+  display: block;
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.aprovacoes {
+  border: 1px solid var(--perigo);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(217, 79, 79, 0.08);
+}
+
+.aprovacoes h2 {
+  color: var(--perigo);
+}
+
+.aprovacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+}
+
+.aprovacao button {
+  background: var(--perigo);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lista button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--texto);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.lista button:hover {
+  background: #1c1f27;
+}
+
+.lista button.ativo {
+  border-color: var(--acento);
+  background: rgba(79, 109, 245, 0.12);
+}
+
+.lista.compacta li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 4px 8px;
+  color: var(--texto-fraco);
+}
+
+.ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.saude-healthy {
+  background: var(--ok);
+}
+
+.saude-degraded {
+  background: var(--alerta);
+}
+
+.saude-failing {
+  background: var(--perigo);
+}
+
+.saude-offline {
+  background: #555;
+}
+
+.nome {
+  flex: 1;
+}
+
+.atividade {
+  font-size: 10px;
+  color: var(--texto-fraco);
+  text-transform: uppercase;
+}
+
+.ticker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 11px;
+  color: var(--texto-fraco);
+}
+
+.ticker li {
+  border-bottom: 1px solid var(--borda);
+  padding-bottom: 4px;
+}
+
+.controles {
+  display: flex;
+  gap: 8px;
+}
+
+.controles button {
+  flex: 1;
+  background: #1c1f27;
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.controles button:hover {
+  border-color: var(--acento);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--texto-fraco);
+}
+
+.campo input {
+  background: #191c23;
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.erro {
+  color: var(--perigo);
+  font-size: 11px;
+}
+
+.ok {
+  color: var(--ok);
+  font-size: 11px;
+}
+
+.palco {
+  position: relative;
+  overflow: hidden;
+}
+
+.palco canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.legenda {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: rgba(15, 17, 21, 0.85);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--texto-fraco);
+}
+
+.legenda span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.l-fila {
+  background: #fdfdfd;
+  border: 1px solid #c9c4bb;
+}
+
+.l-calor {
+  background: #ff7a45;
+}
+
+.l-luz {
+  background: #101828;
+}
+
+.l-lixo {
+  background: #9aa0a6;
+}
+
+.controles-camera {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.controles-camera button {
+  background: var(--painel-bg);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.controles-camera button:hover {
+  background: var(--borda);
+}
+
+.dica-camera {
+  font-size: 10px;
+  color: var(--texto-fraco);
+  opacity: 0.7;
+}

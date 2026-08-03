@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+.vite/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Ambiente / segredos
+.env
+.env.*
+!.env.example
+
+# Artefatos gerados
+docs/generated/
+packages/contracts/schema/*.json
