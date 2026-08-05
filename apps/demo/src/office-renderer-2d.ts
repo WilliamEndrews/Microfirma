@@ -389,12 +389,13 @@ function segmentoParede(
   corFace: number,
   externo: boolean,
 ): void {
+  const opacidade = externo ? 1 : 0.55;
   const topoA = { x: pA.x, y: pA.y - altura };
   const topoB = { x: pB.x, y: pB.y - altura };
   const grad = ctx.createLinearGradient(pA.x, pA.y, topoA.x, topoA.y);
-  grad.addColorStop(0, cor(escurecer(corFace, 0.82)));
-  grad.addColorStop(0.5, cor(corFace));
-  grad.addColorStop(1, cor(clarear(corFace, 0.08)));
+  grad.addColorStop(0, cor(escurecer(corFace, 0.82), opacidade));
+  grad.addColorStop(0.5, cor(corFace, opacidade));
+  grad.addColorStop(1, cor(clarear(corFace, 0.08), opacidade));
   caminho(ctx, [pA, pB, topoB, topoA]);
   ctx.fillStyle = grad;
   ctx.fill();
@@ -463,7 +464,7 @@ function segmentoParede(
 // Camadas dinamicas
 // ---------------------------------------------------------------------------
 
-const PENUMBRA_NORMAL = 0.1;
+const PENUMBRA_NORMAL = 0.05;
 
 function desenharPenumbra(
   ctx: CanvasRenderingContext2D,
@@ -474,23 +475,34 @@ function desenharPenumbra(
 ): void {
   const estados = new Map(quadro.rooms.map((r) => [r.roomId, r]));
   for (const sala of layout.rooms) {
-    if (!estados.get(sala.roomId)?.lightBroken) {
-      caminho(ctx, cantosDaSala(sala.rect));
-      ctx.fillStyle = cor(paleta.penumbra, PENUMBRA_NORMAL);
-      ctx.fill();
-      continue;
-    }
-    const h = hashTexto(sala.roomId);
-    const periodo = 2.4 + pseudoAleatorio(h, 1) * 1.8;
-    const defasagem = pseudoAleatorio(h, 2) * periodo;
-    const cicloId = Math.floor((fase + defasagem) / periodo);
-    const piscaNesteCiclo = pseudoAleatorio(cicloId, h) > 0.55;
-    let escuridao = 0.62;
-    if (piscaNesteCiclo) {
-      const t = ((fase + defasagem) % periodo) / periodo;
-      if (t < 0.12) {
-        const envelope = Math.sin((t / 0.12) * Math.PI);
-        escuridao -= 0.4 * envelope;
+    const c = iso((sala.rect.x0 + sala.rect.x1) / 2, (sala.rect.y0 + sala.rect.y1) / 2);
+    const raio = Math.max(20, (sala.rect.x1 - sala.rect.x0 + sala.rect.y1 - sala.rect.y0) * 6);
+    const quebrada = estados.get(sala.roomId)?.lightBroken;
+
+    // Luz ambiente no centro do teto (halo claro).
+    const g = ctx.createRadialGradient(c.x, c.y - 10, 0, c.x, c.y - 10, raio);
+    g.addColorStop(0, cor(paleta.paredeTopo, 0.12));
+    g.addColorStop(0.6, cor(paleta.paredeTopo, 0.04));
+    g.addColorStop(1, cor(paleta.paredeTopo, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, raio, raio * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    let escuridao = PENUMBRA_NORMAL;
+    if (quebrada) {
+      const h = hashTexto(sala.roomId);
+      const periodo = 2.4 + pseudoAleatorio(h, 1) * 1.8;
+      const defasagem = pseudoAleatorio(h, 2) * periodo;
+      const cicloId = Math.floor((fase + defasagem) / periodo);
+      const piscaNesteCiclo = pseudoAleatorio(cicloId, h) > 0.55;
+      escuridao = 0.45;
+      if (piscaNesteCiclo) {
+        const t = ((fase + defasagem) % periodo) / periodo;
+        if (t < 0.12) {
+          const envelope = Math.sin((t / 0.12) * Math.PI);
+          escuridao += 0.25 * envelope;
+        }
       }
     }
     caminho(ctx, cantosDaSala(sala.rect));
