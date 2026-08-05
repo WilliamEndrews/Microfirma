@@ -51,25 +51,25 @@ export interface PlanOptions {
  */
 export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): SpaceProgram {
   const rng = createRng(opts.seed).fork('space-program');
-  const maxPorArea = opts.maxAgentsPorAreaAberta ?? 6;
+  const maxPorArea = opts.maxAgentsPorAreaAberta ?? 2;
 
   const privados = agents.filter((a) => ROOM_PREFERENCE[a.role] === 'private');
   const abertos = agents.filter((a) => ROOM_PREFERENCE[a.role] !== 'private');
 
   const zones: ZoneRequest[] = [];
 
-  // Uma sala privada por agente de papel sensivel.
+  // Escritorios privativos: 1 agente por sala para micro-firma real.
   for (const agente of privados) {
     zones.push({
       zoneId: `zone-priv-${agente.agentId}`,
-      name: `Sala ${agente.displayName}`,
+      name: `Esc ${agente.displayName}`,
       kind: 'private',
       areaWeight: 1,
       agentIds: [agente.agentId],
     });
   }
 
-  // Areas abertas em blocos, agrupando agentes que colaboram entre si.
+  // Areas abertas em pares (micro-estacoes de 2 pessoas).
   const ordenados = ordenarPorColaboracao(
     abertos.map((a) => a.agentId),
     opts.collaboration ?? [],
@@ -78,26 +78,26 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
     const bloco = ordenados.slice(i, i + maxPorArea);
     zones.push({
       zoneId: `zone-open-${i / maxPorArea + 1}`,
-      name: bloco.length > 2 ? `Area Aberta ${i / maxPorArea + 1}` : 'Estacao de Trabalho',
+      name: bloco.length > 1 ? `Sala ${i / maxPorArea + 1}` : 'Escritorio',
       kind: 'open',
-      areaWeight: 1 + bloco.length * 0.35,
+      areaWeight: 1 + bloco.length * 0.6,
       agentIds: bloco,
     });
   }
 
-  // Salas obrigatorias e condicionais.
+  // Salas obrigatorias e condicionais (compactas).
   zones.push({
     zoneId: 'zone-break',
-    name: 'Sala de Descanso',
+    name: 'Copa',
     kind: 'break',
-    areaWeight: 1.4,
+    areaWeight: 1.2,
     agentIds: [],
   });
   zones.push({
     zoneId: 'zone-reception',
     name: 'Recepcao',
     kind: 'reception',
-    areaWeight: 1.1,
+    areaWeight: 0.9,
     agentIds: [],
   });
   if (agents.length >= 4) {
@@ -105,7 +105,7 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
       zoneId: 'zone-meeting',
       name: 'Sala de Reuniao',
       kind: 'meeting',
-      areaWeight: 1.3,
+      areaWeight: 1.1,
       agentIds: [],
     });
   }
@@ -114,14 +114,14 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
       zoneId: 'zone-war',
       name: 'War Room',
       kind: 'war_room',
-      areaWeight: 1.2,
+      areaWeight: 1.0,
       agentIds: [],
     });
   }
 
-  // Grid dimensionado pela demanda: cresce em passos discretos, nunca "quase cabe".
-  const largura = clamp(28 + zones.length * 4, 32, 96);
-  const altura = clamp(20 + Math.ceil(zones.length / 2) * 2, 24, 64);
+  // Grid compacto, estilo predio de escritorios pequeno.
+  const largura = clamp(20 + zones.length * 3, 24, 56);
+  const altura = clamp(16 + Math.ceil(zones.length / 2), 20, 40);
 
   return {
     officeId: opts.officeId,

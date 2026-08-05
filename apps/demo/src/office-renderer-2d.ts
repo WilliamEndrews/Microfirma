@@ -25,6 +25,7 @@ import {
   obterSpriteProp,
   obterSpriteAtor,
   type SpriteCache,
+  type PropKind,
 } from './sprite-factory';
 
 const LARGURA_TILE = 44;
@@ -129,7 +130,8 @@ export async function criarRenderer(
     camera.panX = cx - deslocX - wx * ed;
     camera.panY = cy - deslocY - wy * ed;
     camera.zoom = novoZoom;
-    if (Math.abs(ed - escalaDoEstatico) > 0.5) {
+    const ratio = escalaDoEstatico > 0 ? ed / escalaDoEstatico : Infinity;
+    if (ratio < 0.8 || ratio > 1.25) {
       estatico = construirEstatico(layout, ext, ed * dpr, paleta, sprites);
       escalaDoEstatico = ed;
     }
@@ -195,11 +197,11 @@ export async function criarRenderer(
     }
 
     if (estatico) {
-      ctx.drawImage(
-        estatico,
-        Math.round((panEfetivoX + ext.minX * escalaEfetiva) * dpr),
-        Math.round((panEfetivoY + ext.minY * escalaEfetiva) * dpr),
-      );
+      const dstX = (panEfetivoX + ext.minX * escalaEfetiva) * dpr;
+      const dstY = (panEfetivoY + ext.minY * escalaEfetiva) * dpr;
+      const dstW = ext.largura * escalaEfetiva * dpr;
+      const dstH = ext.altura * escalaEfetiva * dpr;
+      ctx.drawImage(estatico, dstX, dstY, dstW, dstH);
     }
 
     if (quadro) {
@@ -276,7 +278,7 @@ function cantosDaSala(rect: { x0: number; y0: number; x1: number; y1: number }) 
 // Camada estatica: piso + paredes + mobiliario (sprites)
 // ---------------------------------------------------------------------------
 
-const ALTURA_PAREDE = 30;
+const ALTURA_PAREDE = 52;
 
 function construirEstatico(
   layout: OfficeLayout,
@@ -301,21 +303,35 @@ function desenharPiso(ctx: CanvasRenderingContext2D, layout: OfficeLayout, palet
     caminho(ctx, losango(c.x, c.y));
     ctx.fillStyle = cor(paleta.corredor);
     ctx.fill();
+    // Linhas de junta do corredor (azulejo claro)
+    const pts = losango(c.x, c.y, 0.48);
+    ctx.strokeStyle = cor(escurecer(paleta.corredor, 0.88), 0.4);
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(pts[0]!.x, pts[0]!.y);
+    ctx.lineTo(pts[2]!.x, pts[2]!.y);
+    ctx.moveTo(pts[1]!.x, pts[1]!.y);
+    ctx.lineTo(pts[3]!.x, pts[3]!.y);
+    ctx.stroke();
   }
   for (const sala of layout.rooms) {
     const base = paleta.piso[sala.kind] ?? paleta.piso.open!;
+    const material = paleta.materialPiso[sala.kind] ?? 'carpete';
     for (let y = sala.rect.y0; y < sala.rect.y1; y++) {
       for (let x = sala.rect.x0; x < sala.rect.x1; x++) {
         caminho(ctx, losango(x, y));
         const variacao = ((x * 7 + y * 13) % 5) * 0x010101;
         ctx.fillStyle = cor(base - variacao);
         ctx.fill();
+        desenharTexturaPiso(ctx, x, y, material, base);
       }
     }
+    // Rodape (moldura da sala)
     caminho(ctx, cantosDaSala(sala.rect));
     ctx.strokeStyle = cor(paleta.rodape, 0.85);
     ctx.lineWidth = 2;
     ctx.stroke();
+    // Porta (marco claro)
     caminho(ctx, losango(sala.door.x, sala.door.y, 0.22));
     ctx.fillStyle = cor(0xffffff, 0.55);
     ctx.fill();
@@ -335,24 +351,26 @@ function desenharCenarioEstatico(
     const { x0, y0, x1, y1 } = sala.rect;
     for (let x = x0; x < x1; x++) {
       if (x === sala.door.x && y0 === sala.door.y) continue;
-      itens.push({ depth: x + y0 - 0.5, draw: () => segmentoParede(ctx, iso(x, y0), iso(x + 1, y0), ALTURA_PAREDE, paleta.parede) });
+      // Parede interna (divisoria): sem janela.
+      itens.push({ depth: x + y0 - 0.5, draw: () => segmentoParede(ctx, iso(x, y0), iso(x + 1, y0), ALTURA_PAREDE, paleta.parede, false) });
     }
     for (let y = y0; y < y1; y++) {
       if (x0 === sala.door.x && y === sala.door.y) continue;
-      itens.push({ depth: x0 + y - 0.5, draw: () => segmentoParede(ctx, iso(x0, y), iso(x0, y + 1), ALTURA_PAREDE, paleta.parede) });
+      itens.push({ depth: x0 + y - 0.5, draw: () => segmentoParede(ctx, iso(x0, y), iso(x0, y + 1), ALTURA_PAREDE, paleta.parede, false) });
     }
   }
 
   const { width: W, height: H } = layout.grid;
-  for (let x = 0; x < W; x++) itens.push({ depth: x - 0.5, draw: () => segmentoParede(ctx, iso(x, 0), iso(x + 1, 0), ALTURA_PAREDE, paleta.parede) });
-  for (let y = 0; y < H; y++) itens.push({ depth: y - 0.5, draw: () => segmentoParede(ctx, iso(0, y), iso(0, y + 1), ALTURA_PAREDE, paleta.parede) });
+  // Paredes externas do predio: com janelas.
+  for (let x = 0; x < W; x++) itens.push({ depth: x - 0.5, draw: () => segmentoParede(ctx, iso(x, 0), iso(x + 1, 0), ALTURA_PAREDE, paleta.parede, true) });
+  for (let y = 0; y < H; y++) itens.push({ depth: y - 0.5, draw: () => segmentoParede(ctx, iso(0, y), iso(0, y + 1), ALTURA_PAREDE, paleta.parede, true) });
 
   const props = [...layout.props].sort((a, b) => a.cell.x + a.cell.y - (b.cell.x + b.cell.y));
   for (const p of props) {
     itens.push({
       depth: p.cell.x + p.cell.y,
       draw: () => {
-        const kind = p.kind as 'desk' | 'sofa' | 'board' | 'printer' | 'meter' | 'coffee' | 'plant' | 'lamp';
+        const kind = p.kind as PropKind;
         if (kind === 'lamp') return;
         desenharSpriteProp(ctx, obterSpriteProp(sprites, kind), p.cell.x, p.cell.y);
       },
@@ -369,22 +387,74 @@ function segmentoParede(
   pB: { x: number; y: number },
   altura: number,
   corFace: number,
+  externo: boolean,
 ): void {
   const topoA = { x: pA.x, y: pA.y - altura };
   const topoB = { x: pB.x, y: pB.y - altura };
   const grad = ctx.createLinearGradient(pA.x, pA.y, topoA.x, topoA.y);
-  grad.addColorStop(0, cor(escurecer(corFace, 0.85)));
-  grad.addColorStop(1, cor(corFace));
+  grad.addColorStop(0, cor(escurecer(corFace, 0.82)));
+  grad.addColorStop(0.5, cor(corFace));
+  grad.addColorStop(1, cor(clarear(corFace, 0.08)));
   caminho(ctx, [pA, pB, topoB, topoA]);
   ctx.fillStyle = grad;
   ctx.fill();
+
+  // Rodape (base da parede mais escura)
+  ctx.fillStyle = cor(escurecer(corFace, 0.7), 0.6);
+  ctx.fillRect(Math.min(pA.x, pB.x), Math.min(pA.y, pB.y) - 3, Math.abs(pB.x - pA.x) + 2, 3);
+
+  // Janela: apenas em paredes externas (fachada do predio).
+  const dx = pB.x - pA.x;
+  const dy = pB.y - pA.y;
+  const len = Math.hypot(dx, dy);
+  if (externo && len > 14) {
+    const jx = (pA.x + pB.x) / 2;
+    const jy = (pA.y + pB.y) / 2;
+    const jAltura = altura * 0.55;
+    const jBase = altura * 0.25;
+    const jLargura = Math.min(len * 0.4, 18);
+    const ux = dx / len;
+    const uy = dy / len;
+    const jA = { x: jx - ux * jLargura / 2, y: jy - uy * jLargura / 2 };
+    const jB = { x: jx + ux * jLargura / 2, y: jy + uy * jLargura / 2 };
+    const jTopoA = { x: jA.x, y: jA.y - jBase - jAltura };
+    const jTopoB = { x: jB.x, y: jB.y - jBase - jAltura };
+    const jBaseA = { x: jA.x, y: jA.y - jBase };
+    const jBaseB = { x: jB.x, y: jB.y - jBase };
+    // Vidro da janela (azul claro translucido)
+    const gradJ = ctx.createLinearGradient(jA.x, jBaseA.y, jB.x, jTopoB.y);
+    gradJ.addColorStop(0, cor(0xa8c8e8, 0.35));
+    gradJ.addColorStop(0.5, cor(0xc8ddf0, 0.25));
+    gradJ.addColorStop(1, cor(0xa8c8e8, 0.35));
+    caminho(ctx, [jBaseA, jBaseB, jTopoB, jTopoA]);
+    ctx.fillStyle = gradJ;
+    ctx.fill();
+    // Moldura da janela
+    ctx.strokeStyle = cor(escurecer(corFace, 0.6), 0.7);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Cruzeta da janela
+    ctx.beginPath();
+    ctx.moveTo((jA.x + jB.x) / 2, jBaseA.y);
+    ctx.lineTo((jA.x + jB.x) / 2, jTopoA.y);
+    ctx.moveTo(jA.x, (jBaseA.y + jTopoA.y) / 2);
+    ctx.lineTo(jB.x, (jBaseB.y + jTopoB.y) / 2);
+    ctx.strokeStyle = cor(escurecer(corFace, 0.5), 0.5);
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
   ctx.strokeStyle = cor(escurecer(corFace, 0.8), 0.5);
   ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pA.x, pA.y);
+  ctx.lineTo(pB.x, pB.y);
   ctx.stroke();
+
   ctx.beginPath();
   ctx.moveTo(topoA.x, topoA.y);
   ctx.lineTo(topoB.x, topoB.y);
-  ctx.strokeStyle = cor(0xffffff, 0.3);
+  ctx.strokeStyle = cor(clarear(corFace, 0.15), 0.4);
   ctx.lineWidth = 1.5;
   ctx.stroke();
 }
@@ -623,4 +693,109 @@ function escurecer(matiz: number, fator: number): number {
   const g = Math.floor(((matiz >> 8) & 0xff) * fator);
   const b = Math.floor((matiz & 0xff) * fator);
   return (r << 16) | (g << 8) | b;
+}
+
+function clarear(matiz: number, fator: number): number {
+  const r = Math.min(255, Math.floor(((matiz >> 16) & 0xff) + (255 - ((matiz >> 16) & 0xff)) * fator));
+  const g = Math.min(255, Math.floor(((matiz >> 8) & 0xff) + (255 - ((matiz >> 8) & 0xff)) * fator));
+  const b = Math.min(255, Math.floor((matiz & 0xff) + (255 - (matiz & 0xff)) * fator));
+  return (r << 16) | (g << 8) | b;
+}
+
+function desenharTexturaPiso(
+  ctx: CanvasRenderingContext2D,
+  gx: number,
+  gy: number,
+  material: string,
+  base: number,
+): void {
+  const pts = losango(gx, gy, 0.02);
+  const cx = (pts[0]!.x + pts[2]!.x) / 2;
+  const cy = (pts[0]!.y + pts[2]!.y) / 2;
+
+  switch (material) {
+    case 'carpete': {
+      // Pontilhado de fibras (mais visivel)
+      ctx.fillStyle = cor(escurecer(base, 0.88), 0.6);
+      for (let i = 0; i < 8; i++) {
+        const px = cx + ((i * 7 + gx * 3) % 22) - 11;
+        const py = cy + ((i * 5 + gy * 3) % 12) - 6;
+        ctx.fillRect(px, py, 1.5, 1.5);
+      }
+      ctx.fillStyle = cor(clarear(base, 0.08), 0.5);
+      for (let i = 0; i < 5; i++) {
+        const px = cx + ((i * 11 + gx * 5) % 20) - 10;
+        const py = cy + ((i * 7 + gy * 5) % 10) - 5;
+        ctx.fillRect(px, py, 1.5, 1.5);
+      }
+      break;
+    }
+    case 'madeira': {
+      // Listras de tabua (mais visiveis)
+      ctx.strokeStyle = cor(escurecer(base, 0.78), 0.6);
+      ctx.lineWidth = 1;
+      const a = iso(gx, gy + 0.33);
+      const b = iso(gx + 1, gy + 0.33);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      const c = iso(gx, gy + 0.66);
+      const d = iso(gx + 1, gy + 0.66);
+      ctx.beginPath();
+      ctx.moveTo(c.x, c.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.stroke();
+      // Veios da madeira
+      ctx.fillStyle = cor(escurecer(base, 0.72), 0.4);
+      ctx.fillRect(cx - 6, cy - 2, 3, 1.5);
+      ctx.fillRect(cx + 2, cy + 1, 3, 1.5);
+      ctx.fillStyle = cor(clarear(base, 0.06), 0.3);
+      ctx.fillRect(cx - 3, cy, 2, 1);
+      break;
+    }
+    case 'azulejo': {
+      // Juntas em cruz (mais visiveis)
+      ctx.strokeStyle = cor(escurecer(base, 0.65), 0.6);
+      ctx.lineWidth = 1;
+      const m1 = iso(gx + 0.5, gy);
+      const m2 = iso(gx + 0.5, gy + 1);
+      ctx.beginPath();
+      ctx.moveTo(m1.x, m1.y);
+      ctx.lineTo(m2.x, m2.y);
+      ctx.stroke();
+      const m3 = iso(gx, gy + 0.5);
+      const m4 = iso(gx + 1, gy + 0.5);
+      ctx.beginPath();
+      ctx.moveTo(m3.x, m3.y);
+      ctx.lineTo(m4.x, m4.y);
+      ctx.stroke();
+      // Brilho do azulejo
+      ctx.fillStyle = cor(clarear(base, 0.12), 0.3);
+      ctx.beginPath();
+      ctx.ellipse(cx - 4, cy - 2, 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'cimento': {
+      // Manchas irregulares (mais visiveis)
+      ctx.fillStyle = cor(escurecer(base, 0.82), 0.45);
+      ctx.beginPath();
+      ctx.ellipse(cx + 3, cy - 1, 5, 2.5, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = cor(clarear(base, 0.06), 0.35);
+      ctx.beginPath();
+      ctx.ellipse(cx - 4, cy + 2, 4, 2, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Micro-rachaduras
+      ctx.strokeStyle = cor(escurecer(base, 0.7), 0.3);
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - 5, cy);
+      ctx.lineTo(cx - 2, cy + 1);
+      ctx.lineTo(cx + 1, cy - 1);
+      ctx.stroke();
+      break;
+    }
+  }
 }

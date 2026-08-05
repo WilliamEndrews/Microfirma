@@ -90,7 +90,7 @@ export type Room = z.infer<typeof Room>;
 /** Mobiliario e equipamento. `ownerAgentId` liga o objeto ao dono. */
 export const Prop = z.object({
   propId: z.string(),
-  kind: z.enum(['desk', 'chair', 'plant', 'lamp', 'printer', 'sofa', 'coffee', 'board', 'meter']),
+  kind: z.enum(['desk', 'chair', 'plant', 'lamp', 'printer', 'sofa', 'coffee', 'board', 'meter', 'cabinet', 'bookshelf', 'water', 'rug']),
   cell: Cell,
   roomId: z.string(),
   ownerAgentId: z.string().optional(),

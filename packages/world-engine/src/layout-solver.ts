@@ -23,26 +23,28 @@
 import type { Cell, OfficeLayout, Prop, Room, SpaceProgram, ZoneRequest } from '@microfirma/contracts';
 import { createRng, type Rng } from './prng.js';
 
-/** Largura minima util de uma sala, em celulas. Abaixo disso nao cabe mesa + circulacao. */
-const LARGURA_MINIMA_SALA = 6;
+/** Largura minima util de uma sala, em celulas. Micro-firma: 4 (2x2 de mesa + circulacao). */
+const LARGURA_MINIMA_SALA = 4;
 
 export function solveLayout(program: SpaceProgram): OfficeLayout {
   const rng = createRng(program.seed).fork('layout');
   const { width: W, height: H } = program.grid;
 
-  // --- 2. corredor-espinha -------------------------------------------------
-  const corredorY0 = Math.floor(H / 2) - 1;
-  const corredorY1 = corredorY0 + 1; // duas celulas de altura: cruzamento confortavel
+  // --- 2. corredor-espinha (1 celula, central) --------------------------
+  const corredorY = Math.floor(H / 2) - 1;
+  const corredorY0 = corredorY;
+  const corredorY1 = corredorY;
   const corridors: Cell[] = [];
   for (let x = 1; x <= W - 2; x++) {
-    corridors.push({ x, y: corredorY0 }, { x, y: corredorY1 });
+    corridors.push({ x, y: corredorY });
   }
 
   // --- 3. distribuicao das zonas nas faixas -------------------------------
   const { norte, sul } = distribuirEmFaixas(program.zones, program.adjacency);
 
-  const faixaNorte = { y0: 1, y1: corredorY0 }; // y1 exclusivo
-  const faixaSul = { y0: corredorY1 + 1, y1: H - 1 };
+  // Faixas norte e sul encostadas no corredor.
+  const faixaNorte = { y0: 1, y1: corredorY };
+  const faixaSul = { y0: corredorY + 1, y1: H - 1 };
 
   const rooms: Room[] = [
     ...alocarFaixa(norte, faixaNorte, W, 'norte', corredorY0),
@@ -214,8 +216,9 @@ function mobiliar(
   const altura = y1 - y0;
 
   const ocupado = new Set<string>([`${sala.door.x},${sala.door.y}`]);
-  // Corredor interno de acesso: a coluna da porta fica sempre livre.
+  // Coluna e linha da porta ficam livres para circulacao.
   const colunaLivre = sala.door.x;
+  const linhaLivre = sala.door.y;
 
   const reservar = (c: Cell): boolean => {
     const k = `${c.x},${c.y}`;
@@ -225,24 +228,43 @@ function mobiliar(
     return true;
   };
 
-  // Mesas: uma por agente da zona, em fileiras, pulando a coluna da porta.
+  const ehSul = sala.door.y === y0;
+  const frenteY = ehSul ? y0 + 1 : y1 - 2;
+  const atrasY = ehSul ? y1 - 2 : y0 + 1;
+  const mesaFacing = ehSul ? 2 : 0;
+  const cadeiraFacing = ehSul ? 0 : 2;
+
+  // Mesas: uma por agente, encostadas na parede oposta a porta.
+  // Espacamento de 3 celulas garante circulacao na micro-sala.
   const agentes = zona?.agentIds ?? [];
   let indiceAgente = 0;
-  for (let dy = 1; dy < altura - 1 && indiceAgente < agentes.length; dy += 3) {
-    for (let dx = 1; dx < largura - 1 && indiceAgente < agentes.length; dx += 2) {
-      const cell = { x: x0 + dx, y: y0 + dy };
-      if (cell.x === colunaLivre) continue;
-      if (!reservar(cell)) continue;
+  const colunasMesas: number[] = [];
+  for (let dx = 1; dx < largura - 1 && indiceAgente < agentes.length; dx += 3) {
+    if (x0 + dx === colunaLivre) continue;
+    colunasMesas.push(x0 + dx);
+    const mesa = { x: x0 + dx, y: atrasY };
+    if (!reservar(mesa)) continue;
+    props.push({
+      propId: `desk-${agentes[indiceAgente]}`,
+      kind: 'desk',
+      cell: mesa,
+      roomId: sala.roomId,
+      ownerAgentId: agentes[indiceAgente] as string,
+      facing: mesaFacing,
+    });
+    // Cadeira giratoria de frente para a mesa.
+    const cadeira = { x: x0 + dx, y: atrasY + (ehSul ? -1 : 1) };
+    if (cadeira.y >= y0 && cadeira.y < y1 && cadeira.y !== linhaLivre) {
+      reservar(cadeira);
       props.push({
-        propId: `desk-${agentes[indiceAgente]}`,
-        kind: 'desk',
-        cell,
+        propId: `chair-${agentes[indiceAgente]}`,
+        kind: 'chair',
+        cell: cadeira,
         roomId: sala.roomId,
-        ownerAgentId: agentes[indiceAgente] as string,
-        facing: sala.door.y === y0 ? 2 : 0,
+        facing: cadeiraFacing,
       });
-      indiceAgente++;
     }
+    indiceAgente++;
   }
   if (indiceAgente < agentes.length) {
     console.warn(
@@ -251,22 +273,52 @@ function mobiliar(
     );
   }
 
-  // Iluminacao: uma luminaria a cada ~6x6. E a luz que "queima" nos incidentes.
-  for (let dy = 2; dy < altura - 1; dy += 6) {
-    for (let dx = 3; dx < largura - 1; dx += 6) {
-      const cell = { x: x0 + dx, y: y0 + dy };
-      if (cell.x === colunaLivre) continue;
+  // Tapete no centro da sala (ocupa 1 ou 2 celulas).
+  const rugX = x0 + Math.max(1, Math.min(largura - 2, Math.floor(largura / 2)));
+  const rugY = y0 + Math.max(1, Math.min(altura - 2, Math.floor(altura / 2)));
+  const tapete = { x: rugX, y: rugY };
+  if (tapete.x !== colunaLivre && !ocupado.has(`${tapete.x},${tapete.y}`)) {
+    reservar(tapete);
+    props.push({
+      propId: `rug-${sala.roomId}`,
+      kind: 'rug',
+      cell: tapete,
+      roomId: sala.roomId,
+      facing: 0,
+    });
+  }
+
+  // Armario ou estante na parede oposta as mesas, ocupando cantos vazios.
+  for (let dx = 1; dx < largura - 1; dx++) {
+    const px = x0 + dx;
+    if (px === colunaLivre) continue;
+    const canto = { x: px, y: frenteY };
+    if (canto.x !== colunaLivre && !ocupado.has(`${canto.x},${canto.y}`) && reservar(canto)) {
+      const tipo = (px + y0) % 2 === 0 ? 'cabinet' : 'bookshelf';
       props.push({
-        propId: `lamp-${sala.roomId}-${dx}-${dy}`,
-        kind: 'lamp',
-        cell,
+        propId: `${tipo}-${sala.roomId}-${px}`,
+        kind: tipo,
+        cell: canto,
         roomId: sala.roomId,
-        facing: 0,
+        facing: mesaFacing,
       });
     }
   }
 
-  // Verde: puramente estetico, controlado pelo tema. Nunca bloqueia circulacao.
+  // Luminaria no centro do teto (se cabe).
+  const lampX = x0 + Math.floor(largura / 2);
+  const lampY = y0 + Math.floor(altura / 2);
+  if (lampX !== colunaLivre && !ocupado.has(`${lampX},${lampY}`) && reservar({ x: lampX, y: lampY })) {
+    props.push({
+      propId: `lamp-${sala.roomId}`,
+      kind: 'lamp',
+      cell: { x: lampX, y: lampY },
+      roomId: sala.roomId,
+      facing: 0,
+    });
+  }
+
+  // Plantas em cantos vazios (se houver).
   const cantos: Cell[] = [
     { x: x0, y: y0 },
     { x: x1 - 1, y: y0 },
@@ -290,31 +342,48 @@ function mobiliar(
   const centro = { x: x0 + Math.floor(largura / 2), y: y0 + Math.floor(altura / 2) };
   switch (sala.kind) {
     case 'break': {
-      // O Watercooler: sofa + cafe. Ponto de encontro dos agentes ociosos.
+      // Copa: sofa + mesa de cafe + bebedouro.
       if (reservar(centro))
         props.push({ propId: `sofa-${sala.roomId}`, kind: 'sofa', cell: centro, roomId: sala.roomId, facing: 0 });
-      const cafe = { x: centro.x + 2, y: centro.y };
-      if (reservar(cafe))
+      const cafe = { x: centro.x + 1, y: centro.y };
+      if (cafe.x < x1 - 1 && reservar(cafe))
         props.push({ propId: `coffee-${sala.roomId}`, kind: 'coffee', cell: cafe, roomId: sala.roomId, facing: 3 });
+      const bebedouro = { x: x0 + 1, y: frenteY };
+      if (!ocupado.has(`${bebedouro.x},${bebedouro.y}`) && reservar(bebedouro))
+        props.push({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 3 });
       break;
     }
     case 'meeting':
     case 'war_room': {
+      // Sala de reuniao: mesa de centro + quadro + cadeiras.
       if (reservar(centro))
         props.push({ propId: `board-${sala.roomId}`, kind: 'board', cell: centro, roomId: sala.roomId, facing: 2 });
+      const mesaReuniao = { x: centro.x - 1, y: centro.y };
+      if (mesaReuniao.x >= x0 && !ocupado.has(`${mesaReuniao.x},${mesaReuniao.y}`) && reservar(mesaReuniao))
+        props.push({ propId: `desk-${sala.roomId}-r`, kind: 'desk', cell: mesaReuniao, roomId: sala.roomId, facing: 0 });
       break;
     }
     case 'reception': {
-      // Medidor de consumo: o painel de custos, dentro do mundo.
+      // Recepcao: mesa do recepcionista + impressora + bebedouro.
       if (reservar(centro))
-        props.push({ propId: `meter-${sala.roomId}`, kind: 'meter', cell: centro, roomId: sala.roomId, facing: 2 });
-      const impressora = { x: centro.x + 2, y: centro.y };
-      if (reservar(impressora))
+        props.push({ propId: `desk-${sala.roomId}-recp`, kind: 'desk', cell: centro, roomId: sala.roomId, facing: mesaFacing });
+      const impressora = { x: x0 + 1, y: frenteY };
+      if (!ocupado.has(`${impressora.x},${impressora.y}`) && reservar(impressora))
         props.push({ propId: `printer-${sala.roomId}`, kind: 'printer', cell: impressora, roomId: sala.roomId, facing: 0 });
+      const bebedouro = { x: x1 - 2, y: frenteY };
+      if (!ocupado.has(`${bebedouro.x},${bebedouro.y}`) && reservar(bebedouro))
+        props.push({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 1 });
       break;
     }
-    default:
+    default: {
+      // Escritorios privativos e abertos: bebedouro no canto, se couber.
+      if (largura >= 5) {
+        const agua = { x: x1 - 2, y: frenteY };
+        if (!ocupado.has(`${agua.x},${agua.y}`) && reservar(agua))
+          props.push({ propId: `water-${sala.roomId}`, kind: 'water', cell: agua, roomId: sala.roomId, facing: 1 });
+      }
       break;
+    }
   }
 
   return props;

@@ -30,20 +30,40 @@ export const TEMAS: readonly Tema[] = [
  * que o renderer usa, derivando todas as cores necessarias a partir das 4 cores
  * base do tema.
  */
+export type MaterialPiso = 'carpete' | 'madeira' | 'azulejo' | 'cimento';
+
 export interface PaletaResolvida {
   fundo: number;
   corredor: number;
   piso: Record<string, number>;
+  /** Material de piso por tipo de sala. */
+  materialPiso: Record<string, MaterialPiso>;
   parede: number;
+  paredeTopo: number;
   rodape: number;
+  janela: number;
+  janelaFrente: number;
   mesaTopo: number;
   mesaLado: number;
+  mesaPerna: number;
+  monitorCorpo: number;
+  monitorTela: number;
+  teclado: number;
+  cadeira: number;
+  cadeiraEncosto: number;
   planta: number;
+  plantaTronco: number;
   vaso: number;
   sofa: number;
+  sofaEncosto: number;
+  sofaAlmofada: number;
+  tapete: number;
   quadro: number;
+  quadroBorda: number;
   penumbra: number;
   ator: number[];
+  atorPele: number;
+  atorCabelo: number;
   internoZelador: number;
   internoTecnico: number;
   perigo: number;
@@ -93,16 +113,40 @@ export function resolverPaleta(tema: { name: string; palette: string[]; greenery
       war_room: escurecer(c0, 0.93),
       reception: clarear(c0, 0.03),
     },
+    materialPiso: {
+      open: 'carpete',
+      private: 'madeira',
+      break: 'carpete',
+      meeting: 'azulejo',
+      war_room: 'cimento',
+      reception: 'madeira',
+    },
     parede: c1,
+    paredeTopo: clarear(c1, 0.1),
     rodape: escurecer(c1, 0.88),
+    janela: clarear(c1, 0.25),
+    janelaFrente: clarear(c0, 0.3),
     mesaTopo: c1,
     mesaLado: escurecer(c1, 0.82),
+    mesaPerna: escurecer(c1, 0.7),
+    monitorCorpo: escurecer(c3, 0.9),
+    monitorTela: 0x2a3a5a,
+    teclado: escurecer(c0, 0.6),
+    cadeira: escurecer(c2, 0.85),
+    cadeiraEncosto: escurecer(c2, 0.75),
     planta: clarear(c2, 0.15),
+    plantaTronco: escurecer(c2, 0.5),
     vaso: escurecer(c2, 0.7),
     sofa: c2,
+    sofaEncosto: escurecer(c2, 0.88),
+    sofaAlmofada: clarear(c2, 0.08),
+    tapete: clarear(c0, 0.12),
     quadro: c3,
+    quadroBorda: escurecer(c3, 0.7),
     penumbra: 0x101828,
     ator: [0x4f6df5, 0x2fa8a0, 0xe0873f, 0x9a5fd0, 0xd0566f, 0x3f8f52, 0x5a6b8c],
+    atorPele: 0xf6e0c8,
+    atorCabelo: 0x4a3728,
     internoZelador: 0x2f7f6f,
     internoTecnico: 0xb4762a,
     perigo: 0xd94f4f,
