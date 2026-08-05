@@ -352,18 +352,18 @@ function desenharCenarioEstatico(
     for (let x = x0; x < x1; x++) {
       if (x === sala.door.x && y0 === sala.door.y) continue;
       // Parede interna (divisoria): sem janela.
-      itens.push({ depth: x + y0 - 0.5, draw: () => segmentoParede(ctx, iso(x, y0), iso(x + 1, y0), ALTURA_PAREDE, paleta.parede, false) });
+      itens.push({ depth: x + y0 - 0.5, draw: () => segmentoParede(ctx, iso(x, y0), iso(x + 1, y0), ALTURA_PAREDE, paleta.paredeInterna, false) });
     }
     for (let y = y0; y < y1; y++) {
       if (x0 === sala.door.x && y === sala.door.y) continue;
-      itens.push({ depth: x0 + y - 0.5, draw: () => segmentoParede(ctx, iso(x0, y), iso(x0, y + 1), ALTURA_PAREDE, paleta.parede, false) });
+      itens.push({ depth: x0 + y - 0.5, draw: () => segmentoParede(ctx, iso(x0, y), iso(x0, y + 1), ALTURA_PAREDE, paleta.paredeInterna, false) });
     }
   }
 
   const { width: W, height: H } = layout.grid;
   // Paredes externas do predio: com janelas.
-  for (let x = 0; x < W; x++) itens.push({ depth: x - 0.5, draw: () => segmentoParede(ctx, iso(x, 0), iso(x + 1, 0), ALTURA_PAREDE, paleta.parede, true) });
-  for (let y = 0; y < H; y++) itens.push({ depth: y - 0.5, draw: () => segmentoParede(ctx, iso(0, y), iso(0, y + 1), ALTURA_PAREDE, paleta.parede, true) });
+  for (let x = 0; x < W; x++) itens.push({ depth: x - 0.5, draw: () => segmentoParede(ctx, iso(x, 0), iso(x + 1, 0), ALTURA_PAREDE, paleta.paredeExterna, true) });
+  for (let y = 0; y < H; y++) itens.push({ depth: y - 0.5, draw: () => segmentoParede(ctx, iso(0, y), iso(0, y + 1), ALTURA_PAREDE, paleta.paredeExterna, true) });
 
   const props = [...layout.props].sort((a, b) => a.cell.x + a.cell.y - (b.cell.x + b.cell.y));
   for (const p of props) {
@@ -715,48 +715,55 @@ function desenharTexturaPiso(
 
   switch (material) {
     case 'carpete': {
-      // Pontilhado de fibras (mais visivel)
-      ctx.fillStyle = cor(escurecer(base, 0.88), 0.6);
-      for (let i = 0; i < 8; i++) {
-        const px = cx + ((i * 7 + gx * 3) % 22) - 11;
-        const py = cy + ((i * 5 + gy * 3) % 12) - 6;
+      // Tecido felpudo: pontilhado denso com variacao de cor e sombra em V.
+      const h = gx * 17 + gy * 31;
+      for (let i = 0; i < 14; i++) {
+        const px = cx + ((h + i * 7) % 24) - 12;
+        const py = cy + ((h + i * 5 + 11) % 14) - 7;
+        ctx.fillStyle = cor(i % 2 === 0 ? escurecer(base, 0.88) : clarear(base, 0.1), 0.5);
         ctx.fillRect(px, py, 1.5, 1.5);
       }
-      ctx.fillStyle = cor(clarear(base, 0.08), 0.5);
-      for (let i = 0; i < 5; i++) {
-        const px = cx + ((i * 11 + gx * 5) % 20) - 10;
-        const py = cy + ((i * 7 + gy * 5) % 10) - 5;
-        ctx.fillRect(px, py, 1.5, 1.5);
-      }
+      ctx.strokeStyle = cor(escurecer(base, 0.75), 0.15);
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, cy + 4);
+      ctx.lineTo(cx - 4, cy);
+      ctx.lineTo(cx, cy + 4);
+      ctx.lineTo(cx + 4, cy);
+      ctx.lineTo(cx + 8, cy + 4);
+      ctx.stroke();
       break;
     }
     case 'madeira': {
-      // Listras de tabua (mais visiveis)
-      ctx.strokeStyle = cor(escurecer(base, 0.78), 0.6);
-      ctx.lineWidth = 1;
-      const a = iso(gx, gy + 0.33);
-      const b = iso(gx + 1, gy + 0.33);
+      // Tabuas com veios sinuosos, no e reflexo.
+      ctx.strokeStyle = cor(escurecer(base, 0.7), 0.55);
+      ctx.lineWidth = 0.8;
+      for (let i = 1; i < 3; i++) {
+        const t = i / 3;
+        const a = iso(gx, gy + t);
+        const b = iso(gx + 1, gy + t);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = cor(escurecer(base, 0.65), 0.35);
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
+      ctx.moveTo(cx - 10, cy - 2);
+      ctx.bezierCurveTo(cx - 4, cy - 5, cx + 2, cy + 2, cx + 10, cy - 1);
       ctx.stroke();
-      const c = iso(gx, gy + 0.66);
-      const d = iso(gx + 1, gy + 0.66);
+      ctx.fillStyle = cor(escurecer(base, 0.55), 0.4);
       ctx.beginPath();
-      ctx.moveTo(c.x, c.y);
-      ctx.lineTo(d.x, d.y);
-      ctx.stroke();
-      // Veios da madeira
-      ctx.fillStyle = cor(escurecer(base, 0.72), 0.4);
-      ctx.fillRect(cx - 6, cy - 2, 3, 1.5);
-      ctx.fillRect(cx + 2, cy + 1, 3, 1.5);
-      ctx.fillStyle = cor(clarear(base, 0.06), 0.3);
-      ctx.fillRect(cx - 3, cy, 2, 1);
+      ctx.ellipse(cx + 1, cy, 3, 1.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = cor(clarear(base, 0.08), 0.25);
+      ctx.fillRect(cx - 6, cy - 4, 12, 2);
       break;
     }
     case 'azulejo': {
-      // Juntas em cruz (mais visiveis)
-      ctx.strokeStyle = cor(escurecer(base, 0.65), 0.6);
+      // Ladrilho 2x2 com juntas escuras, borda e reflexo de porcelana.
+      ctx.strokeStyle = cor(escurecer(base, 0.55), 0.75);
       ctx.lineWidth = 1;
       const m1 = iso(gx + 0.5, gy);
       const m2 = iso(gx + 0.5, gy + 1);
@@ -770,30 +777,43 @@ function desenharTexturaPiso(
       ctx.moveTo(m3.x, m3.y);
       ctx.lineTo(m4.x, m4.y);
       ctx.stroke();
-      // Brilho do azulejo
-      ctx.fillStyle = cor(clarear(base, 0.12), 0.3);
+      const borda = losango(gx, gy, 0.06);
+      caminho(ctx, borda);
+      ctx.strokeStyle = cor(escurecer(base, 0.6), 0.5);
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      ctx.fillStyle = cor(clarear(base, 0.2), 0.25);
       ctx.beginPath();
-      ctx.ellipse(cx - 4, cy - 2, 6, 2.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx - 3, cy - 4, 8, 3, -0.2, 0, Math.PI * 2);
       ctx.fill();
       break;
     }
     case 'cimento': {
-      // Manchas irregulares (mais visiveis)
-      ctx.fillStyle = cor(escurecer(base, 0.82), 0.45);
+      // Cimento com manchas, rachaduras e juntas de dilatacao.
+      ctx.fillStyle = cor(escurecer(base, 0.78), 0.4);
       ctx.beginPath();
-      ctx.ellipse(cx + 3, cy - 1, 5, 2.5, 0.3, 0, Math.PI * 2);
+      ctx.ellipse(cx + 4, cy - 2, 6, 3, 0.3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = cor(clarear(base, 0.06), 0.35);
+      ctx.fillStyle = cor(clarear(base, 0.06), 0.3);
       ctx.beginPath();
-      ctx.ellipse(cx - 4, cy + 2, 4, 2, -0.2, 0, Math.PI * 2);
+      ctx.ellipse(cx - 3, cy + 3, 5, 3.5, 0.2, 0, Math.PI * 2);
       ctx.fill();
-      // Micro-rachaduras
-      ctx.strokeStyle = cor(escurecer(base, 0.7), 0.3);
-      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = cor(escurecer(base, 0.55), 0.35);
+      ctx.lineWidth = 0.7;
       ctx.beginPath();
-      ctx.moveTo(cx - 5, cy);
-      ctx.lineTo(cx - 2, cy + 1);
-      ctx.lineTo(cx + 1, cy - 1);
+      ctx.moveTo(cx - 6, cy - 4);
+      ctx.lineTo(cx - 2, cy - 1);
+      ctx.lineTo(cx + 1, cy - 2);
+      ctx.moveTo(cx + 2, cy + 2);
+      ctx.lineTo(cx + 7, cy + 4);
+      ctx.stroke();
+      ctx.strokeStyle = cor(escurecer(base, 0.5), 0.25);
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      const j1 = iso(gx, gy + 0.7);
+      const j2 = iso(gx + 1, gy + 0.7);
+      ctx.moveTo(j1.x, j1.y);
+      ctx.lineTo(j2.x, j2.y);
       ctx.stroke();
       break;
     }

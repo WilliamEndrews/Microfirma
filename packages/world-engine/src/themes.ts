@@ -39,6 +39,8 @@ export interface PaletaResolvida {
   /** Material de piso por tipo de sala. */
   materialPiso: Record<string, MaterialPiso>;
   parede: number;
+  paredeExterna: number;
+  paredeInterna: number;
   paredeTopo: number;
   rodape: number;
   janela: number;
@@ -122,10 +124,12 @@ export function resolverPaleta(tema: { name: string; palette: string[]; greenery
       reception: 'madeira',
     },
     parede: c1,
-    paredeTopo: clarear(c1, 0.1),
-    rodape: escurecer(c1, 0.88),
-    janela: clarear(c1, 0.25),
-    janelaFrente: clarear(c0, 0.3),
+    paredeExterna: escurecer(c2, 0.9),
+    paredeInterna: clarear(c1, 0.05),
+    paredeTopo: clarear(c1, 0.15),
+    rodape: c2,
+    janela: clarear(c0, 0.35),
+    janelaFrente: clarear(c0, 0.45),
     mesaTopo: c1,
     mesaLado: escurecer(c1, 0.82),
     mesaPerna: escurecer(c1, 0.7),
