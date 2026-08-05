@@ -105,6 +105,11 @@ export interface OfficeSessionOptions {
    * em formato NDJSON. O header e escrito na construcao.
    */
   gravarEm?: NodeJS.WritableStream;
+  /**
+   * Multiplica a carga do SyntheticStream (modo SimFirma). Ignorado quando
+   * fonteEventos e fornecida. Padrao 1.
+   */
+  carga?: number;
 }
 
 /**
@@ -135,7 +140,9 @@ export class OfficeSession {
     this.tickMs = opts.tickMs ?? 100;
     this.keyframeEveryTicks = opts.keyframeEveryTicks ?? 100; // ~10s a 10 Hz
     this.seed_ = opts.seed;
-    this.fonte = opts.fonteEventos ?? fonteSintetica(new SyntheticStream({ seed: opts.seed, comRoteiro: true }));
+    this.fonte =
+      opts.fonteEventos ??
+      fonteSintetica(new SyntheticStream({ seed: opts.seed, comRoteiro: true, carga: opts.carga }));
     this.gravador = opts.gravarEm ?? null;
     this.construirMundo(opts.seed);
     this.escreverHeaderGravacao();
@@ -161,6 +168,26 @@ export class OfficeSession {
   /** Identificador estavel da sessao. Deriva da seed: reproduzivel de proposito. */
   get sessionId(): string {
     return `office-${this.seed_}`;
+  }
+
+  /**
+   * Roda a simulacao em fast-forward ate o tempo do mundo especificado.
+   * Ignora pausa e nao grava no SessionLog. Usado no modo SimFirma para
+   * capacity planning e cenarios what-if.
+   */
+  simular(ateMs: number): { ticks: number; tMundoMs: number; snapshot: WorldSnapshot } {
+    const inicio = this.ticks;
+    while (this.ticks * this.tickMs < ateMs) {
+      const eventos = this.fonte.poll(this.tickMs);
+      this.engine.ingest(eventos);
+      this.engine.tick(this.tickMs);
+      this.ticks++;
+    }
+    return {
+      ticks: this.ticks - inicio,
+      tMundoMs: this.ticks * this.tickMs,
+      snapshot: this.engine.snapshot(),
+    };
   }
 
   /** Handshake. Enviado uma vez, antes do primeiro quadro. */

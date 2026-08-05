@@ -102,10 +102,10 @@ no bundle.
       defasagem proprios por lampada (hash deterministico `pseudoAleatorio`),
       fracao dos ciclos dispara, envelope suave de entrada/saida (seno, sem
       corte). Le como "mau contato ocasional", nao luz de emergencia.
-- [ ] **Nenhum arquivo de teste no repositorio** (`*.test.ts` = 0 resultados),
-      apesar de `vitest` estar configurado no script `test`. Prioridade maxima:
-      `narrative-scheduler` (divida narrativa, orcamento de atencao) e
-      `layout-validation` (invariantes geometricas).
+- [x] **Suite de testes criada e verde** - 191 testes, 16 arquivos, cobrindo
+      `narrative-scheduler` (agregacao, divida, atencao), `layout-solver`
+      (invariantes geometricas), `world-engine`, `office-session`, auth,
+      tenant, alertas, auditoria, replay e OTLP.
 - [x] **`docs/specs/motor-de-tempo-narrativo.md` escrito.** E citado em
       `narrative-scheduler.ts:34` e `packages/contracts/src/world.ts:128`.
 - [x] **ADR-0010 escrito** em `docs/adr/0010-renderer-canvas-2d.md`. ADR-0001

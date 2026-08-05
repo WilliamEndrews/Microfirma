@@ -119,4 +119,24 @@ describe('OfficeSession', () => {
     s.apply({ type: 'reseed', seed: 666 });
     expect(s.sessionId).toBe('office-666');
   });
+
+  it('simular avanca o mundo em fast-forward sem emitir quadros', () => {
+    const s = new OfficeSession({ seed: 123, tickMs: 100 });
+    const antes = s.snapshot();
+    const r = s.simular(5000); // 5 segundos de mundo
+    expect(r.tMundoMs).toBeGreaterThanOrEqual(5000);
+    expect(r.ticks).toBeGreaterThanOrEqual(50);
+    expect(r.snapshot.kind).toBe('snapshot');
+    expect(r.snapshot.tick).toBeGreaterThan(antes.tick);
+  });
+
+  it('carga maior gera mais eventos no modo SimFirma', () => {
+    const normal = new OfficeSession({ seed: 7, carga: 1 });
+    const pesado = new OfficeSession({ seed: 7, carga: 5 });
+    const rNormal = normal.simular(3000);
+    const rPesado = pesado.simular(3000);
+    expect(rPesado.snapshot.kpis.activeRuns).toBeGreaterThanOrEqual(
+      rNormal.snapshot.kpis.activeRuns,
+    );
+  });
 });

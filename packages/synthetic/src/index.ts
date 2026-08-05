@@ -86,6 +86,8 @@ export interface SyntheticOptions {
   quantidadeAgentes?: number;
   /** Ativa o roteiro de demonstracao (incidente + aprovacao). */
   comRoteiro?: boolean;
+  /** Multiplica a taxa de eventos sinteticos (1 = normal, 10 = 10x carga). */
+  carga?: number;
 }
 
 export class SyntheticStream {
@@ -93,6 +95,7 @@ export class SyntheticStream {
   private readonly perfis: PerfilAgente[];
   private readonly rng: Rng;
   private readonly tenantId: string;
+  private readonly carga: number;
   private readonly runs: RunEmCurso[] = [];
   private readonly beats: Beat[];
   private agoraMs = 0;
@@ -101,6 +104,7 @@ export class SyntheticStream {
   constructor(opts: SyntheticOptions) {
     this.rng = createRng(opts.seed).fork('synthetic');
     this.tenantId = opts.tenantId ?? 'tenant-demo';
+    this.carga = Math.max(0, opts.carga ?? 1);
     const quantos = Math.max(1, Math.min(ELENCO.length, opts.quantidadeAgentes ?? ELENCO.length));
 
     this.perfis = ELENCO.slice(0, quantos).map((e) => ({
@@ -139,7 +143,7 @@ export class SyntheticStream {
 
     // Inicio de novos runs (processo de Poisson discretizado).
     for (const perfil of this.perfis) {
-      const p = (perfil.taxaPorSegundo * dtMs) / 1000;
+      const p = (perfil.taxaPorSegundo * this.carga * dtMs) / 1000;
       if (!this.rng.chance(p)) continue;
       const runId = `run-${++this.contador}`;
       const falhara = this.rng.chance(perfil.taxaErro);
