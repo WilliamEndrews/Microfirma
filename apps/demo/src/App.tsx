@@ -27,6 +27,7 @@ import {
 } from './world-source';
 import { useI18n } from './use-i18n';
 import { IDIOMAS, ROTULO_IDIOMA, type Idioma } from './i18n';
+import { simular, type SimularResult } from './api';
 
 /**
  * Endereco do servidor autoritativo. Ausente = simula no navegador.
@@ -76,6 +77,13 @@ export default function App() {
   const [pausado, setPausado] = useState(false);
   const [conexao, setConexao] = useState<EstadoConexao>(URL_SERVIDOR ? 'conectando' : 'local');
   const [avisoFonte, setAvisoFonte] = useState<string | null>(null);
+
+  const [simDuracao, setSimDuracao] = useState(5000);
+  const [simCarga, setSimCarga] = useState(1);
+  const [simToken, setSimToken] = useState('');
+  const [simResultado, setSimResultado] = useState<SimularResult | null>(null);
+  const [simCarregando, setSimCarregando] = useState(false);
+  const [simErro, setSimErro] = useState<string | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -371,6 +379,84 @@ export default function App() {
             </p>
           ) : (
             <p className="ok">{t('controles.layoutValido')}</p>
+          )}
+        </section>
+
+        <section aria-label="SimFirma" className="simfirma">
+          <h2>{t('simfirma.titulo')}</h2>
+          {!URL_SERVIDOR || !fonteRef.current?.tenantId ? (
+            <p className="nota">{t('simfirma.requerRemoto')}</p>
+          ) : (
+            <>
+              <label className="campo">
+                {t('simfirma.duracao')}
+                <input
+                  type="number"
+                  min={1000}
+                  max={60000}
+                  value={simDuracao}
+                  onChange={(e) => setSimDuracao(Number(e.target.value) || 0)}
+                />
+              </label>
+              <label className="campo">
+                {t('simfirma.carga')}
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={simCarga}
+                  onChange={(e) => setSimCarga(Number(e.target.value) || 1)}
+                />
+              </label>
+              <label className="campo">
+                {t('simfirma.token')}
+                <input
+                  type="password"
+                  value={simToken}
+                  onChange={(e) => setSimToken(e.target.value)}
+                  placeholder="eyJ..."
+                />
+              </label>
+              <button
+                type="button"
+                className="simfirma-rodar"
+                disabled={simCarregando || !simToken}
+                onClick={async () => {
+                  const tenantId = fonteRef.current?.tenantId;
+                  if (!URL_SERVIDOR || !tenantId) return;
+                  setSimCarregando(true);
+                  setSimErro(null);
+                  setSimResultado(null);
+                  try {
+                    const r = await simular(URL_SERVIDOR, tenantId, simToken, simDuracao, simCarga);
+                    if (r) setSimResultado(r);
+                  } catch (err) {
+                    setSimErro(err instanceof Error ? err.message : 'erro desconhecido');
+                  } finally {
+                    setSimCarregando(false);
+                  }
+                }}
+              >
+                {simCarregando ? t('simfirma.rodando') : t('simfirma.rodar')}
+              </button>
+              {simErro && <p className="erro">{simErro}</p>}
+              {simResultado && (
+                <div className="simfirma-resultado">
+                  <p>
+                    {simResultado.ticks} {t('simfirma.ticks')} / {simResultado.tMundoMs}ms {t('simfirma.tMundo')}
+                  </p>
+                  <div className="kpis simfirma-kpis">
+                    <Kpi rotulo={t('kpi.execucoesAtivas')} valor={String(simResultado.kpis.activeRuns)} />
+                    <Kpi rotulo={t('kpi.erros5min')} valor={String(simResultado.kpis.errorsLast5Min)} />
+                    <Kpi rotulo={t('kpi.tokensMin')} valor={formatarNumero(simResultado.kpis.tokensPerMinute)} />
+                    <Kpi rotulo={t('kpi.aprovacoes')} valor={String(simResultado.kpis.pendingApprovals)} />
+                  </div>
+                  <p className="nota">
+                    US$ {simResultado.kpis.costUsdToday.toFixed(2)} / {simResultado.kpis.budgetUsdToday.toFixed(2)}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </section>
       </aside>

@@ -105,6 +105,17 @@ const ptBR: Dict = {
   'camera.reset': 'Resetar camera',
   'camera.dica': 'Scroll = zoom | Arrastar = pan | Duplo-clique = reset',
 
+  // SimFirma
+  'simfirma.titulo': 'SimFirma (what-if)',
+  'simfirma.duracao': 'Duracao (ms)',
+  'simfirma.carga': 'Carga (1x a 100x)',
+  'simfirma.token': 'Token JWT',
+  'simfirma.rodar': 'Rodar cenario',
+  'simfirma.rodando': 'Simulando...',
+  'simfirma.ticks': 'ticks',
+  'simfirma.tMundo': 'tempo do mundo',
+  'simfirma.requerRemoto': 'SimFirma so funciona com servidor remoto.',
+
   // Idioma
   'i18ma.seletor': 'Idioma',
 };
@@ -191,6 +202,17 @@ const enUS: Dict = {
   // Camera
   'camera.reset': 'Reset camera',
   'camera.dica': 'Scroll = zoom | Drag = pan | Double-click = reset',
+
+  // SimFirma
+  'simfirma.titulo': 'SimFirma (what-if)',
+  'simfirma.duracao': 'Duration (ms)',
+  'simfirma.carga': 'Load (1x to 100x)',
+  'simfirma.token': 'JWT token',
+  'simfirma.rodar': 'Run scenario',
+  'simfirma.rodando': 'Simulating...',
+  'simfirma.ticks': 'ticks',
+  'simfirma.tMundo': 'world time',
+  'simfirma.requerRemoto': 'SimFirma only works with a remote server.',
 
   // Idioma
   'i18ma.seletor': 'Language',

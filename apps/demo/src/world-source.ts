@@ -63,6 +63,8 @@ export interface WorldSource {
    * precisa saber disso para pedir `reseed` em vez de mentir.
    */
   readonly seedSessao: number;
+  /** Identificador do tenant, quando conectado a um servidor. */
+  readonly tenantId: string | null;
   /** Violacoes de invariante do layout servido. Vazio e o unico valor bom. */
   readonly violacoes: Violacao[];
   /** Estado da conexao, para o painel poder ser honesto com o humano. */
@@ -128,6 +130,7 @@ export function criarFonteLocal(seed: number): WorldSource {
   return {
     layout,
     seedSessao: seed,
+    tenantId: null,
     violacoes,
     estado: () => 'local',
     onQuadro: (o) => {
@@ -297,6 +300,7 @@ export async function criarFonteRemota(url: string, timeoutMs = 5000): Promise<W
   return {
     layout,
     seedSessao: bemVindo.seed,
+    tenantId: bemVindo.tenantId,
     violacoes,
     estado: () => estadoAtual,
     onQuadro: (o) => {

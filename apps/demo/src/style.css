@@ -430,3 +430,54 @@ h2 {
   color: var(--texto-fraco);
   opacity: 0.7;
 }
+
+.simfirma {
+  border: 1px solid var(--acento);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(79, 109, 245, 0.08);
+}
+
+.simfirma h2 {
+  color: var(--acento);
+}
+
+.simfirma .campo {
+  margin-top: 4px;
+}
+
+.simfirma-rodar {
+  width: 100%;
+  background: var(--acento);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.simfirma-rodar:disabled {
+  background: #2a3a7a;
+  cursor: not-allowed;
+}
+
+.simfirma-rodar:hover:not(:disabled) {
+  background: #6b84ff;
+}
+
+.simfirma-resultado {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--borda);
+}
+
+.simfirma-resultado p:first-child {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
+.simfirma-kpis {
+  margin-bottom: 8px;
+}
