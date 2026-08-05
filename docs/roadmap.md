@@ -42,7 +42,7 @@ Convencoes do repositorio que NAO devem ser alteradas sem ADR:
 | 0008 | Sprites pre-renderizados em 3D na Fase 2 | Vigente, citado em `office-renderer-2d.ts` |
 | 0009 | Canvas nunca e fonte unica de informacao (acessibilidade) | Vigente, citado em `App.tsx` e `style.css` |
 | 0010 | Renderer Canvas 2D na Fase 0 (sem GPU) | Escrita: `docs/adr/0010-renderer-canvas-2d.md` |
-| 0011 | Internacionalizacao (pt-BR, en, es) | **A escrever** - ver "Requisito novo" |
+| 0011 | Internacionalizacao (pt-BR, en, es) | Vigente, escrito: `docs/adr/0011-internacionalizacao.md` |
 
 ADR-0001 a 0003 e 0007 seguem sem arquivo. Demais ADRs vivem em `docs/adr/`.
 
