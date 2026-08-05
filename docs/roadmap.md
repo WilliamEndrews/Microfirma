@@ -106,9 +106,8 @@ no bundle.
       apesar de `vitest` estar configurado no script `test`. Prioridade maxima:
       `narrative-scheduler` (divida narrativa, orcamento de atencao) e
       `layout-validation` (invariantes geometricas).
-- [ ] **`docs/specs/motor-de-tempo-narrativo.md` e citado em
-      `narrative-scheduler.ts:34` mas nao existe.** Escrever a spec ou corrigir
-      a referencia.
+- [x] **`docs/specs/motor-de-tempo-narrativo.md` escrito.** E citado em
+      `narrative-scheduler.ts:34` e `packages/contracts/src/world.ts:128`.
 - [x] **ADR-0010 escrito** em `docs/adr/0010-renderer-canvas-2d.md`. ADR-0001
       a 0003 e 0007 seguem sem arquivo (nao encontrados no repositorio).
 
