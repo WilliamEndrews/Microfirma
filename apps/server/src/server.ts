@@ -13,6 +13,7 @@
  *   POST /api/tenants/:id/alerts   - configura alerta
  *   GET  /api/tenants/:id/alerts   - lista alertas
  *   GET  /api/tenants/:id/audit    - trilha de auditoria
+ *   POST /api/tenants/:id/simulate - roda cenario SimFirma what-if
  *   POST /api/auth/login           - emite JWT
  *   GET  /health                   - saude do servidor
  *   POST /v1/traces                - receptor OTLP (roteado por tenant)
@@ -30,6 +31,7 @@ import {
   type ApprovalNotification,
   Tenant as TenantSchema,
   AlertConfig as AlertConfigSchema,
+  SimulateRequest as SimulateRequestSchema,
 } from '@microfirma/contracts';
 import { AuditTrail } from './audit-trail.js';
 import { AlertEngine } from './alert-engine.js';
@@ -282,6 +284,30 @@ const http = createServer(async (req, res) => {
       const limite = Number(url.searchParams.get('limite') ?? 100);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(audit.consultar(tenantId, { action: action as never, limite })));
+      return;
+    }
+
+    // POST /api/tenants/:id/simulate
+    if (segments[3] === 'simulate' && req.method === 'POST') {
+      const body = await lerBody(req);
+      const r = SimulateRequestSchema.safeParse(JSON.parse(body));
+      if (!r.success) {
+        res.writeHead(400, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: r.error.issues }));
+        return;
+      }
+      const resultado = registry.simular(tenantId, r.data.durationMs, r.data.carga);
+      if (!resultado) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'tenant nao encontrado' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        ticks: resultado.ticks,
+        tMundoMs: resultado.tMundoMs,
+        kpis: resultado.snapshot.kpis,
+      }));
       return;
     }
   }

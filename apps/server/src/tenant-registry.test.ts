@@ -119,4 +119,19 @@ describe('TenantRegistry', () => {
     const tenant = registry.criar({ displayName: 'No OTLP' });
     expect(registry.ingestorDoTenant(tenant.tenantId)).toBeNull();
   });
+
+  it('simular retorna snapshot e kpis para um cenario what-if', () => {
+    const { registry } = setup();
+    const tenant = registry.criar({ displayName: 'Sim Co', seed: 123 });
+    const resultado = registry.simular(tenant.tenantId, 2000, 2);
+    expect(resultado).not.toBeNull();
+    expect(resultado!.ticks).toBeGreaterThanOrEqual(20);
+    expect(resultado!.tMundoMs).toBeGreaterThanOrEqual(2000);
+    expect(resultado!.snapshot.kpis).toBeDefined();
+  });
+
+  it('simular retorna null para tenant inexistente', () => {
+    const { registry } = setup();
+    expect(registry.simular('inexistente', 1000, 1)).toBeNull();
+  });
 });

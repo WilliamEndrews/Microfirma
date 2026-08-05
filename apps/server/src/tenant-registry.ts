@@ -149,6 +149,19 @@ export class TenantRegistry {
     return this.alertEngine.configsDoTenant(tenantId);
   }
 
+  /** Simula um cenario what-if para o tenant. Usa a sessao existente como
+   * ponto de partida e devolve o snapshot final. */
+  simular(tenantId: string, durationMs: number, carga: number) {
+    const entry = this.sessoes.get(tenantId);
+    if (!entry) return null;
+    const sessao = new OfficeSession({
+      tenantId,
+      seed: entry.tenant.seed,
+      carga,
+    });
+    return sessao.simular(durationMs);
+  }
+
   /** Limites efetivos de um tenant baseado no plano. */
   limitesDoTenant(tenantId: string): typeof LIMITES_POR_PLANO[Plano] | null {
     const entry = this.sessoes.get(tenantId);

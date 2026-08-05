@@ -210,6 +210,19 @@ export type AlertEvent = z.infer<typeof AlertEvent>;
 // APROVACAO - contexto completo para o humano decidir
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// SIMFIRMA - requisicao de cenario what-if
+// ---------------------------------------------------------------------------
+
+/** Corpo da requisicao POST /api/tenants/:id/simulate. */
+export const SimulateRequest = z.object({
+  /** Quanto tempo de mundo simular, em ms. */
+  durationMs: z.number().int().positive().max(60_000),
+  /** Multiplicador de carga (1 = normal, 10 = 10x). */
+  carga: z.number().min(0).max(100).default(1),
+}).strict();
+export type SimulateRequest = z.infer<typeof SimulateRequest>;
+
 /** Contexto de uma aprovacao pendente. Vai no wire para o cliente. */
 export const ApprovalContext = z.object({
   approvalId: z.string().min(1),
