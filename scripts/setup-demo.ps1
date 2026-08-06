@@ -34,7 +34,7 @@ $response = Invoke-RestMethod -Uri "$BaseUrl/api/tenants" -Method POST `
     -Headers @{'content-type' = 'application/json'; 'x-api-key' = $OnboardingKey} `
     -Body $body
 
-$tenantId = $response.tenantId
+$tenantId = $response.tenant.tenantId
 $token = $response.token
 
 if (-not $tenantId -or -not $token) {
