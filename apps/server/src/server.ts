@@ -46,6 +46,7 @@ import {
 } from './auth.js';
 
 const PORTA = Number(process.env.MICROFIRMA_PORT ?? 8787);
+const HOST = process.env.MICROFIRMA_HOST ?? '127.0.0.1';
 const SEED_PADRAO = Number(process.env.MICROFIRMA_SEED ?? 20260802);
 
 // --- Infraestrutura singleton ---
@@ -482,13 +483,13 @@ const timer = setInterval(() => {
 }, tickMsGlobal);
 
 // --- Start ---
-http.listen(PORTA, '127.0.0.1', () => {
+http.listen(PORTA, HOST, () => {
   console.log(
-    `[server] MicroFirma multi-tenant no ar em ws://127.0.0.1:${PORTA}/mundo ` +
+    `[server] MicroFirma multi-tenant no ar em ws://${HOST}:${PORTA}/mundo ` +
       `(${registry.total} tenant(s), ${tickMsGlobal}ms/tick)`,
   );
-  console.log(`[server] REST API em http://127.0.0.1:${PORTA}/api/`);
-  console.log(`[server] Receptor OTLP em http://127.0.0.1:${PORTA}/v1/traces`);
+  console.log(`[server] REST API em http://${HOST}:${PORTA}/api/`);
+  console.log(`[server] Receptor OTLP em http://${HOST}:${PORTA}/v1/traces`);
   console.log('[server] Para onboarding: POST /api/tenants (admin token ou x-api-key: microfirma-dev-onboarding)');
 });
 

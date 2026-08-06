@@ -1,0 +1,24 @@
+version: '3.9'
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8787:8787'
+    environment:
+      - MICROFIRMA_HOST=0.0.0.0
+      - MICROFIRMA_ONBOARDING_KEY=microfirma-dev-onboarding
+
+  demo:
+    build:
+      context: .
+      dockerfile: apps/demo/Dockerfile
+    ports:
+      - '5173:5173'
+    depends_on:
+      - server
+    environment:
+      - SERVER_URL=http://server:8787
+      - MICROFIRMA_ONBOARDING_KEY=microfirma-dev-onboarding
