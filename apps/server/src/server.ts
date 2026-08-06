@@ -482,13 +482,13 @@ const timer = setInterval(() => {
 }, tickMsGlobal);
 
 // --- Start ---
-http.listen(PORTA, () => {
+http.listen(PORTA, '127.0.0.1', () => {
   console.log(
-    `[server] MicroFirma multi-tenant no ar em ws://localhost:${PORTA}/mundo ` +
+    `[server] MicroFirma multi-tenant no ar em ws://127.0.0.1:${PORTA}/mundo ` +
       `(${registry.total} tenant(s), ${tickMsGlobal}ms/tick)`,
   );
-  console.log(`[server] REST API em http://localhost:${PORTA}/api/`);
-  console.log(`[server] Receptor OTLP em http://localhost:${PORTA}/v1/traces`);
+  console.log(`[server] REST API em http://127.0.0.1:${PORTA}/api/`);
+  console.log(`[server] Receptor OTLP em http://127.0.0.1:${PORTA}/v1/traces`);
   console.log('[server] Para onboarding: POST /api/tenants (admin token ou x-api-key: microfirma-dev-onboarding)');
 });
 

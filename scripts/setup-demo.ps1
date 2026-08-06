@@ -11,7 +11,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$BaseUrl = 'http://localhost:8787'
+$BaseUrl = 'http://127.0.0.1:8787'
 $OnboardingKey = 'microfirma-dev-onboarding'
 $Root = Split-Path -Parent $PSScriptRoot
 $EnvFile = Join-Path (Join-Path (Join-Path $Root 'apps') 'demo') '.env.local'
@@ -44,7 +44,7 @@ if (-not $tenantId -or -not $token) {
 $envContent = @"
 # Gerado automaticamente por scripts/setup-demo.ps1
 # Tenant: $tenantId
-VITE_MICROFIRMA_WS=ws://localhost:8787/mundo?token=$token
+VITE_MICROFIRMA_WS=ws://127.0.0.1:8787/mundo?token=$token
 VITE_MICROFIRMA_TOKEN=$token
 "@
 
