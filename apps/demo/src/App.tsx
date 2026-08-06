@@ -281,6 +281,29 @@ export default function App() {
               {t('orcamento.nota')}
             </p>
           </div>
+
+          <section className="dashboard" aria-label={t('dashboard.titulo')}>
+            <h2>{t('dashboard.titulo')}</h2>
+            <div className="cartoes">
+              <div className="cartao">
+                <span className="cartao-rotulo">{t('kpi.execucoesAtivas')}</span>
+                <strong className="cartao-valor">{String(painel?.kpis.activeRuns ?? 0)}</strong>
+              </div>
+              <div className="cartao">
+                <span className="cartao-rotulo">{t('kpi.erros5min')}</span>
+                <strong className="cartao-valor">{String(painel?.kpis.errorsLast5Min ?? 0)}</strong>
+              </div>
+              <div className="cartao">
+                <span className="cartao-rotulo">{t('kpi.tokensMin')}</span>
+                <strong className="cartao-valor">{formatarNumero(painel?.kpis.tokensPerMinute ?? 0)}</strong>
+              </div>
+              <div className="cartao">
+                <span className="cartao-rotulo">{t('kpi.aprovacoes')}</span>
+                <strong className="cartao-valor">{String(painel?.kpis.pendingApprovals ?? 0)}</strong>
+              </div>
+            </div>
+            <p className="nota">{t('dashboard.nota')}</p>
+          </section>
         </section>
 
         {aprovacoes.length > 0 && (

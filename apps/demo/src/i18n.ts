@@ -50,6 +50,10 @@ const ptBR: Dict = {
   'orcamento.custoDia': 'Custo do dia',
   'orcamento.nota': 'Estourar o teto apaga as luzes do predio - o custo deixa de ser numero e passa a ser consequencia visivel.',
 
+  // Dashboard
+  'dashboard.titulo': 'Visao executiva',
+  'dashboard.nota': 'KPIs atualizados em tempo real a cada tick do servidor.',
+
   // Aprovacoes
   'aprovacao.titulo': 'Intervencao humana necessaria',
   'aprovacao.bloqueado': '{nome} esta bloqueado na sua porta.',
@@ -144,11 +148,15 @@ const enUS: Dict = {
   'kpi.tokensMin': 'Tokens / min',
   'kpi.aprovacoes': 'Approvals',
 
-  // Orcamento
+  // Budget
   'orcamento.custoDia': 'Daily cost',
   'orcamento.nota': 'Exceeding the ceiling turns off the building lights - cost stops being a number and becomes a visible consequence.',
 
-  // Aprovacoes
+  // Dashboard
+  'dashboard.titulo': 'Executive view',
+  'dashboard.nota': 'KPIs updated in real time on every server tick.',
+
+  // Approvals
   'aprovacao.titulo': 'Human intervention required',
   'aprovacao.bloqueado': '{nome} is blocked at your door.',
   'aprovacao.liberar': 'Release',
@@ -245,6 +253,10 @@ const esES: Dict = {
   // Presupuesto
   'orcamento.custoDia': 'Costo del dia',
   'orcamento.nota': 'Superar el techo apaga las luces del edificio - el costo deja de ser un numero y pasa a ser una consecuencia visible.',
+
+  // Dashboard
+  'dashboard.titulo': 'Vista ejecutiva',
+  'dashboard.nota': 'KPIs actualizados en tiempo real en cada tick del servidor.',
 
   // Aprobaciones
   'aprovacao.titulo': 'Intervencion humana necesaria',

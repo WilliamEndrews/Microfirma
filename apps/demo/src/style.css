@@ -458,6 +458,39 @@ h2 {
   margin-top: 8px;
 }
 
+.dashboard {
+  margin-top: 12px;
+}
+
+.dashboard .cartoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dashboard .cartao {
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard .cartao-rotulo {
+  font-size: 10px;
+  color: var(--texto-fraco);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dashboard .cartao-valor {
+  font-size: 18px;
+  color: var(--texto);
+}
+
 .simfirma-rodar:disabled {
   background: #2a3a7a;
   cursor: not-allowed;
