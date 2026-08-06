@@ -11,13 +11,15 @@
  * objeto ao dicionario, nada mais.
  */
 
-export type Idioma = 'pt-BR' | 'en-US';
+export type Idioma = 'pt-BR' | 'en-US' | 'es-ES' | 'pseudo';
 
-export const IDIOMAS: Idioma[] = ['pt-BR', 'en-US'];
+export const IDIOMAS: Idioma[] = ['pt-BR', 'en-US', 'es-ES', 'pseudo'];
 
 export const ROTULO_IDIOMA: Record<Idioma, string> = {
   'pt-BR': 'Português',
   'en-US': 'English',
+  'es-ES': 'Español',
+  'pseudo': 'Pseudo',
 };
 
 type Dict = Record<string, string>;
@@ -218,10 +220,123 @@ const enUS: Dict = {
   'i18ma.seletor': 'Language',
 };
 
+const esES: Dict = {
+  // Header
+  'app.titulo': 'MicroFirma',
+  'app.subtitulo': 'Plano de control espacial para sistemas agenticos',
+  'app.fonteMundo': 'Fuente del mundo',
+
+  // Estados de conexion
+  'conexao.local': 'simulando en el navegador',
+  'conexao.conectando': 'conectando al servidor...',
+  'conexao.conectado': 'servidor autoritativo',
+  'conexao.reconectando': 'reconectando...',
+  'conexao.falhou': 'servidor inalcanzable',
+
+  // Aviso de fuente
+  'app.servidorIndisponivel': 'Servidor {url} no disponible. Simulando en el navegador - el mundo mostrado NO es el autoritativo.',
+
+  // KPIs
+  'kpi.execucoesAtivas': 'Ejecuciones activas',
+  'kpi.erros5min': 'Errores (5 min)',
+  'kpi.tokensMin': 'Tokens / min',
+  'kpi.aprovacoes': 'Aprobaciones',
+
+  // Presupuesto
+  'orcamento.custoDia': 'Costo del dia',
+  'orcamento.nota': 'Superar el techo apaga las luces del edificio - el costo deja de ser un numero y pasa a ser una consecuencia visible.',
+
+  // Aprobaciones
+  'aprovacao.titulo': 'Intervencion humana necesaria',
+  'aprovacao.bloqueado': '{nome} esta bloqueado en su puerta.',
+  'aprovacao.liberar': 'Liberar',
+
+  // Listas de agentes
+  'agentes.titulo': 'Agentes',
+  'agentes.internaTitulo': 'Equipo interno',
+  'agentes.notaInterna': 'El Conserje y el Tecnico son behavior trees deterministicos, sin LLM: llamar a un modelo para decidir "ir a barrer" seria costo sin beneficio.',
+
+  // Actividades
+  'atividade.idle': 'disponible',
+  'atividade.walking': 'desplazandose',
+  'atividade.working': 'ejecutando',
+  'atividade.resting': 'en descanso',
+  'atividade.waiting_approval': 'ESPERA APROBACION',
+  'atividade.blocked': 'bloqueado',
+  'atividade.sweeping': 'limpiando',
+  'atividade.repairing': 'reparando',
+  'atividade.talking': 'en reunion',
+
+  // Hechos recientes
+  'fatos.titulo': 'Hechos recientes',
+  'fatos.nota': 'Ningun pixel sin hecho: todo lo que la oficina muestra viene de un evento de esta lista.',
+
+  // Controles
+  'controles.titulo': 'Controles',
+  'controles.pausar': 'Pausar',
+  'controles.retomar': 'Reanudar',
+  'controles.novoEscritorio': 'Nueva oficina',
+  'controles.semente': 'Semilla',
+  'controles.notaSemente': 'La misma semilla siempre genera exactamente la misma planta. Esto es lo que hace posible el modo Replay y los tests confiables.',
+  'controles.layoutValido': 'Layout valido: todas las invariantes geometricas satisfechas.',
+  'controles.violacoes': '{n} violacion(es) de invariante en el layout:',
+
+  // Leyenda
+  'legenda.fila': 'pila en el escritorio = profundidad de la cola',
+  'legenda.calor': 'escritorio caliente = reintentos y loops',
+  'legenda.luz': 'luz apagada = falla de dependencia',
+  'legenda.lixo': 'basura = trabajo completado no recolectado',
+
+  // Descripcion de eventos
+  'evento.discovered': 'nuevo agente descubierto: {nome} ({framework})',
+  'evento.runStarted': '{nome} inicio {label}',
+  'evento.runFinished': '{nome} finalizo en {duracao}s [{status}]',
+  'evento.errorRaised': '{nome} fallo: {kind} ({severity})',
+  'evento.approvalRequested': '{nome} espera aprobacion humana',
+  'evento.queueObserved': '{nome} tiene cola de {depth}',
+  'evento.execucao': 'ejecucion',
+
+  // Canvas
+  'canvas.ariaLabel': 'Plano de la oficina de los agentes',
+
+  // Camara
+  'camera.reset': 'Resetear camara',
+  'camera.dica': 'Scroll = zoom | Arrastrar = pan | Doble-clic = reset',
+
+  // SimFirma
+  'simfirma.titulo': 'SimFirma (what-if)',
+  'simfirma.duracao': 'Duracion (ms)',
+  'simfirma.carga': 'Carga (1x a 100x)',
+  'simfirma.token': 'Token JWT',
+  'simfirma.rodar': 'Ejecutar escenario',
+  'simfirma.rodando': 'Simulando...',
+  'simfirma.ticks': 'ticks',
+  'simfirma.tMundo': 'tiempo del mundo',
+  'simfirma.requerRemoto': 'SimFirma solo funciona con servidor remoto.',
+
+  // Idioma
+  'i18ma.seletor': 'Idioma',
+};
+
 const DICCIONARIOS: Record<Idioma, Dict> = {
   'pt-BR': ptBR,
   'en-US': enUS,
+  'es-ES': esES,
+  'pseudo': ptBR,
 };
+
+/**
+ * Aplica pseudo-localizacao: expande o texto ~30% e acentua vogais para
+ * revelar quebras de layout antes de contratar tradutores.
+ */
+function pseudoLocalizar(s: string): string {
+  const m: Record<string, string> = {
+    a: 'á', e: 'é', i: 'í', o: 'ó', u: 'ú',
+    A: 'Á', E: 'É', I: 'Í', O: 'Ó', U: 'Ú',
+  };
+  const acentuado = s.split('').map((c) => m[c] ?? c).join('');
+  return `[!! ${acentuado} !!]`;
+}
 
 /**
  * Traduz uma chave, substituindo {placeholders} por valores.
@@ -235,6 +350,9 @@ export function traduzir(idioma: Idioma, chave: string, vars?: Record<string, st
     for (const [k, v] of Object.entries(vars)) {
       s = s.replace(`{${k}}`, String(v));
     }
+  }
+  if (idioma === 'pseudo') {
+    s = pseudoLocalizar(s);
   }
   return s;
 }

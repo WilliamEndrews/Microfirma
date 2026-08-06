@@ -7,14 +7,14 @@
  */
 
 import { useCallback, useState } from 'react';
-import { traduzir, type Idioma } from './i18n';
+import { IDIOMAS, traduzir, type Idioma } from './i18n';
 
 const CHAVE_STORAGE = 'microfirma.idioma';
 
 function idiomaInicial(): Idioma {
   try {
     const salvo = localStorage.getItem(CHAVE_STORAGE);
-    if (salvo === 'pt-BR' || salvo === 'en-US') return salvo;
+    if (salvo && IDIOMAS.includes(salvo as Idioma)) return salvo as Idioma;
   } catch {
     // localStorage pode estar indisponivel (modo privado, sandbox)
   }

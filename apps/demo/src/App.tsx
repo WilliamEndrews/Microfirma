@@ -66,6 +66,11 @@ const CHAVE_ATIVIDADE: Record<ActorState['activity'], string> = {
 
 export default function App() {
   const { t, idioma, setIdioma } = useI18n();
+
+  useEffect(() => {
+    document.documentElement.lang = idioma === 'pseudo' ? 'qps-ploc' : idioma;
+  }, [idioma]);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<RendererHandle | null>(null);
   const fonteRef = useRef<WorldSource | null>(null);
