@@ -162,9 +162,9 @@ const http = createServer(async (req, res) => {
 
   // POST /api/tenants - onboarding.
   if (path === '/api/tenants' && req.method === 'POST') {
-    const onboardingKey = process.env.MICROFIRMA_ONBOARDING_KEY;
+    const onboardingKey = process.env.MICROFIRMA_ONBOARDING_KEY ?? 'microfirma-dev-onboarding';
     const apiKey = req.headers['x-api-key'] as string | undefined;
-    const authOk = (payload && payload.papel === 'admin') || (onboardingKey && apiKey === onboardingKey);
+    const authOk = (payload && payload.papel === 'admin') || apiKey === onboardingKey;
 
     if (!authOk) {
       res.writeHead(401, { 'content-type': 'application/json' });
@@ -489,7 +489,7 @@ http.listen(PORTA, () => {
   );
   console.log(`[server] REST API em http://localhost:${PORTA}/api/`);
   console.log(`[server] Receptor OTLP em http://localhost:${PORTA}/v1/traces`);
-  console.log('[server] Para onboarding: POST /api/tenants (admin token ou MICROFIRMA_ONBOARDING_KEY)');
+  console.log('[server] Para onboarding: POST /api/tenants (admin token ou x-api-key: microfirma-dev-onboarding)');
 });
 
 // --- Graceful shutdown ---
