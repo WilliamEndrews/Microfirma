@@ -13,7 +13,8 @@ $ErrorActionPreference = 'Stop'
 
 $BaseUrl = 'http://localhost:8787'
 $OnboardingKey = 'microfirma-dev-onboarding'
-$EnvFile = Join-Path (Join-Path (Join-Path $PSScriptRoot '..') 'apps') 'demo' '.env.local'
+$Root = Split-Path -Parent $PSScriptRoot
+$EnvFile = Join-Path (Join-Path (Join-Path $Root 'apps') 'demo') '.env.local'
 
 function Test-ServerHealth {
     try {
