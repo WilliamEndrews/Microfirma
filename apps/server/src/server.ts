@@ -23,6 +23,8 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import fs from 'node:fs';
+import nodePath from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
   parseClientCommand,
@@ -32,6 +34,7 @@ import {
   Tenant as TenantSchema,
   AlertConfig as AlertConfigSchema,
   SimulateRequest as SimulateRequestSchema,
+  desserializarLinha,
 } from '@microfirma/contracts';
 import { AuditTrail } from './audit-trail.js';
 import { AlertEngine } from './alert-engine.js';
@@ -48,6 +51,34 @@ import {
 const PORTA = Number(process.env.MICROFIRMA_PORT ?? 8787);
 const HOST = process.env.MICROFIRMA_HOST ?? '127.0.0.1';
 const SEED_PADRAO = Number(process.env.MICROFIRMA_SEED ?? 20260802);
+const REPLAY_DIR = process.env.MICROFIRMA_REPLAY_DIR;
+
+// --- Helpers de persistencia de replay ---
+function caminhoReplay(tenantId: string): string {
+  if (!REPLAY_DIR) throw new Error('MICROFIRMA_REPLAY_DIR nao configurado');
+  return nodePath.join(REPLAY_DIR, `${tenantId}.ndjson`);
+}
+
+function abrirGravador(tenantId: string): NodeJS.WritableStream | undefined {
+  if (!REPLAY_DIR) return undefined;
+  if (!fs.existsSync(REPLAY_DIR)) fs.mkdirSync(REPLAY_DIR, { recursive: true });
+  return fs.createWriteStream(caminhoReplay(tenantId), { flags: 'a' });
+}
+
+function carregarSessoesSalvas(): void {
+  if (!REPLAY_DIR || !fs.existsSync(REPLAY_DIR)) return;
+  for (const f of fs.readdirSync(REPLAY_DIR)) {
+    if (!f.endsWith('.ndjson')) continue;
+    const full = nodePath.join(REPLAY_DIR, f);
+    const linhas = fs.readFileSync(full, 'utf-8').split('\n');
+    const primeira = linhas.find((l) => l.trim() !== '');
+    if (!primeira) continue;
+    const parsed = desserializarLinha(primeira);
+    if (!parsed || parsed.kind !== 'header') continue;
+    const gravador = fs.createWriteStream(full, { flags: 'a' });
+    registry.carregar(parsed.data, { gravarEm: gravador });
+  }
+}
 
 // --- Infraestrutura singleton ---
 const audit = new AuditTrail();
@@ -55,10 +86,13 @@ const alertEngine = new AlertEngine(audit);
 const registry = new TenantRegistry(audit, alertEngine);
 
 // --- Tenant demo default (para compatibilidade com a demo existente) ---
+const tenantDemoId = gerarId();
 const tenantDemo = registry.criar({
   displayName: 'Demo',
   plano: 'pro',
   seed: SEED_PADRAO,
+  tenantId: tenantDemoId,
+  gravarEm: abrirGravador(tenantDemoId),
 });
 
 // --- Mapa de clientes WebSocket por tenant para broadcast ---
@@ -174,9 +208,10 @@ const http = createServer(async (req, res) => {
     }
 
     const body = await lerBody(req);
+    const tenantId = gerarId();
     const r = TenantSchema.safeParse({
       ...JSON.parse(body),
-      tenantId: gerarId(),
+      tenantId,
       createdAt: Date.now(),
       active: true,
     });
@@ -191,6 +226,8 @@ const http = createServer(async (req, res) => {
       plano: r.data.plano,
       seed: r.data.seed,
       otlpEndpoint: r.data.otlpEndpoint,
+      tenantId,
+      gravarEm: abrirGravador(tenantId),
     });
 
     const token = emitirJwt({ tenantId: tenant.tenantId, userId: gerarId(), papel: 'admin' });
@@ -285,6 +322,32 @@ const http = createServer(async (req, res) => {
       const limite = Number(url.searchParams.get('limite') ?? 100);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(audit.consultar(tenantId, { action: action as never, limite })));
+      return;
+    }
+
+    // GET /api/tenants/:id/replay
+    if (segments[3] === 'replay' && req.method === 'GET') {
+      if (!temPermissao(payload.papel, 'viewAudit')) {
+        res.writeHead(403, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'forbidden' }));
+        return;
+      }
+      if (!REPLAY_DIR) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'replay nao habilitado' }));
+        return;
+      }
+      const file = caminhoReplay(tenantId);
+      if (!fs.existsSync(file)) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'replay nao encontrado' }));
+        return;
+      }
+      res.writeHead(200, {
+        'content-type': 'application/x-ndjson',
+        'content-disposition': `attachment; filename="${tenantId}.ndjson"`,
+      });
+      fs.createReadStream(file).pipe(res);
       return;
     }
 
@@ -483,6 +546,7 @@ const timer = setInterval(() => {
 }, tickMsGlobal);
 
 // --- Start ---
+carregarSessoesSalvas();
 http.listen(PORTA, HOST, () => {
   console.log(
     `[server] MicroFirma multi-tenant no ar em ws://${HOST}:${PORTA}/mundo ` +

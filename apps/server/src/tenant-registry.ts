@@ -15,7 +15,7 @@
  * injeta o AlertEngine no laco de tick de cada sessao.
  */
 
-import type { Tenant, Plano, AlertConfig } from '@microfirma/contracts';
+import type { Tenant, Plano, AlertConfig, SessionLogHeader } from '@microfirma/contracts';
 import { LIMITES_POR_PLANO } from '@microfirma/contracts';
 import { OtlpIngestor, type Violacao } from '@microfirma/world-engine';
 import { OfficeSession, type FonteEventos } from './office-session.js';
@@ -50,8 +50,10 @@ export class TenantRegistry {
     seed?: number;
     otlpEndpoint?: string;
     fonteEventos?: FonteEventos;
+    tenantId?: string;
+    gravarEm?: NodeJS.WritableStream;
   }): Tenant {
-    const tenantId = gerarId();
+    const tenantId = opts.tenantId ?? gerarId();
     const plano = opts.plano ?? 'free';
     const seed = opts.seed ?? Date.now();
     const agora = Date.now();
@@ -76,6 +78,7 @@ export class TenantRegistry {
       tenantId,
       seed,
       fonteEventos: fonte,
+      gravarEm: opts.gravarEm,
     });
 
     const entry: SessaoTenant = {
@@ -94,6 +97,41 @@ export class TenantRegistry {
       details: { displayName: opts.displayName, plano },
     });
 
+    return tenant;
+  }
+
+  /**
+   * Carrega um tenant a partir de um SessionLog previamente gravado.
+   * Preserva tenantId e seed do header para reproduzir a mesma sessao.
+   */
+  carregar(header: SessionLogHeader, opts?: { gravarEm?: NodeJS.WritableStream }): Tenant | null {
+    if (this.sessoes.has(header.tenantId)) return null;
+    const tenant: Tenant = {
+      tenantId: header.tenantId,
+      displayName: `replay-${header.tenantId.slice(0, 8)}`,
+      plano: 'free',
+      seed: header.seed,
+      createdAt: Date.now(),
+      active: true,
+    };
+    const sessao = new OfficeSession({
+      tenantId: header.tenantId,
+      seed: header.seed,
+      gravarEm: opts?.gravarEm,
+    });
+    const entry: SessaoTenant = {
+      tenant,
+      sessao,
+      ingestor: null,
+      violacoes: sessao.layoutViolations,
+    };
+    this.sessoes.set(header.tenantId, entry);
+    this.audit.registrar({
+      tenantId: header.tenantId,
+      userId: 'system',
+      action: 'tenant.created',
+      details: { source: 'replay', replayFrom: header.startedAtMs },
+    });
     return tenant;
   }
 
