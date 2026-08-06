@@ -45,6 +45,7 @@ $envContent = @"
 # Gerado automaticamente por scripts/setup-demo.ps1
 # Tenant: $tenantId
 VITE_MICROFIRMA_WS=ws://localhost:8787/mundo?token=$token
+VITE_MICROFIRMA_TOKEN=$token
 "@
 
 if (Test-Path $EnvFile) {

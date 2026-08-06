@@ -80,7 +80,7 @@ export default function App() {
 
   const [simDuracao, setSimDuracao] = useState(5000);
   const [simCarga, setSimCarga] = useState(1);
-  const [simToken, setSimToken] = useState('');
+  const [simToken, setSimToken] = useState(import.meta.env.VITE_MICROFIRMA_TOKEN as string | undefined ?? '');
   const [simResultado, setSimResultado] = useState<SimularResult | null>(null);
   const [simCarregando, setSimCarregando] = useState(false);
   const [simErro, setSimErro] = useState<string | null>(null);
