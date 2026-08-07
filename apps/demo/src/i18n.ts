@@ -53,6 +53,7 @@ const ptBR: Dict = {
   // Dashboard
   'dashboard.titulo': 'Visao executiva',
   'dashboard.nota': 'KPIs atualizados em tempo real a cada tick do servidor.',
+  'dashboard.historico': 'Historico',
 
   // Aprovacoes
   'aprovacao.titulo': 'Intervencao humana necessaria',
@@ -155,6 +156,7 @@ const enUS: Dict = {
   // Dashboard
   'dashboard.titulo': 'Executive view',
   'dashboard.nota': 'KPIs updated in real time on every server tick.',
+  'dashboard.historico': 'History',
 
   // Approvals
   'aprovacao.titulo': 'Human intervention required',
@@ -257,6 +259,7 @@ const esES: Dict = {
   // Dashboard
   'dashboard.titulo': 'Vista ejecutiva',
   'dashboard.nota': 'KPIs actualizados en tiempo real en cada tick del servidor.',
+  'dashboard.historico': 'Historial',
 
   // Aprobaciones
   'aprovacao.titulo': 'Intervencion humana necesaria',

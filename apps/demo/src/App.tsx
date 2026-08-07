@@ -78,6 +78,7 @@ export default function App() {
   const [seed, setSeed] = useState(20260802);
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [painel, setPainel] = useState<EstadoPainel | null>(null);
+  const [historicoKpis, setHistoricoKpis] = useState<WorldKpis[]>([]);
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
   const [pausado, setPausado] = useState(false);
   const [conexao, setConexao] = useState<EstadoConexao>(URL_SERVIDOR ? 'conectando' : 'local');
@@ -199,6 +200,7 @@ export default function App() {
             historico: [...historico.slice(0, 14)],
             tickAtual: quadro.tick,
           });
+          setHistoricoKpis((prev) => [...prev, quadro.kpis].slice(-60));
         }
       });
     })();
@@ -303,6 +305,14 @@ export default function App() {
               </div>
             </div>
             <p className="nota">{t('dashboard.nota')}</p>
+
+            <section className="historico" aria-label={t('dashboard.historico')}>
+              <h3>{t('dashboard.historico')}</h3>
+              <div className="historico-series">
+                <Sparkline titulo={t('kpi.execucoesAtivas')} dados={historicoKpis.map((k) => k.activeRuns)} cor="#4f9ed9" />
+                <Sparkline titulo={t('kpi.erros5min')} dados={historicoKpis.map((k) => k.errorsLast5Min)} cor="#d94f4f" />
+              </div>
+            </section>
           </section>
         </section>
 
@@ -504,6 +514,33 @@ export default function App() {
           <span><i className="l-lixo" /> {t('legenda.lixo')}</span>
         </div>
       </main>
+    </div>
+  );
+}
+
+function Sparkline({ titulo, dados, cor }: { titulo: string; dados: number[]; cor: string }) {
+  const LARGURA = 140;
+  const ALTURA = 40;
+  if (dados.length < 2) return <div className="sparkline" style={{ width: LARGURA }}>{titulo}: --</div>;
+
+  const max = Math.max(...dados, 1);
+  const min = Math.min(...dados, 0);
+  const range = max - min || 1;
+  const passo = LARGURA / (dados.length - 1);
+  const pontos = dados.map((v, i) => {
+    const x = i * passo;
+    const y = ALTURA - ((v - min) / range) * ALTURA;
+    return `${x},${y}`;
+  });
+  const atual = dados[dados.length - 1];
+
+  return (
+    <div className="sparkline" style={{ width: LARGURA }} title={`${titulo}: ${atual}`}>
+      <svg viewBox={`0 0 ${LARGURA} ${ALTURA}`} width={LARGURA} height={ALTURA}>
+        <polyline points={pontos.join(' ')} fill="none" stroke={cor} strokeWidth="2" />
+      </svg>
+      <span className="sparkline-titulo">{titulo}</span>
+      <span className="sparkline-valor">{String(atual)}</span>
     </div>
   );
 }
