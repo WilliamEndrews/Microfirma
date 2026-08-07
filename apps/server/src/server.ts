@@ -37,6 +37,7 @@ import { AuditTrail } from './audit-trail.js';
 import { AlertEngine } from './alert-engine.js';
 import { TenantRegistry } from './tenant-registry.js';
 import { criarReplayStorage, type ReplayStorage } from './replay-storage.js';
+import { metrics } from './metrics.js';
 import {
   emitirJwt,
   verificarJwt,
@@ -115,6 +116,13 @@ const http = createServer(async (req, res) => {
     return;
   }
 
+  // Prometheus metrics (publico, usado por monitoramento).
+  if (req.url === '/metrics') {
+    res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' });
+    res.end(metrics.expose());
+    return;
+  }
+
   // Receptor OTLP/HTTP - roteado por tenant via header ou query.
   if (req.url?.startsWith('/v1/traces') && req.method === 'POST') {
     let corpo = '';
@@ -150,6 +158,7 @@ const http = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://localhost:${PORTA}`);
   const path = url.pathname;
   const segments = path.split('/').filter(Boolean);
+  metrics.inc('microfirma_requests_total', { method: req.method ?? 'GET', route: path }, 1, 'Total de requisicoes HTTP');
 
   // Auth: POST /api/auth/login
   if (path === '/api/auth/login' && req.method === 'POST') {
@@ -525,6 +534,8 @@ wss.on('connection', async (socket, req) => {
 // --- Laco autoritativo multi-tenant ---
 const tickMsGlobal = 100;
 const timer = setInterval(() => {
+  metrics.inc('microfirma_ticks_total', {}, 1, 'Total de ticks executados');
+  metrics.set('microfirma_active_tenants', {}, registry.total, 'Tenants ativos');
   for (const { tenantId, sessao } of registry.sessoesAtivas()) {
     const quadro = sessao.tick();
     if (!quadro) continue;
