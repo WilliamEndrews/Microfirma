@@ -594,6 +594,43 @@ Fase 3 esta concluida. O proximo passo e definido em `docs/roadmap.md` na secao 
 
 ---
 
+## Entregas do roadmap (7 frentes recentes)
+
+As frentes abaixo foram implementadas e refletidas nos commits da main. Todos os pontos passaram por `typecheck` e `test`.
+
+### 1. S3 para replay
+- `apps/server/src/replay-storage.ts` — abstracao `ReplayStorage` com `DiskReplayStorage` e `S3ReplayStorage`.
+- `apps/server/src/server.ts` — gravacao, download e carregamento de replays via storage.
+- `apps/server/src/replay.test.ts` — testes ajustados.
+
+### 2. Autenticacao real com JWT expirante
+- `apps/server/src/auth.ts` — reescrito com `jose`: access token, refresh token, revogacao e RBAC.
+- `apps/server/src/server.ts` — endpoints `/api/auth/login`, `/api/auth/refresh`, `/api/auth/logout` e protecao de rotas.
+- `apps/server/src/auth.test.ts` — testes de emissao, verificacao, refresh e revogacao.
+
+### 3. Teste de carga via HTTP real
+- `scripts/load-test.ts` — concorrencia, duracao, carga, envs e relatorio JSON.
+- `package.json` — script `load-test`.
+
+### 4. Deploy em nuvem
+- `fly.toml` — configuracao para Fly.io.
+- `docs/deploy.md` — runbook com Fly.io e Railway.
+
+### 5. Metricas Prometheus
+- `apps/server/src/metrics.ts` — registry leve de metricas em formato Prometheus.
+- `apps/server/src/server.ts` — endpoint `/metrics` e contadores de requests/ticks/tenants.
+- `apps/server/src/metrics.test.ts` — testes do exposition format.
+
+### 6. Alertas reais (webhook/Slack/PagerDuty)
+- `apps/server/src/alert-engine.ts` — entrega real por webhook, Slack, PagerDuty e email.
+
+### 7. Refinamento do dashboard com historico
+- `apps/demo/src/App.tsx` — componente `Sparkline` e secao `Historico`.
+- `apps/demo/src/i18n.ts` — chaves `dashboard.historico` em `pt-BR`, `en-US` e `es-ES`.
+- `apps/demo/src/style.css` — estilos do historico e sparkline.
+
+---
+
 ## Licenca
 
 Privado. Todos os direitos reservados.
