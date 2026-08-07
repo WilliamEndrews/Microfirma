@@ -1,83 +1,124 @@
 /**
  * AUTENTICACAO E AUTORIZACAO (RBAC)
  *
- * JWT simples com HMAC-SHA256. Sem dependencias externas - o Node tem
- * crypto.randomUUID e createHmac nativos. O segredo vem de env var.
+ * JWT real com `jose` (HMAC-SHA256), expiracao e refresh tokens.
+ * O segredo simetrico vem de `MICROFIRMA_JWT_SECRET`.
+ * Refresh tokens sao mantidos em memoria e podem ser revogados via
+ * `revogarRefreshToken`.
  *
  * RBAC: 3 papeis (admin, operator, viewer) com permissoes declaradas em
  * PERMISSOES no contrato. A verificacao e feita aqui, nao no caller.
  */
 
-import { createHmac, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { Buffer } from 'node:buffer';
+import { SignJWT, jwtVerify } from 'jose';
 import type { JwtPayload, Papel } from '@microfirma/contracts';
 import { JwtPayload as JwtPayloadSchema, PERMISSOES } from '@microfirma/contracts';
 
 const SEGREDO = process.env.MICROFIRMA_JWT_SECRET ?? 'microfirma-dev-secret-change-in-prod';
-const EXPIRACAO_MS = 24 * 60 * 60 * 1000; // 24h
+const SECRET_BUFFER = Buffer.from(SEGREDO, 'utf8');
+const ACCESS_TTL_S = Number(process.env.MICROFIRMA_JWT_ACCESS_TTL_S ?? 900); // 15 min
+const REFRESH_TTL_S = Number(process.env.MICROFIRMA_JWT_REFRESH_TTL_S ?? 7 * 24 * 60 * 60); // 7 dias
 
-function base64Url(buf: Buffer | string): string {
-  return Buffer.from(buf).toString('base64url');
+/** Refresh tokens emitidos. O Set armazena os JTI ativos. */
+const refreshTokensAtivos = new Set<string>();
+
+export interface TokenPair {
+  access: string;
+  refresh: string;
 }
 
-function base64UrlDecode(str: string): string {
-  return Buffer.from(str, 'base64url').toString('utf8');
-}
-
-/** Emite um JWT para um usuario. */
-export function emitirJwt(opts: {
+/** Emite um access token e um refresh token para um usuario. */
+export async function emitirJwt(opts: {
   tenantId: string;
   userId: string;
   papel: Papel;
-}): string {
-  const agora = Date.now();
-  const payload: JwtPayload = {
+}): Promise<TokenPair> {
+  const now = Math.floor(Date.now() / 1000);
+  const access = await new SignJWT({
     tenantId: opts.tenantId,
     userId: opts.userId,
     papel: opts.papel,
-    iat: agora,
-    exp: agora + EXPIRACAO_MS,
-  };
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime(now + ACCESS_TTL_S)
+    .sign(SECRET_BUFFER);
 
-  const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = base64Url(JSON.stringify(payload));
-  const assinatura = createHmac('sha256', SEGREDO).update(`${header}.${body}`).digest('base64url');
+  const jti = randomBytes(16).toString('hex');
+  refreshTokensAtivos.add(jti);
 
-  return `${header}.${body}.${assinatura}`;
+  const refresh = await new SignJWT({
+    tenantId: opts.tenantId,
+    userId: opts.userId,
+    papel: opts.papel,
+    jti,
+    scope: 'refresh',
+  })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setIssuedAt()
+    .setExpirationTime(now + REFRESH_TTL_S)
+    .sign(SECRET_BUFFER);
+
+  return { access, refresh };
 }
 
-/**
- * Verifica um JWT. Devolve o payload se valido, null caso contrario.
- * Nunca lanca - token invalido e resultado, nao excecao.
- */
-export function verificarJwt(token: string): JwtPayload | null {
-  const partes = token.split('.');
-  if (partes.length !== 3) return null;
-
-  const [header, body, assinatura] = partes as [string, string, string];
-  const esperada = createHmac('sha256', SEGREDO).update(`${header}.${body}`).digest('base64url');
-
-  // Comparacao em tempo constante para evitar timing attacks.
-  if (esperada.length !== assinatura.length) return null;
-  let diff = 0;
-  for (let i = 0; i < esperada.length; i++) {
-    diff |= esperada.charCodeAt(i) ^ assinatura.charCodeAt(i);
-  }
-  if (diff !== 0) return null;
-
-  let payload: unknown;
+/** Verifica um access token. Devolve o payload se valido, null caso contrario. */
+export async function verificarJwt(token: string): Promise<JwtPayload | null> {
   try {
-    payload = JSON.parse(base64UrlDecode(body));
+    const { payload } = await jwtVerify(token, SECRET_BUFFER, {
+      algorithms: ['HS256'],
+    });
+    if (payload.scope === 'refresh') return null;
+    const r = JwtPayloadSchema.safeParse({
+      tenantId: payload.tenantId,
+      userId: payload.userId,
+      papel: payload.papel,
+      exp: payload.exp,
+      iat: payload.iat,
+    });
+    if (!r.success) return null;
+    return r.data;
   } catch {
     return null;
   }
+}
 
-  const r = JwtPayloadSchema.safeParse(payload);
-  if (!r.success) return null;
+/** Troca um refresh token por um novo par. */
+export async function refreshJwt(refreshToken: string): Promise<TokenPair | null> {
+  try {
+    const { payload } = await jwtVerify(refreshToken, SECRET_BUFFER, {
+      algorithms: ['HS256'],
+    });
+    if (payload.scope !== 'refresh' || !payload.jti || !refreshTokensAtivos.has(payload.jti as string)) {
+      return null;
+    }
+    refreshTokensAtivos.delete(payload.jti as string);
+    const tenantId = String(payload.tenantId ?? '');
+    const userId = String(payload.userId ?? '');
+    const papel = String(payload.papel ?? '') as Papel;
+    return emitirJwt({ tenantId, userId, papel });
+  } catch {
+    return null;
+  }
+}
 
-  // Verificar expiracao.
-  if (Date.now() > r.data.exp) return null;
-
-  return r.data;
+/** Revoga um refresh token para logout. */
+export function revogarRefreshToken(refreshToken: string): boolean {
+  try {
+    const partes = refreshToken.split('.');
+    if (partes.length !== 3) return false;
+    const body = Buffer.from(partes[1]!, 'base64url').toString('utf8');
+    const payload = JSON.parse(body);
+    if (payload.jti && refreshTokensAtivos.has(payload.jti)) {
+      refreshTokensAtivos.delete(payload.jti);
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 /** Verifica se um papel tem uma permissao. */

@@ -40,6 +40,8 @@ import { criarReplayStorage, type ReplayStorage } from './replay-storage.js';
 import {
   emitirJwt,
   verificarJwt,
+  refreshJwt,
+  revogarRefreshToken,
   temPermissao,
   extrairTokenQuery,
   extrairTokenHeader,
@@ -154,9 +156,44 @@ const http = createServer(async (req, res) => {
     const body = await lerBody(req);
     try {
       const { tenantId, userId, displayName, email, papel } = JSON.parse(body);
-      const token = emitirJwt({ tenantId, userId, papel });
+      const { access, refresh } = await emitirJwt({ tenantId, userId, papel });
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ token, tenantId, userId, displayName, email, papel }));
+      res.end(JSON.stringify({ token: access, refresh, tenantId, userId, displayName, email, papel }));
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload invalido' }));
+    }
+    return;
+  }
+
+  // Auth: POST /api/auth/refresh
+  if (path === '/api/auth/refresh' && req.method === 'POST') {
+    const body = await lerBody(req);
+    try {
+      const { refresh } = JSON.parse(body);
+      const par = await refreshJwt(refresh);
+      if (!par) {
+        res.writeHead(401, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'refresh token invalido' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ token: par.access, refresh: par.refresh }));
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload invalido' }));
+    }
+    return;
+  }
+
+  // Auth: POST /api/auth/logout
+  if (path === '/api/auth/logout' && req.method === 'POST') {
+    const body = await lerBody(req);
+    try {
+      const { refresh } = JSON.parse(body);
+      const ok = revogarRefreshToken(refresh);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok }));
     } catch {
       res.writeHead(400, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'payload invalido' }));
@@ -166,7 +203,7 @@ const http = createServer(async (req, res) => {
 
   // A partir daqui, tudo precisa de auth (exceto POST /api/tenants que e onboarding).
   const tokenHeader = extrairTokenHeader(req.headers as Record<string, string | string[] | undefined>);
-  const payload = tokenHeader ? verificarJwt(tokenHeader) : null;
+  const payload = tokenHeader ? await verificarJwt(tokenHeader) : null;
 
   // POST /api/tenants - onboarding.
   if (path === '/api/tenants' && req.method === 'POST') {
@@ -203,10 +240,10 @@ const http = createServer(async (req, res) => {
       gravarEm: replayStorage?.abrirEscrita(tenantId),
     });
 
-    const token = emitirJwt({ tenantId: tenant.tenantId, userId: gerarId(), papel: 'admin' });
+    const { access, refresh } = await emitirJwt({ tenantId: tenant.tenantId, userId: gerarId(), papel: 'admin' });
 
     res.writeHead(201, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ tenant, token }));
+    res.end(JSON.stringify({ tenant, token: access, refresh }));
     return;
   }
 
@@ -356,7 +393,7 @@ const http = createServer(async (req, res) => {
 // --- WebSocket Server (multi-tenant) ---
 const wss = new WebSocketServer({ server: http, path: '/mundo' });
 
-wss.on('connection', (socket, req) => {
+wss.on('connection', async (socket, req) => {
   const token = extrairTokenQuery(req.url ?? '');
   if (!token) {
     enviar(socket, { kind: 'failure', code: 'unauthorized', message: 'token ausente' });
@@ -364,7 +401,7 @@ wss.on('connection', (socket, req) => {
     return;
   }
 
-  const payload = verificarJwt(token);
+  const payload = await verificarJwt(token);
   if (!payload) {
     enviar(socket, { kind: 'failure', code: 'unauthorized', message: 'token invalido ou expirado' });
     socket.close(4001, 'unauthorized');

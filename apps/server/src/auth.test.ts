@@ -3,35 +3,52 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { emitirJwt, verificarJwt, temPermissao, extrairTokenQuery, extrairTokenHeader } from './auth.js';
+import { emitirJwt, verificarJwt, refreshJwt, revogarRefreshToken, temPermissao, extrairTokenQuery, extrairTokenHeader } from './auth.js';
 
 describe('JWT', () => {
-  it('emite e verifica token valido', () => {
-    const token = emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
-    const payload = verificarJwt(token);
+  it('emite e verifica token valido', async () => {
+    const { access } = await emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
+    const payload = await verificarJwt(access);
     expect(payload).not.toBeNull();
     expect(payload!.tenantId).toBe('t1');
     expect(payload!.userId).toBe('u1');
     expect(payload!.papel).toBe('admin');
   });
 
-  it('rejeita token adulterado', () => {
-    const token = emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
-    const adulterado = token.slice(0, -2) + 'XX';
-    expect(verificarJwt(adulterado)).toBeNull();
+  it('rejeita token adulterado', async () => {
+    const { access } = await emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
+    const adulterado = access.slice(0, -2) + 'XX';
+    expect(await verificarJwt(adulterado)).toBeNull();
   });
 
-  it('rejeita token malformado', () => {
-    expect(verificarJwt('not-a-jwt')).toBeNull();
-    expect(verificarJwt('a.b')).toBeNull();
-    expect(verificarJwt('')).toBeNull();
+  it('rejeita token malformado', async () => {
+    expect(await verificarJwt('not-a-jwt')).toBeNull();
+    expect(await verificarJwt('a.b')).toBeNull();
+    expect(await verificarJwt('')).toBeNull();
   });
 
   it('rejeita token expirado', async () => {
-    // Ja que exp e 24h, nao podemos esperar. Mas podemos testar a logica
-    // criando um token e verificando que ele e valido AGORA.
-    const token = emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'viewer' });
-    expect(verificarJwt(token)).not.toBeNull();
+    const { access } = await emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'viewer' });
+    expect(await verificarJwt(access)).not.toBeNull();
+  });
+
+  it('rejeita refresh token como access token', async () => {
+    const { refresh } = await emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
+    expect(await verificarJwt(refresh)).toBeNull();
+  });
+
+  it('refresh gera novo par', async () => {
+    const { refresh } = await emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
+    const par = await refreshJwt(refresh);
+    expect(par).not.toBeNull();
+    expect(await verificarJwt(par!.access)).not.toBeNull();
+    expect(await refreshJwt(refresh)).toBeNull(); // reutilizado
+  });
+
+  it('logout revoga refresh token', async () => {
+    const { refresh } = await emitirJwt({ tenantId: 't1', userId: 'u1', papel: 'admin' });
+    expect(revogarRefreshToken(refresh)).toBe(true);
+    expect(await refreshJwt(refresh)).toBeNull();
   });
 });
 

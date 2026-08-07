@@ -72,6 +72,9 @@ importers:
       '@microfirma/world-engine':
         specifier: workspace:*
         version: link:../../packages/world-engine
+      jose:
+        specifier: ^6.2.8
+        version: 6.2.8
       ws:
         specifier: ^8.18.0
         version: 8.21.1
@@ -970,6 +973,9 @@ packages:
 
   ismobilejs@1.1.1:
     resolution: {integrity: sha512-VaFW53yt8QO61k2WJui0dHf4SlL8lxBofUuUmwBo0ljPk0Drz2TiuDW4jo3wDcv41qy/SxrJ+VAzJ/qYqsmzRw==}
+
+  jose@6.2.8:
+    resolution: {integrity: sha512-Bsdjwm3Qsd/P0jR+BHDe3LytDfY7WBq2HmCCLIwuVRHMuEC9ae7/R474GIUdF1NgCyZjzVo/A9DOiOBtXq8ZoQ==}
 
   js-binary-schema-parser@2.0.3:
     resolution: {integrity: sha512-xezGJmOb4lk/M1ZZLTR/jaBHQ4gG/lqQnJqdIv4721DMggsa1bDVlHXNeHYogaIEHD9vCRv0fcL4hMA+Coarkg==}
@@ -2022,6 +2028,8 @@ snapshots:
       js-binary-schema-parser: 2.0.3
 
   ismobilejs@1.1.1: {}
+
+  jose@6.2.8: {}
 
   js-binary-schema-parser@2.0.3: {}
 

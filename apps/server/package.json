@@ -14,6 +14,7 @@
     "@microfirma/contracts": "workspace:*",
     "@microfirma/synthetic": "workspace:*",
     "@microfirma/world-engine": "workspace:*",
+    "jose": "^6.2.8",
     "ws": "^8.18.0"
   },
   "devDependencies": {
