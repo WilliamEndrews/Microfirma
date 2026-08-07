@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 /**
  * Teste de carga basico no endpoint SimFirma.
  *
@@ -8,8 +10,23 @@
  *   npx tsx scripts/load-test.ts [concorrencia=10] [requisicoes=100] [duracao=5000]
  */
 
-const BASE_URL = 'http://127.0.0.1:8787';
-const ONBOARDING_KEY = 'microfirma-dev-onboarding';
+const HOST = process.env.MICROFIRMA_HOST ?? '127.0.0.1';
+const PORT = Number(process.env.MICROFIRMA_PORT ?? 8787);
+const BASE_URL = `http://${HOST}:${PORT}`;
+const ONBOARDING_KEY = process.env.MICROFIRMA_ONBOARDING_KEY ?? 'microfirma-dev-onboarding';
+
+interface LoadReport {
+  tenantId: string;
+  concurrency: number;
+  total: number;
+  completed: number;
+  errors: number;
+  totalMs: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  rps: number;
+}
 
 async function criarTenant(): Promise<{ tenantId: string; token: string }> {
   const res = await fetch(`${BASE_URL}/api/tenants`, {
@@ -18,7 +35,7 @@ async function criarTenant(): Promise<{ tenantId: string; token: string }> {
       'content-type': 'application/json',
       'x-api-key': ONBOARDING_KEY,
     },
-    body: JSON.stringify({ displayName: 'Load Test', seed: 2026 }),
+    body: JSON.stringify({ displayName: 'Load Test', seed: 2026, plano: 'pro' }),
   });
   if (!res.ok) throw new Error(`onboarding falhou: ${res.status}`);
   const data = (await res.json()) as { tenant: { tenantId: string }; token: string };
@@ -50,10 +67,9 @@ async function main() {
   const conc = Number(process.argv[2] ?? 10);
   const total = Number(process.argv[3] ?? 100);
   const duration = Number(process.argv[4] ?? 5000);
-  const carga = 1;
+  const carga = Number(process.argv[5] ?? 1);
 
   const { tenantId, token } = await criarTenant();
-  console.log(`[load-test] tenant ${tenantId} | concorrencia ${conc} | total ${total} | duracao ${duration}ms`);
 
   const latencias: number[] = [];
   let erros = 0;
@@ -80,10 +96,33 @@ async function main() {
   await Promise.all(fila);
 
   const totalMs = performance.now() - inicio;
-  console.log(`[load-test] concluido em ${totalMs.toFixed(0)}ms`);
-  console.log(`[load-test] completadas: ${completadas} | erros: ${erros}`);
-  console.log(`[load-test] p50: ${percentil(latencias, 50).toFixed(1)}ms | p95: ${percentil(latencias, 95).toFixed(1)}ms | p99: ${percentil(latencias, 99).toFixed(1)}ms`);
-  console.log(`[load-test] rps: ${((completadas / totalMs) * 1000).toFixed(1)}`);
+  const p50 = percentil(latencias, 50);
+  const p95 = percentil(latencias, 95);
+  const p99 = percentil(latencias, 99);
+  const rps = (completadas / totalMs) * 1000;
+
+  const report: LoadReport = {
+    tenantId,
+    concurrency: conc,
+    total,
+    completed: completadas,
+    errors: erros,
+    totalMs,
+    p50,
+    p95,
+    p99,
+    rps,
+  };
+
+  if (process.env.MICROFIRMA_LOAD_JSON) {
+    console.log(JSON.stringify(report, null, 2));
+  } else {
+    console.log(`[load-test] tenant ${tenantId} | concorrencia ${conc} | total ${total} | duracao ${duration}ms`);
+    console.log(`[load-test] concluido em ${totalMs.toFixed(0)}ms`);
+    console.log(`[load-test] completadas: ${completadas} | erros: ${erros}`);
+    console.log(`[load-test] p50: ${p50.toFixed(1)}ms | p95: ${p95.toFixed(1)}ms | p99: ${p99.toFixed(1)}ms`);
+    console.log(`[load-test] rps: ${rps.toFixed(1)}`);
+  }
 }
 
 main().catch((e) => {
