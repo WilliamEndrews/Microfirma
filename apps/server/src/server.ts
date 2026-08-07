@@ -23,8 +23,6 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import fs from 'node:fs';
-import nodePath from 'node:path';
 import { WebSocketServer, type WebSocket } from 'ws';
 import {
   parseClientCommand,
@@ -34,11 +32,11 @@ import {
   Tenant as TenantSchema,
   AlertConfig as AlertConfigSchema,
   SimulateRequest as SimulateRequestSchema,
-  desserializarLinha,
 } from '@microfirma/contracts';
 import { AuditTrail } from './audit-trail.js';
 import { AlertEngine } from './alert-engine.js';
 import { TenantRegistry } from './tenant-registry.js';
+import { criarReplayStorage, type ReplayStorage } from './replay-storage.js';
 import {
   emitirJwt,
   verificarJwt,
@@ -51,34 +49,9 @@ import {
 const PORTA = Number(process.env.MICROFIRMA_PORT ?? 8787);
 const HOST = process.env.MICROFIRMA_HOST ?? '127.0.0.1';
 const SEED_PADRAO = Number(process.env.MICROFIRMA_SEED ?? 20260802);
-const REPLAY_DIR = process.env.MICROFIRMA_REPLAY_DIR;
 
-// --- Helpers de persistencia de replay ---
-function caminhoReplay(tenantId: string): string {
-  if (!REPLAY_DIR) throw new Error('MICROFIRMA_REPLAY_DIR nao configurado');
-  return nodePath.join(REPLAY_DIR, `${tenantId}.ndjson`);
-}
-
-function abrirGravador(tenantId: string): NodeJS.WritableStream | undefined {
-  if (!REPLAY_DIR) return undefined;
-  if (!fs.existsSync(REPLAY_DIR)) fs.mkdirSync(REPLAY_DIR, { recursive: true });
-  return fs.createWriteStream(caminhoReplay(tenantId), { flags: 'a' });
-}
-
-function carregarSessoesSalvas(): void {
-  if (!REPLAY_DIR || !fs.existsSync(REPLAY_DIR)) return;
-  for (const f of fs.readdirSync(REPLAY_DIR)) {
-    if (!f.endsWith('.ndjson')) continue;
-    const full = nodePath.join(REPLAY_DIR, f);
-    const linhas = fs.readFileSync(full, 'utf-8').split('\n');
-    const primeira = linhas.find((l) => l.trim() !== '');
-    if (!primeira) continue;
-    const parsed = desserializarLinha(primeira);
-    if (!parsed || parsed.kind !== 'header') continue;
-    const gravador = fs.createWriteStream(full, { flags: 'a' });
-    registry.carregar(parsed.data, { gravarEm: gravador });
-  }
-}
+// --- Persistencia de replay ---
+const replayStorage = criarReplayStorage();
 
 // --- Infraestrutura singleton ---
 const audit = new AuditTrail();
@@ -92,7 +65,7 @@ const tenantDemo = registry.criar({
   plano: 'pro',
   seed: SEED_PADRAO,
   tenantId: tenantDemoId,
-  gravarEm: abrirGravador(tenantDemoId),
+  gravarEm: replayStorage?.abrirEscrita(tenantDemoId),
 });
 
 // --- Mapa de clientes WebSocket por tenant para broadcast ---
@@ -227,7 +200,7 @@ const http = createServer(async (req, res) => {
       seed: r.data.seed,
       otlpEndpoint: r.data.otlpEndpoint,
       tenantId,
-      gravarEm: abrirGravador(tenantId),
+      gravarEm: replayStorage?.abrirEscrita(tenantId),
     });
 
     const token = emitirJwt({ tenantId: tenant.tenantId, userId: gerarId(), papel: 'admin' });
@@ -332,13 +305,13 @@ const http = createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'forbidden' }));
         return;
       }
-      if (!REPLAY_DIR) {
+      if (!replayStorage) {
         res.writeHead(404, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'replay nao habilitado' }));
         return;
       }
-      const file = caminhoReplay(tenantId);
-      if (!fs.existsSync(file)) {
+      const stream = replayStorage.abrirLeitura(tenantId);
+      if (!stream) {
         res.writeHead(404, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'replay nao encontrado' }));
         return;
@@ -347,7 +320,7 @@ const http = createServer(async (req, res) => {
         'content-type': 'application/x-ndjson',
         'content-disposition': `attachment; filename="${tenantId}.ndjson"`,
       });
-      fs.createReadStream(file).pipe(res);
+      stream.pipe(res);
       return;
     }
 
@@ -546,27 +519,38 @@ const timer = setInterval(() => {
 }, tickMsGlobal);
 
 // --- Start ---
-carregarSessoesSalvas();
-http.listen(PORTA, HOST, () => {
-  console.log(
-    `[server] MicroFirma multi-tenant no ar em ws://${HOST}:${PORTA}/mundo ` +
-      `(${registry.total} tenant(s), ${tickMsGlobal}ms/tick)`,
-  );
-  console.log(`[server] REST API em http://${HOST}:${PORTA}/api/`);
-  console.log(`[server] Receptor OTLP em http://${HOST}:${PORTA}/v1/traces`);
-  console.log('[server] Para onboarding: POST /api/tenants (admin token ou x-api-key: microfirma-dev-onboarding)');
+async function carregarSessoesSalvas() {
+  if (!replayStorage) return;
+  const salvos = await replayStorage.listar();
+  for (const { tenantId, header } of salvos) {
+    const gravador = replayStorage.abrirEscrita(tenantId, header);
+    registry.carregar(header, { gravarEm: gravador });
+  }
+}
+
+carregarSessoesSalvas().then(() => {
+  http.listen(PORTA, HOST, () => {
+    console.log(
+      `[server] MicroFirma multi-tenant no ar em ws://${HOST}:${PORTA}/mundo ` +
+        `(${registry.total} tenant(s), ${tickMsGlobal}ms/tick)`,
+    );
+    console.log(`[server] REST API em http://${HOST}:${PORTA}/api/`);
+    console.log(`[server] Receptor OTLP em http://${HOST}:${PORTA}/v1/traces`);
+    console.log('[server] Para onboarding: POST /api/tenants (admin token ou x-api-key: microfirma-dev-onboarding)');
+  });
 });
 
 // --- Graceful shutdown ---
-function encerrar(sinal: string): void {
+async function encerrar(sinal: string): Promise<void> {
   console.log(`[server] ${sinal} recebido, encerrando...`);
   clearInterval(timer);
+  if (replayStorage?.sync) await replayStorage.sync();
   for (const cliente of wss.clients) cliente.close(1001, 'servidor encerrando');
   wss.close(() => http.close(() => process.exit(0)));
 }
 
-process.on('SIGINT', () => encerrar('SIGINT'));
-process.on('SIGTERM', () => encerrar('SIGTERM'));
+process.on('SIGINT', () => encerrar('SIGINT').catch(() => process.exit(1)));
+process.on('SIGTERM', () => encerrar('SIGTERM').catch(() => process.exit(1)));
 
 // --- Helpers ---
 function lerBody(req: IncomingMessage): Promise<string> {
