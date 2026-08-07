@@ -1,0 +1,21 @@
+app = "microfirma"
+primary_region = "gru"
+kill_signal = "SIGTERM"
+kill_timeout = "30s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MICROFIRMA_PORT = "8787"
+  MICROFIRMA_HOST = "0.0.0.0"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = false
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "1gb"

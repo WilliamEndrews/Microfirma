@@ -85,6 +85,34 @@ Parametros: concorrencia, total de requisicoes, duracao (ms).
 
 O workflow `.github/workflows/ci.yml` roda `typecheck`, `test` e `build` em cada push/PR para `main`.
 
+## Deploy em nuvem
+
+### Fly.io
+
+```powershell
+# Instale o flyctl e faca login
+flyctl launch --from-kubeconfig --no-deploy
+flyctl deploy
+```
+
+Configuracao pronta em `fly.toml`. A aplicacao escuta em `0.0.0.0:8787` e expoe HTTPS automaticamente.
+
+### Railway
+
+Crie um projeto a partir do repositorio Git. A plataforma usa o `Dockerfile` para build. Configure as variaveis de ambiente no painel:
+
+- `MICROFIRMA_HOST=0.0.0.0`
+- `MICROFIRMA_JWT_SECRET` (valor aleatorio de 64 chars)
+- `MICROFIRMA_REPLAY_DIR=/app/replays` (para disco) ou `MICROFIRMA_REPLAY_S3_BUCKET=...`
+
+### Variaveis obrigatorias em producao
+
+| Variavel | Exemplo | Descricao |
+|----------|---------|-----------|
+| `MICROFIRMA_HOST` | `0.0.0.0` | Bind para containers/nuvem |
+| `MICROFIRMA_JWT_SECRET` | `...` | Chave simetrica para assinar JWT |
+| `MICROFIRMA_ONBOARDING_KEY` | `...` | Protege a criacao de tenants |
+
 ## Troubleshooting
 
 - **Tela preta no canvas**: o Canvas 2D (ADR-0010) e o fallback. Verifique `document.documentElement.lang` e o seletor de idioma.
