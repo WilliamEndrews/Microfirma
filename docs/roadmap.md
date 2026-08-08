@@ -494,6 +494,38 @@ Total: 123 testes, 9 arquivos, suite verde.
 
 ---
 
+## Fase 4 - Go-to-Market: landing page
+
+**Objetivo:** apresentar o MicroFirma como produto e converter a curiosidade
+em uma demonstracao viva sem confundir com a demo tecnica.
+
+### 4.1 Experiencia cinematografica
+
+- **Cenario 3D branco** (`apps/landing/src/Scene.tsx`): quarto totalmente
+  branco, sombras e iluminacao controladas, vultos atmosfericos flutuando.
+- **Transicao de entrada**: ao clicar, a camera avanca suavemente para dentro
+  do quarto (`CameraFlight`) e redireciona para a demo.
+- **Stack**: React + Vite + Three.js (`@react-three/fiber` e `@react-three/drei`).
+- **App separado** (`apps/landing`): roda na porta 5174, nao compartilha
+  bundle nem estado com a `apps/demo`.
+
+### 4.2 Estrutura
+
+- `apps/landing/package.json`
+- `apps/landing/vite.config.ts` (porta 5174)
+- `apps/landing/index.html`
+- `apps/landing/src/main.tsx`
+- `apps/landing/src/App.tsx` (textos e logica de redirecionamento)
+- `apps/landing/src/Scene.tsx` (cena Three.js)
+- `apps/landing/src/index.css` (UI layer minimalista)
+
+### Resultado
+
+- **Typecheck:** limpo
+- **Deploy:** preparado para build estatico (`vite build`)
+
+---
+
 ## Sequenciamento recomendado
 
 ```

@@ -102,6 +102,7 @@ CLIENTE WEB
 | `@microfirma/synthetic` | Gerador sintetico de eventos para testes | TS puro |
 | `@microfirma/server` | HTTP, WebSocket, multi-tenant, auth, alertas | ws, jose, aws-sdk |
 | `@microfirma/demo` | Canvas 2.5D + painel lateral React | Vite, React, Canvas 2D |
+| `@microfirma/landing` | Landing page 3D com transicao cinematografica | Vite, React, Three.js |
 
 ## 4. ADRs (Architecture Decision Records)
 
@@ -179,8 +180,10 @@ ainda nao tem arquivos fisicos, so citacoes no codigo.
 5. **Metricas Prometheus** (`apps/server/src/metrics.ts`)
 6. **Alertas reais** (`apps/server/src/alert-engine.ts`)
 7. **Dashboard com historico** (`apps/demo/src/App.tsx`, `Sparkline`)
+8. **Landing page 3D** (`apps/landing/`) — quarto branco, vultos, transicao
+   cinematografica para a demo
 
-**Testes atuais**: 206 passando, `pnpm typecheck` limpo.
+**Testes atuais**: `pnpm typecheck` limpo.
 
 ## 6. O que ainda falta (proximos passos)
 
@@ -211,6 +214,7 @@ pnpm install
 ### Desenvolvimento
 
 ```bash
+pnpm dev:landing       # landing page 3D na porta 5174
 pnpm dev:server        # servidor na porta 8787
 pnpm dev               # demo React no navegador
 ```
@@ -231,6 +235,7 @@ pnpm load-test         # carga HTTP no endpoint SimFirma
 ### Variaveis de ambiente uteis
 
 - `MICROFIRMA_JWT_SECRET` — segredo para JWT.
+- `VITE_MICROFIRMA_DEMO_URL` — URL para a demo na landing page.
 - `MICROFIRMA_ONBOARDING_KEY` — chave de onboarding de novos tenants.
 - `MICROFIRMA_OTLP` — ativa receptor OTLP real em vez do gerador sintetico.
 - `MICROFIRMA_WS` — URL do WebSocket no demo (`VITE_MICROFIRMA_WS`).
@@ -249,6 +254,8 @@ Para entender ou retomar o projeto, leia nesta ordem:
 7. `packages/contracts/src/` — contratos de dominio e wire.
 8. `packages/world-engine/src/narrative-scheduler.ts`
 9. `packages/world-engine/src/world-engine.ts`
+14. `apps/landing/src/App.tsx`
+15. `apps/landing/src/Scene.tsx`
 10. `apps/server/src/server.ts`
 11. `apps/server/src/office-session.ts`
 12. `apps/demo/src/App.tsx`
