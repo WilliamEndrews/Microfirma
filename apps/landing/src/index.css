@@ -85,6 +85,7 @@ body,
   cursor: pointer;
   overflow: hidden;
   outline: none;
+  perspective: 1200px;
 }
 
 .fallback-scene:focus-visible {
@@ -92,75 +93,164 @@ body,
   outline-offset: -4px;
 }
 
-.fallback-room {
+.css-room {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.05) 0%, transparent 60%),
-    linear-gradient(to bottom, #ffffff 0%, #f7f7f7 100%);
+  transform-style: preserve-3d;
+  transform: rotateX(8deg);
   transition: transform 1.6s cubic-bezier(0.45, 0, 0.55, 1),
     opacity 1.4s ease-in;
-  transform-origin: 50% 55%;
 }
 
-.fallback-scene--entering .fallback-room {
-  transform: scale(2.5);
+.fallback-scene--entering .css-room {
+  transform: rotateX(0deg) translateZ(20rem);
   opacity: 0;
 }
 
-.vulto {
+.css-wall {
   position: absolute;
-  width: 6rem;
-  height: 10rem;
-  background: radial-gradient(ellipse at center, rgba(20, 20, 20, 0.18) 0%, transparent 70%);
+  left: 50%;
+  top: 50%;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
+  transform-origin: center;
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.08);
+}
+
+.css-wall--floor {
+  width: 60rem;
+  height: 60rem;
+  margin-left: -30rem;
+  margin-top: -5rem;
+  background:
+    radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.12) 0%, transparent 50%),
+    linear-gradient(to bottom, #f4f4f4, #ffffff);
+  transform: rotateX(90deg) translateZ(-15rem);
+}
+
+.css-wall--ceiling {
+  width: 60rem;
+  height: 60rem;
+  margin-left: -30rem;
+  margin-top: -45rem;
+  background: #ffffff;
+  transform: rotateX(-90deg) translateZ(15rem);
+}
+
+.css-wall--left {
+  width: 60rem;
+  height: 30rem;
+  margin-left: -45rem;
+  margin-top: -15rem;
+  background: linear-gradient(to right, #e8e8e8, #ffffff);
+  transform: rotateY(90deg) translateZ(-15rem);
+}
+
+.css-wall--right {
+  width: 60rem;
+  height: 30rem;
+  margin-left: -15rem;
+  margin-top: -15rem;
+  background: linear-gradient(to left, #e8e8e8, #ffffff);
+  transform: rotateY(-90deg) translateZ(-15rem);
+}
+
+.css-wall--back {
+  width: 60rem;
+  height: 30rem;
+  margin-left: -30rem;
+  margin-top: -15rem;
+  background: radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.06) 0%, transparent 60%),
+    #ffffff;
+  transform: translateZ(-45rem);
+}
+
+.css-shadow {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  width: 20rem;
+  height: 20rem;
+  margin-left: -10rem;
+  margin-top: -10rem;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.08) 0%, transparent 70%);
+  transform: rotateX(90deg) translateZ(-10rem);
+  filter: blur(20px);
+}
+
+.css-vulto {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 3rem;
+  height: 7rem;
+  margin-left: -1.5rem;
+  margin-top: -3.5rem;
+  background: radial-gradient(ellipse at center, rgba(15, 15, 15, 0.25) 0%, transparent 70%);
   border-radius: 50%;
-  filter: blur(12px);
+  filter: blur(10px);
   pointer-events: none;
+  transform-style: preserve-3d;
 }
 
-.vulto--1 {
-  left: 15%;
-  top: 25%;
-  animation: drift1 18s ease-in-out infinite;
+.css-vulto--1 {
+  animation: pass1 16s linear infinite;
 }
 
-.vulto--2 {
-  right: 20%;
-  top: 35%;
-  animation: drift2 22s ease-in-out infinite;
+.css-vulto--2 {
+  animation: pass2 20s linear infinite;
+  animation-delay: -7s;
 }
 
-.vulto--3 {
-  left: 45%;
-  top: 40%;
-  animation: drift3 20s ease-in-out infinite;
+.css-vulto--3 {
+  animation: pass3 18s linear infinite;
+  animation-delay: -4s;
 }
 
-.vulto--4 {
-  right: 35%;
-  bottom: 25%;
-  animation: drift1 25s ease-in-out infinite reverse;
+.css-vulto--4 {
+  animation: pass1 22s linear infinite;
+  animation-delay: -10s;
 }
 
-.vulto--5 {
-  left: 25%;
-  bottom: 30%;
-  animation: drift2 19s ease-in-out infinite reverse;
+.css-vulto--5 {
+  animation: pass2 24s linear infinite;
+  animation-delay: -14s;
 }
 
-@keyframes drift1 {
-  0%, 100% { transform: translate(0, 0); }
-  33% { transform: translate(2rem, -1.5rem); }
-  66% { transform: translate(-1.5rem, 1rem); }
+@keyframes pass1 {
+  0% {
+    transform: translate3d(-10rem, 5rem, -40rem) scale(0.6);
+    opacity: 0;
+  }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% {
+    transform: translate3d(10rem, -5rem, 5rem) scale(1.4);
+    opacity: 0;
+  }
 }
 
-@keyframes drift2 {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-2.5rem, 2rem); }
+@keyframes pass2 {
+  0% {
+    transform: translate3d(12rem, 0, -35rem) scale(0.7);
+    opacity: 0;
+  }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% {
+    transform: translate3d(-8rem, 6rem, 0) scale(1.2);
+    opacity: 0;
+  }
 }
 
-@keyframes drift3 {
-  0%, 100% { transform: translate(0, 0); }
-  40% { transform: translate(1rem, 2.5rem); }
-  80% { transform: translate(-1rem, -1.5rem); }
+@keyframes pass3 {
+  0% {
+    transform: translate3d(0, 8rem, -45rem) scale(0.5);
+    opacity: 0;
+  }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% {
+    transform: translate3d(5rem, -8rem, 8rem) scale(1.5);
+    opacity: 0;
+  }
 }
