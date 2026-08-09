@@ -76,3 +76,91 @@ body,
   font-weight: 300;
   letter-spacing: 0.1em;
 }
+
+/* Fallback quando WebGL esta desabilitado */
+.fallback-scene {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  cursor: pointer;
+  overflow: hidden;
+  outline: none;
+}
+
+.fallback-scene:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.3);
+  outline-offset: -4px;
+}
+
+.fallback-room {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 60%, rgba(0, 0, 0, 0.05) 0%, transparent 60%),
+    linear-gradient(to bottom, #ffffff 0%, #f7f7f7 100%);
+  transition: transform 1.6s cubic-bezier(0.45, 0, 0.55, 1),
+    opacity 1.4s ease-in;
+  transform-origin: 50% 55%;
+}
+
+.fallback-scene--entering .fallback-room {
+  transform: scale(2.5);
+  opacity: 0;
+}
+
+.vulto {
+  position: absolute;
+  width: 6rem;
+  height: 10rem;
+  background: radial-gradient(ellipse at center, rgba(20, 20, 20, 0.18) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(12px);
+  pointer-events: none;
+}
+
+.vulto--1 {
+  left: 15%;
+  top: 25%;
+  animation: drift1 18s ease-in-out infinite;
+}
+
+.vulto--2 {
+  right: 20%;
+  top: 35%;
+  animation: drift2 22s ease-in-out infinite;
+}
+
+.vulto--3 {
+  left: 45%;
+  top: 40%;
+  animation: drift3 20s ease-in-out infinite;
+}
+
+.vulto--4 {
+  right: 35%;
+  bottom: 25%;
+  animation: drift1 25s ease-in-out infinite reverse;
+}
+
+.vulto--5 {
+  left: 25%;
+  bottom: 30%;
+  animation: drift2 19s ease-in-out infinite reverse;
+}
+
+@keyframes drift1 {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(2rem, -1.5rem); }
+  66% { transform: translate(-1.5rem, 1rem); }
+}
+
+@keyframes drift2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-2.5rem, 2rem); }
+}
+
+@keyframes drift3 {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(1rem, 2.5rem); }
+  80% { transform: translate(-1rem, -1.5rem); }
+}
