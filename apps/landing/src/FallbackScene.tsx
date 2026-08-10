@@ -31,7 +31,6 @@ export default function FallbackScene({
     >
       <div className="css-room">
         <div className="css-wall css-wall--floor" />
-        <div className="css-wall css-wall--ceiling" />
         <div className="css-wall css-wall--left" />
         <div className="css-wall css-wall--right" />
         <div className="css-wall css-wall--back" />
