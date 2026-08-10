@@ -8,6 +8,7 @@
 
 export * from './domain-events.js';
 export * from './layout.js';
+export * from './asset-catalog.js';
 export * from './world.js';
 export * from './wire.js';
 export * from './otlp.js';

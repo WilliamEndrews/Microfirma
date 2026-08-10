@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!--
+  Harness de validacao de projecao - passo 1 do plano (ADR-0012 / plano-mestre-mvp.md secao 6).
+
+  NAO faz parte do build de producao. Objetivo unico: descobrir empiricamente se
+  os sprites isometricos pre-renderizados do Furniture Kit (Kenney) se encaixam
+  na mesma grade dimetrica 2:1 usada por apps/demo/src/office-renderer-2d.ts
+  (LARGURA_TILE=44, ALTURA_TILE=22), usando a MESMA formula de ancoragem do
+  renderer real (desenharSpriteProp em apps/demo/src/sprite-factory.ts):
+  centro horizontal em iso(gx+0.5, gy+0.5), ancora vertical = c.y - sh/2 + 4.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Validacao de projecao - Kenney Furniture Kit vs iso() do renderer</title>
+<style>
+  body { background: #2b2b2b; color: #eee; font-family: sans-serif; margin: 0; padding: 20px; }
+  h1 { font-size: 16px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .box { background: #1c1c1c; padding: 8px; border: 1px solid #444; }
+  canvas { image-rendering: pixelated; background: #3a3a3a; }
+  .label { font-size: 12px; text-align: center; margin-top: 4px; color: #ccc; }
+</style>
+</head>
+<body>
+<h1>Grade 4x4 (losango cinza = 1 tile). Vermelho = ponto de ancora iso(gx+0.5, gy+0.5) usado pelo renderer real.</h1>
+<div class="row" id="saida"></div>
+
+<script>
+// --- Constantes e funcoes IDENTICAS a apps/demo/src/office-renderer-2d.ts ---
+const LARGURA_TILE = 44;
+const ALTURA_TILE = 22;
+const SUPER = 1; // aqui nao supersamplamos, so queremos a geometria
+
+function iso(gx, gy) {
+  return { x: ((gx - gy) * LARGURA_TILE) / 2, y: ((gx + gy) * ALTURA_TILE) / 2 };
+}
+function losango(gx, gy, recuo = 0) {
+  const a = recuo, b = 1 - recuo;
+  return [iso(gx + a, gy + a), iso(gx + b, gy + a), iso(gx + b, gy + b), iso(gx + a, gy + b)];
+}
+
+// Candidatos escolhidos por correspondencia semantica com nosso PropKind:
+// desk->table, chair->chairDesk, plant->plantSmall1, bookshelf->bookcaseOpen, sofa->loungeSofa
+// Usamos a face SW (mesma convencao dos demais testes) do Furniture Kit.
+const BASE = '../../assets-source/kenney-furniture-kit/Isometric/';
+const CANDIDATOS = [
+  { kind: 'desk (table)', file: 'table_SW.png' },
+  { kind: 'chair (chairDesk)', file: 'chairDesk_SW.png' },
+  { kind: 'plant (plantSmall1)', file: 'plantSmall1_SW.png' },
+  { kind: 'bookshelf (bookcaseOpen)', file: 'bookcaseOpen_SW.png' },
+  { kind: 'sofa (loungeSofa)', file: 'loungeSofa_SW.png' },
+];
+
+const GRID = 4; // tiles visiveis em cada eixo, para dar contexto de escala
+const CANVAS_W = 320;
+const CANVAS_H = 420;
+const CENTRO_X = CANVAS_W / 2;
+const CENTRO_Y = 260; // margem generosa acima para objetos altos nao cortarem
+
+function montarCanvas(largura, altura) {
+  const c = document.createElement('canvas');
+  c.width = largura;
+  c.height = altura;
+  return c;
+}
+
+function desenharGrade(ctx) {
+  ctx.save();
+  ctx.translate(CENTRO_X, CENTRO_Y - ((GRID) * ALTURA_TILE) / 2);
+  for (let gy = 0; gy < GRID; gy++) {
+    for (let gx = 0; gx < GRID; gx++) {
+      const pts = losango(gx, gy);
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      ctx.fillStyle = (gx + gy) % 2 === 0 ? '#4a4a4a' : '#565656';
+      ctx.fill();
+      ctx.strokeStyle = '#888';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function pontoAncora(gx, gy) {
+  const c = iso(gx + 0.5, gy + 0.5);
+  return { x: CENTRO_X + c.x, y: CENTRO_Y - ((GRID) * ALTURA_TILE) / 2 + c.y };
+}
+
+function desenharAncora(ctx, p) {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff3b3b';
+  ctx.fill();
+}
+
+const saida = document.getElementById('saida');
+
+CANDIDATOS.forEach((cand) => {
+  const box = document.createElement('div');
+  box.className = 'box';
+
+  const canvasEl = montarCanvas(CANVAS_W, CANVAS_H);
+  const ctx = canvasEl.getContext('2d');
+
+  desenharGrade(ctx);
+
+  // Posiciona o objeto no tile central (gx=1, gy=1) da grade 4x4, igual a
+  // convencao real: sprite ancorado em iso(gx+0.5, gy+0.5).
+  const gx = 1, gy = 1;
+  const p = pontoAncora(gx, gy);
+  desenharAncora(ctx, p);
+
+  const img = new Image();
+  img.onload = () => {
+    // Convencao testada: BASE da imagem (bbox real, sem padding, confirmado
+    // por bbox.js) = base do objeto. Ancoramos pela base, centrado em x.
+    const sw = img.naturalWidth;
+    const sh = img.naturalHeight;
+    ctx.drawImage(img, p.x - sw / 2, p.y - sh, sw, sh);
+
+    // Contorno da imagem inteira, para visualizar onde ela realmente caiu.
+    ctx.strokeStyle = '#3bd6ff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(p.x - sw / 2, p.y - sh, sw, sh);
+
+    // Redesenha a ancora por cima para ficar visivel
+    desenharAncora(ctx, p);
+  };
+  img.onerror = () => {
+    ctx.fillStyle = '#ff3b3b';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('ERRO ao carregar ' + cand.file, p.x - 40, p.y);
+  };
+  img.src = BASE + cand.file;
+
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = cand.kind + ' (' + cand.file + ')';
+
+  box.appendChild(canvasEl);
+  box.appendChild(label);
+  saida.appendChild(box);
+});
+</script>
+</body>
+</html>

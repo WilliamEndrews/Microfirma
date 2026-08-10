@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
+const publicDir = resolve(__dirname, '../../assets-source');
+
 /**
  * Os pacotes do monorepo sao consumidos direto do CODIGO-FONTE (nao de dist).
  * Motivo: em Fase 0 queremos ciclo de feedback instantaneo, sem etapa de build
@@ -9,6 +11,7 @@ import { resolve } from 'node:path';
  */
 export default defineConfig({
   plugins: [react()],
+  publicDir,
   resolve: {
     alias: {
       '@microfirma/contracts': resolve(__dirname, '../../packages/contracts/src/index.ts'),

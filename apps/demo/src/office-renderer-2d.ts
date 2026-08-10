@@ -18,6 +18,7 @@
 
 import type { OfficeLayout, WorldDelta, WorldSnapshot } from '@microfirma/contracts';
 import { resolverPaleta, type PaletaResolvida } from '@microfirma/world-engine';
+import { carregarAtlas, type AssetAtlas } from './asset-atlas';
 import {
   criarFabrica,
   desenharSpriteProp,
@@ -67,7 +68,9 @@ export async function criarRenderer(
   const palco = canvas.parentElement ?? canvas;
   const ext = extensaoDoMundo(layout);
   const paleta = resolverPaleta(layout.theme);
-  const sprites = criarFabrica(paleta);
+  const atlas = carregarAtlas();
+  await atlas.ready;
+  const sprites = criarFabrica(paleta, atlas);
 
   let estatico: HTMLCanvasElement | null = null;
   let escalaDoEstatico = 0;

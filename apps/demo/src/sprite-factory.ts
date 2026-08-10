@@ -20,6 +20,7 @@
  */
 
 import type { PaletaResolvida } from '@microfirma/world-engine';
+import type { AssetAtlas } from './asset-atlas';
 
 const LARGURA_TILE = 44;
 const ALTURA_TILE = 22;
@@ -27,13 +28,22 @@ const SUPER = 2;
 
 export type PropKind = 'desk' | 'chair' | 'sofa' | 'board' | 'printer' | 'meter' | 'coffee' | 'plant' | 'lamp' | 'cabinet' | 'bookshelf' | 'water' | 'rug';
 
+export interface PropSprite {
+  source: CanvasImageSource;
+  anchor: { x: number; y: number };
+  isExternal: boolean;
+  w: number;
+  h: number;
+}
+
 export interface SpriteCache {
   props: Map<PropKind, HTMLCanvasElement>;
   actors: Map<number, HTMLCanvasElement>;
   internals: Map<number, HTMLCanvasElement>;
+  atlas: AssetAtlas | undefined;
 }
 
-export function criarFabrica(paleta: PaletaResolvida): SpriteCache {
+export function criarFabrica(paleta: PaletaResolvida, atlas?: AssetAtlas): SpriteCache {
   const props = new Map<PropKind, HTMLCanvasElement>();
   const actors = new Map<number, HTMLCanvasElement>();
   const internals = new Map<number, HTMLCanvasElement>();
@@ -49,7 +59,7 @@ export function criarFabrica(paleta: PaletaResolvida): SpriteCache {
   internals.set(paleta.internoZelador, renderizarAtor(paleta.internoZelador, true, paleta));
   internals.set(paleta.internoTecnico, renderizarAtor(paleta.internoTecnico, true, paleta));
 
-  return { props, actors, internals };
+  return { props, actors, internals, atlas };
 }
 
 // ---------------------------------------------------------------------------
@@ -1049,8 +1059,19 @@ function renderizarTapete(ctx: CanvasRenderingContext2D, paleta: PaletaResolvida
 // API para o renderer
 // ---------------------------------------------------------------------------
 
-export function obterSpriteProp(cache: SpriteCache, kind: PropKind): HTMLCanvasElement {
-  return cache.props.get(kind) ?? cache.props.get('desk')!;
+export function obterSpriteProp(cache: SpriteCache, kind: PropKind): PropSprite {
+  const asset = cache.atlas?.get(kind);
+  if (asset) {
+    return {
+      source: asset.image,
+      anchor: asset.anchor,
+      isExternal: true,
+      w: asset.image.naturalWidth,
+      h: asset.image.naturalHeight,
+    };
+  }
+  const sprite = cache.props.get(kind) ?? cache.props.get('desk')!;
+  return { source: sprite, anchor: { x: 0, y: 0 }, isExternal: false, w: sprite.width / SUPER, h: sprite.height / SUPER };
 }
 
 export function obterSpriteAtor(cache: SpriteCache, cor: number, interno: boolean): HTMLCanvasElement {
@@ -1062,14 +1083,16 @@ export function obterSpriteAtor(cache: SpriteCache, cor: number, interno: boolea
 
 export function desenharSpriteProp(
   ctx: CanvasRenderingContext2D,
-  sprite: HTMLCanvasElement,
+  sprite: PropSprite,
   gx: number,
   gy: number,
 ): void {
   const c = iso(gx + 0.5, gy + 0.5);
-  const sw = sprite.width / SUPER;
-  const sh = sprite.height / SUPER;
-  ctx.drawImage(sprite, c.x - sw / 2, c.y - sh / 2 + 4, sw, sh);
+  const x = c.x - sprite.w / 2 + sprite.anchor.x;
+  const y = sprite.isExternal
+    ? c.y - sprite.h + sprite.anchor.y
+    : c.y - sprite.h / 2 + 4 + sprite.anchor.y;
+  ctx.drawImage(sprite.source, x, y, sprite.w, sprite.h);
 }
 
 export function desenharSpriteAtor(
