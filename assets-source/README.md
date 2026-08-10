@@ -6,10 +6,10 @@
 > MicroFirma nem referenciados pelo `@microfirma/demo`. Nenhum codigo do
 > projeto importa nada desta pasta ainda.
 >
-> Versionamento: binarios (`.png`, `.fbx`, `.obj`, `.dae`, `.stl`, `.gltf`,
-> `.glb`, `.zip`, `.blend`) sob esta pasta vao para Git LFS - ver
-> `.gitattributes` na raiz do repositorio. Rodar `git lfs install` uma vez por
-> clone antes de trabalhar aqui.
+> Versionamento: binarios (`.png`, `.jpg`, `.fbx`, `.obj`, `.dae`, `.stl`,
+> `.gltf`, `.glb`, `.zip`, `.rar`, `.blend`, `.blend1`, `.spp`, `.tga`) sob
+> esta pasta vao para Git LFS - ver `.gitattributes` na raiz do repositorio.
+> Rodar `git lfs install` uma vez por clone antes de trabalhar aqui.
 
 ## Proveniencia e licenca (obrigatorio manter atualizado)
 
@@ -24,19 +24,20 @@ de entrar aqui.
 | `kenney-nature-kit/` | Nature Kit | kenney.nl/assets/nature-kit | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 3D. Plantas, vasos, arvores, rochas. |
 | `kenney-isometric-tiles-landscape/` | Isometric Tiles Landscape | kenney.nl/assets/isometric-tiles-landscape | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 2D, sprites de piso/terreno ja em projecao isometrica. Candidato a base de piso compartilhada entre temas. |
 | `kenney-foliage-pack/` | Foliage Pack | kenney.nl/assets/foliage-pack | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 2D, 100 arquivos. Candidato a vegetacao como sprite plano (ver ADR-0012, secao 3b - camera nunca gira, folhagem pode nao precisar de render 3D). |
+| `sbs-isometric-floor-tiles/` | Isometric Tiles - Floor Pack (variante Large 256x128) | screamingbrainstudios.itch.io/isotilepack, autor Screaming Brain Studios | CC0/Public Domain (arquivo `License.txt` incluso, confirmado tambem na pagina do produto) | 2026-08-10 | 2D, 57 arquivos (1008 tiles no pack completo; esta variante e a "Large"). Renderizado pelo fornecedor como **projecao isometrica 2:1 verdadeira** ("true 2-Dimensional 2:1 isometric render", sem modelo 3D) - compativel em razao com `LARGURA_TILE=44/ALTURA_TILE=22` do renderer. Entregue pelo dono do produto via `D:\jogo\SBS - Isometric Floor Tiles - Large 256x128.rar`; extraido com WinRAR (RAR nao suportado por `Expand-Archive`). Candidato mais provavel a piso compartilhado entre temas (ver decisao 6 do ADR-0012), alternativa/complemento ao Kenney Isometric Tiles Landscape. |
+| `omies-assets-office-set/` | Office Cubicle Set (Office Set) | omies-assets.itch.io/omies-assets-office-set, autor Omie's Assets | CC0 (declarado na pagina do produto: "Free for personal and commercial use, no attribution required"; pacote nao inclui License.txt proprio - licenca rastreada aqui a partir da pagina de origem) | 2026-08-10 | 138 arquivos, ~582 MB. Modelos FBX + texturas PBR completas (BaseColor/Normal/Roughness/Metallic/Displacement) para: `ComputerSetup` (notebook, monitor, teclado, mouse, apontador), `DeskSetup` (mesa, cadeira, cubiculo, gaveta), `Office Cubicle Supplies` (post-its coloridos, lapis, porta-lapis, lixeira), `OfficeMan` (personagem rigged). Inclui fonte `.blend`/`.blend1` e projetos Substance Painter (`.spp`). Exatamente o decor de superficie fino que faltava no catalogo (xicara nao incluida neste pack especifico, mas post-its/lapis/monitor/notebook sim). Entregue pelo dono do produto via `D:\jogo\Office Cubicle Set.zip`. |
 
 ### Pendentes (nao automatizaveis por download direto)
 
-Estes NAO puderam ser baixados por mim de forma automatica: o itch.io exige
-fluxo de "compra" (mesmo gratuito, "name your own price") com sessao de
-navegador e link de download gerado dinamicamente, nao uma URL estatica.
-Precisam ser baixados por um humano e entregues (arquivo ou pasta) para
-entrarem aqui com a mesma estrutura de proveniencia.
+Este NAO pode ser baixado por mim de forma automatica: o itch.io exige fluxo
+de "compra" (mesmo gratuito, "name your own price") com sessao de navegador e
+link de download gerado dinamicamente, nao uma URL estatica. Precisa ser
+baixado por um humano e entregue (arquivo ou pasta) para entrar aqui com a
+mesma estrutura de proveniencia.
 
 | Pasta (a criar) | Pack | Fonte | Licenca declarada pelo fornecedor | Conteudo esperado |
 | --- | --- | --- | --- | --- |
-| `mreliptik-office-low-poly/` | Office low poly pack | mreliptik.itch.io/office-low-poly-pack | CC0 | 25+ itens 3D: notebook, xicara, impressora, luminaria, mouse, monitor - decor de superficie que faltava no catalogo. |
-| `omies-assets-office-set/` | Office Set | omies-assets.itch.io/omies-assets-office-set | CC0 | Mobilia de escritorio com textura PBR completa (BaseColor, Normal, Roughness, Metallic, Displacement), inclui "Office Man" rigged. |
+| `mreliptik-office-low-poly/` | Office low poly pack | mreliptik.itch.io/office-low-poly-pack | CC0 | 25+ itens 3D: tablet, camera, laptop, impressora (pequena e grande), luminaria de arquiteto, caneca, mousepad, PC, monitor ultrawide - decor de superficie complementar ao que o Omie's Assets ja trouxe. |
 
 ## Estado atual
 
