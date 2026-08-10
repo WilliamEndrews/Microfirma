@@ -223,7 +223,65 @@ sem "start" explicito do dono do produto. Esta secao e so o mapa.
    sao investimentos de GA/escala, prematuros antes de validar com 1-2
    clientes reais.
 
-## 6. Como manter este arquivo honesto
+## 6. Frente de trabalho aprovada: catalogo de assets (ADR-0012)
+
+> Direcao aprovada pelo dono do produto em 2026-08-10 apos feedback do cliente
+> de que o visual estava simples demais. **Implementacao ainda NAO iniciada** -
+> nenhuma linha de codigo escrita. Decisao completa em
+> `docs/adr/0012-catalogo-de-assets.md`; ADR-0008 (que estava sem arquivo) foi
+> escrita junto em `docs/adr/0008-sprites-pre-renderizados.md`.
+
+### Causa raiz (auditada, nao suposta)
+
+Nao e o Canvas 2D e nao e o Agente Arquiteto (que nunca rodou - o layout
+avaliado veio do solver deterministico). A causa e que **toda a arte e gerada
+em runtime com primitivas geometricas** (`caixaIso3D` em `sprite-factory.ts`).
+Isso tem teto intransponivel. Confirma o diagnostico o fato de os **avatares**
+terem sido os unicos elementos aprovados: silhueta simples primitivas
+entregam; xicara, notebook e estante com lombadas, nao.
+
+### Decisoes fechadas (revisadas em 2026-08-10, segunda rodada)
+
+| Questao | Decisao |
+| --- | --- |
+| Origem da arte | **Multi-pack, todos CC0** (nao um pack unico). Verificados: Kenney Furniture Kit (140, 3D, mobilia estrutural), Kenney Nature Kit (330, 3D, plantas), Kenney Isometric Tiles Landscape (128, 2D, piso), Foliage Pack (2D, plantas como sprite plano), MrEliptik Office Low-Poly Pack (25+, decor de superficie: notebook/xicara/impressora/luminaria), Omie's Assets Office Set, Khaleer Lowpoly Interior Kit. Todos CC0: redistribuicao e uso comercial livres, critico para on-premises/air-gapped. |
+| Licenciamento | Regra revisada: **cada asset declara sua propria licenca no manifesto** (`packId`, `license`, `sourceUrl`); cada uma precisa satisfazer redistribuicao+comercial+on-prem INDEPENDENTEMENTE. Misturar packs CC0 e seguro; o que e proibido e um asset cuja licenca isolada nao satisfaca a regra. |
+| Formato | Modelos 3D **pre-renderizados por nos** em Blender, projecao dimetrica 2:1 exata. O pipeline tambem NORMALIZA escala/ancoragem entre packs de autores diferentes - e o motivo de pre-renderizar em vez de usar sprites prontos de fontes variadas. Vegetacao e candidata a sprite 2D plano (camera nunca gira). |
+| Contrato | `kind` **permanece** (semantica: ownerAgentId, painel, acessibilidade, testes). `assetId` **e adicionado** como opcional (so visual), com `packId`/`license` no manifesto. Sendo opcional, os 206 testes seguem verdes e o sprite atual vira fallback. |
+| Decoracao de superficie | Array `decor[]` separado, **nao-colidivel**, que o `navgrid` nunca consome. Impede que uma xicara quebre invariante de alcancabilidade. |
+| Temas | Reduzir de 6 para 2-3. **Cada tema mapeia para um CONJUNTO DE PACKS** (nao mais "mesmo modelo com material variado") - diferenciacao de forma, nao so de cor. Piso e vegetacao sao **base compartilhada fixa** entre todos os temas (evita costura visual entre salas). Abre eixo de produto: tema base (packs CC0) vs. tema(s) premium (pack pago/encomendado) como diferenciador de camada de produto. |
+| Papel do LLM | Decorador escolhe tema (= conjunto de packs) + subconjunto do catalogo. **Solver continua posicionando** (ADR-0004). LLM nunca posiciona objeto. |
+
+### Por que o custo e menor do que parece
+
+O renderer **ja e orientado a sprites**: `desenharSpriteProp` recebe um
+`CanvasImageSource`, e `HTMLCanvasElement` e `HTMLImageElement` sao ambos
+aceitos por `drawImage`. Trocar a origem da arte nao exige reescrever o
+renderer, nao exige PixiJS e **nao revoga a ADR-0010**.
+
+### Ordem de execucao sugerida (quando houver "start")
+
+1. **Pipeline de render de arte** (Blender headless -> PNGs -> atlas +
+   manifesto JSON). Provar com 3-5 assets antes de processar o kit inteiro -
+   e aqui que se descobre se a projecao bate com `iso()`.
+2. **Manifesto de catalogo** (assetId, packId, kind compativel, footprint,
+   ancoras de superficie, licenca+sourceUrl por asset) + **mapa de temas**
+   (cada tema -> lista de packIds estruturais; packIds de piso/vegetacao
+   marcados como base compartilhada, fora do mapa por tema).
+3. **`assetId` opcional no contrato `Prop`** + carregamento de atlas no
+   renderer, com fallback para o sprite procedural atual. Ate aqui, **zero
+   risco de regressao** e ja da para avaliar visualmente.
+4. **Footprint multi-celula** - o unico item de risco real, porque toca
+   `navgrid` e `reservar()` no solver, cobertos por 39 testes de invariante.
+   Fazer isolado e com testes antes.
+5. **Array `decor[]`** (notebooks, xicaras, livros) gerado por seed no solver.
+6. **Reducao e re-render dos temas** (6 -> 2-3).
+
+Racional da ordem: os passos 1-3 sao aditivos e reversiveis; o passo 4 e o
+unico que pode quebrar invariante testada, entao entra depois de o ganho
+visual ja estar comprovado.
+
+## 7. Como manter este arquivo honesto
 
 - Ao concluir um item da secao 5, mover a linha correspondente da tabela da
   secao 2 de GAP/PARCIAL para FEITO, citando o arquivo e o teste que provam.

@@ -1,0 +1,14 @@
+# Fontes brutas de assets (ADR-0012) - binarios grandes via Git LFS.
+# Escopo: apenas assets-source/. O atlas/manifesto processado (resultado do
+# pipeline de render) NAO e binario grande no mesmo sentido e pode ser
+# versionado normalmente quando existir.
+assets-source/**/*.png filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.fbx filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.obj filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.dae filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.stl filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.gltf filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.glb filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.zip filter=lfs diff=lfs merge=lfs -text
+assets-source/**/*.blend filter=lfs diff=lfs merge=lfs -text

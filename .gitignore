@@ -20,3 +20,7 @@ __pycache__/
 # Artefatos gerados
 docs/generated/
 packages/contracts/schema/*.json
+
+# Lixo de sistema de arquivos (assets-source recebe muitos diretorios extraidos)
+Thumbs.db
+.DS_Store

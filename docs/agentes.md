@@ -462,10 +462,14 @@ Ao iniciar qualquer tarefa no MicroFirma:
   afirmar que algo "falta"/"ja existe".
 - `docs/roadmap.md` - documento vivo; planejamento e status por fase.
 - `docs/adr/` - decisoes arquiteturais:
+  - `0008-sprites-pre-renderizados.md` - arte pre-renderizada, renderer
+    agnostico a origem do sprite.
   - `0010-renderer-canvas-2d.md` - Canvas 2D na Fase 0.
   - `0011-internacionalizacao.md` - i18n pt-BR / en-US / es-ES.
-  - ADRs 0001-0003 e 0007 sem arquivo (recuperar ou renumerar).
-  - ADRs 0004, 0005, 0006, 0008, 0009 vigentes e citados no codigo.
+  - `0012-catalogo-de-assets.md` - arte vira dado (assets CC0 pre-renderizados
+    de 3D), `kind` semantico + `assetId` visual, decor nao-colidivel.
+  - ADRs 0001-0003 e 0007 tem arquivo em `docs/adr/`.
+  - ADRs 0004, 0005, 0006, 0009 vigentes, citados no codigo, sem arquivo.
 - `docs/specs/motor-de-tempo-narrativo.md` - spec do Narrative Scheduler.
 - `packages/contracts/src/` - 5 contratos (fonte unica de tipos).
 - `packages/world-engine/src/` - WorldEngine, Narrative Scheduler, layout
