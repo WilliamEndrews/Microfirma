@@ -9,10 +9,14 @@ interface SceneProps {
   onStart: () => void;
 }
 
+const ROOM_W = 10;
+const ROOM_D = 10;
+const ROOM_H = 5;
+
 export default function Scene({ transitioning, onArrived, onStart }: SceneProps) {
   return (
     <Canvas
-      camera={{ position: [8, 10, 8], fov: 32 }}
+      camera={{ position: [7, 13, 7], fov: 30 }}
       gl={{ antialias: true, alpha: false }}
       shadows
       onCreated={({ gl }) => {
@@ -21,7 +25,7 @@ export default function Scene({ transitioning, onArrived, onStart }: SceneProps)
     >
       <Lighting />
       <Room />
-      <Vultos count={8} />
+      <Vultos count={7} />
       <CameraFlight transitioning={transitioning} onArrived={onArrived} />
       <ClickPlane onStart={onStart} />
     </Canvas>
@@ -29,12 +33,20 @@ export default function Scene({ transitioning, onArrived, onStart }: SceneProps)
 }
 
 function Room() {
+  const halfW = ROOM_W / 2;
+  const halfD = ROOM_D / 2;
+  const halfH = ROOM_H / 2;
+
   return (
     <group>
-      <Wall width={12} height={4.5} position={[0, 2.25, -6]} rotation={[0, 0, 0]} />
-      <Wall width={12} height={4.5} position={[-4, 2.25, 0]} rotation={[0, Math.PI / 2, 0]} />
-      <Wall width={12} height={4.5} position={[4, 2.25, 0]} rotation={[0, -Math.PI / 2, 0]} />
-      <Wall width={8} height={12} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} isFloor />
+      {/* chao */}
+      <Wall width={ROOM_W} height={ROOM_D} position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} isFloor />
+      {/* parede fundo */}
+      <Wall width={ROOM_W} height={ROOM_H} position={[0, halfH, -halfD]} rotation={[0, 0, 0]} />
+      {/* parede esquerda */}
+      <Wall width={ROOM_D} height={ROOM_H} position={[-halfW, halfH, 0]} rotation={[0, Math.PI / 2, 0]} />
+      {/* parede direita */}
+      <Wall width={ROOM_D} height={ROOM_H} position={[halfW, halfH, 0]} rotation={[0, -Math.PI / 2, 0]} />
     </group>
   );
 }
@@ -49,11 +61,15 @@ interface WallProps {
 
 function Wall({ width, height, position, rotation, isFloor }: WallProps) {
   const geometry = useMemo(() => new THREE.PlaneGeometry(width, height), [width, height]);
-  const color = isFloor ? '#f2f2f2' : '#ffffff';
 
   return (
     <mesh geometry={geometry} position={position} rotation={rotation} receiveShadow castShadow={!isFloor}>
-      <meshStandardMaterial color={color} roughness={0.9} metalness={0.05} side={THREE.DoubleSide} />
+      <meshStandardMaterial
+        color={isFloor ? '#e8e8e8' : '#f5f5f5'}
+        roughness={1}
+        metalness={0}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 }
@@ -64,35 +80,35 @@ function Lighting() {
   useEffect(() => {
     if (dirRef.current) {
       dirRef.current.shadow.mapSize.set(2048, 2048);
-      dirRef.current.shadow.bias = -0.0001;
-      dirRef.current.shadow.radius = 4;
+      dirRef.current.shadow.bias = -0.0002;
+      dirRef.current.shadow.radius = 6;
     }
   }, []);
 
   return (
     <>
-      <ambientLight intensity={0.65} color="#ffffff" />
-      <hemisphereLight color="#ffffff" groundColor="#b0b0b0" intensity={0.4} />
+      <ambientLight intensity={0.8} color="#ffffff" />
+      <hemisphereLight color="#ffffff" groundColor="#d0d0d0" intensity={0.5} />
       <directionalLight
         ref={dirRef}
-        position={[4, 9, 6]}
-        intensity={1.3}
+        position={[3, 12, 4]}
+        intensity={0.9}
         color="#ffffff"
         castShadow
-        shadow-camera-left={-7}
-        shadow-camera-right={7}
-        shadow-camera-top={7}
-        shadow-camera-bottom={-7}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
         shadow-camera-near={0.1}
-        shadow-camera-far={25}
+        shadow-camera-far={30}
       />
-      <pointLight position={[-2, 3, 2]} intensity={0.25} color="#e0e0e0" />
     </>
   );
 }
 
 interface VultoData {
   x: number;
+  z: number;
   speed: number;
   phase: number;
   drift: number;
@@ -101,29 +117,53 @@ interface VultoData {
 
 function humanoidTexture() {
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 256;
+  canvas.width = 256;
+  canvas.height = 512;
   const ctx = canvas.getContext('2d');
   if (!ctx) return new THREE.CanvasTexture(canvas);
 
-  ctx.filter = 'blur(8px)';
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.95)';
+  ctx.clearRect(0, 0, 256, 512);
 
-  // corpo alongado
-  ctx.beginPath();
-  ctx.ellipse(64, 150, 34, 78, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // silhueta humanoide com gradiente suave
+  const grad = ctx.createRadialGradient(128, 256, 20, 128, 256, 120);
+  grad.addColorStop(0, 'rgba(10, 10, 10, 0.85)');
+  grad.addColorStop(0.5, 'rgba(20, 20, 20, 0.5)');
+  grad.addColorStop(1, 'rgba(20, 20, 20, 0)');
+
+  ctx.filter = 'blur(14px)';
+  ctx.fillStyle = grad;
 
   // cabeca
   ctx.beginPath();
-  ctx.arc(64, 54, 26, 0, Math.PI * 2);
+  ctx.arc(128, 100, 42, 0, Math.PI * 2);
   ctx.fill();
 
-  // sombra inferior para suavizar
-  ctx.filter = 'blur(16px)';
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+  // ombros + tronco
   ctx.beginPath();
-  ctx.ellipse(64, 245, 40, 6, 0, 0, Math.PI * 2);
+  ctx.moveTo(70, 170);
+  ctx.quadraticCurveTo(128, 150, 186, 170);
+  ctx.lineTo(180, 340);
+  ctx.quadraticCurveTo(128, 360, 76, 340);
+  ctx.closePath();
+  ctx.fill();
+
+  // pernas
+  ctx.beginPath();
+  ctx.moveTo(80, 340);
+  ctx.quadraticCurveTo(95, 460, 90, 490);
+  ctx.lineTo(110, 490);
+  ctx.quadraticCurveTo(128, 400, 128, 360);
+  ctx.quadraticCurveTo(128, 400, 146, 490);
+  ctx.lineTo(166, 490);
+  ctx.quadraticCurveTo(161, 460, 176, 340);
+  ctx.closePath();
+  ctx.fill();
+
+  // sombra no chao
+  ctx.filter = 'blur(24px)';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+  ctx.beginPath();
+  ctx.ellipse(128, 500, 60, 8, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -138,12 +178,13 @@ interface VultosProps {
 function Vultos({ count }: VultosProps) {
   const texture = useMemo(humanoidTexture, []);
   const vultos = useMemo<VultoData[]>(() => {
-    return Array.from({ length: count }).map(() => ({
-      x: (Math.random() - 0.5) * 6,
-      speed: 0.3 + Math.random() * 0.4,
-      phase: Math.random() * 20,
-      drift: (Math.random() - 0.5) * 2,
-      scale: 0.8 + Math.random() * 0.5,
+    return Array.from({ length: count }).map((_, i) => ({
+      x: (Math.random() - 0.5) * (ROOM_W - 2),
+      z: (Math.random() - 0.5) * (ROOM_D - 2),
+      speed: 0.15 + Math.random() * 0.25,
+      phase: (i / count) * Math.PI * 2,
+      drift: (Math.random() - 0.5) * 1.5,
+      scale: 0.7 + Math.random() * 0.4,
     }));
   }, [count]);
 
@@ -158,24 +199,28 @@ function Vultos({ count }: VultosProps) {
 
 function Vulto({ data, texture }: { data: VultoData; texture: THREE.CanvasTexture }) {
   const ref = useRef<THREE.Group>(null);
+  const halfD = ROOM_D / 2;
 
   useFrame(({ clock }) => {
     if (!ref.current) return;
     const t = clock.getElapsedTime() * data.speed + data.phase;
-    ref.current.position.z = -6 + ((t % 12 + 12) % 12);
-    ref.current.position.x = data.x + Math.sin(t * 0.4) * data.drift;
-    ref.current.position.y = 0.05;
+    const cycle = ((t % 10) + 10) % 10;
+    const progress = cycle / 10;
+
+    ref.current.position.z = -halfD + 1 + progress * (ROOM_D - 2);
+    ref.current.position.x = data.x + Math.sin(t * 0.3) * data.drift;
+    ref.current.position.y = 0;
   });
 
   return (
     <Billboard ref={ref} follow lockX={false} lockY={false} lockZ={false}>
-      <mesh scale={[data.scale, data.scale, data.scale]} castShadow>
-        <planeGeometry args={[0.9, 1.8]} />
+      <mesh scale={[data.scale, data.scale, data.scale]}>
+        <planeGeometry args={[1.2, 2.4]} />
         <meshBasicMaterial
           map={texture}
           transparent
-          opacity={0.45}
-          alphaTest={0.02}
+          opacity={0.55}
+          alphaTest={0.01}
           side={THREE.DoubleSide}
           depthWrite={false}
         />
@@ -186,19 +231,19 @@ function Vulto({ data, texture }: { data: VultoData; texture: THREE.CanvasTextur
 
 function CameraFlight({ transitioning, onArrived }: Pick<SceneProps, 'transitioning' | 'onArrived'>) {
   const { camera } = useThree();
-  const startPos = useMemo(() => new THREE.Vector3(8, 10, 8), []);
-  const endPos = useMemo(() => new THREE.Vector3(0.5, 1.5, 0.5), []);
+  const startPos = useMemo(() => new THREE.Vector3(7, 13, 7), []);
+  const endPos = useMemo(() => new THREE.Vector3(0, 1.8, 0.3), []);
   const progressRef = useRef(0);
   const [hasArrived, setHasArrived] = useState(false);
 
   useFrame((_, delta) => {
     if (hasArrived) return;
 
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(0, 1, 0);
 
     if (!transitioning) return;
 
-    progressRef.current += delta * 0.55;
+    progressRef.current += delta * 0.5;
     const p = Math.min(progressRef.current, 1);
     const eased = p * p * (3 - 2 * p);
 
@@ -206,7 +251,7 @@ function CameraFlight({ transitioning, onArrived }: Pick<SceneProps, 'transition
 
     const pc = camera as THREE.PerspectiveCamera;
     if (pc.fov !== undefined) {
-      pc.fov = THREE.MathUtils.lerp(32, 50, eased);
+      pc.fov = THREE.MathUtils.lerp(30, 55, eased);
       pc.updateProjectionMatrix();
     }
 
@@ -221,8 +266,8 @@ function CameraFlight({ transitioning, onArrived }: Pick<SceneProps, 'transition
 
 function ClickPlane({ onStart }: Pick<SceneProps, 'onStart'>) {
   return (
-    <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} onClick={onStart} visible={false}>
-      <planeGeometry args={[12, 12]} />
+    <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} onClick={onStart} visible={false}>
+      <planeGeometry args={[ROOM_W, ROOM_D]} />
       <meshBasicMaterial transparent opacity={0} />
     </mesh>
   );
