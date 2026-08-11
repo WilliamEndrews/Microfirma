@@ -34,7 +34,16 @@ export {
 } from './narrative-scheduler.js';
 export { WorldEngine, type WorldEngineOptions } from './world-engine.js';
 export { OtlpIngestor, type OtlpIngestorOptions, type IngestStats } from './otlp-ingestor.js';
-export { TEMAS, resolverPaleta, buscarTema, type Tema, type PaletaResolvida } from './themes.js';
+export {
+  TEMAS,
+  resolverPaleta,
+  buscarTema,
+  resolverPacksDoTema,
+  PACOTES_BASE_COMPARTILHADA,
+  type Tema,
+  type TemaPacks,
+  type PaletaResolvida,
+} from './themes.js';
 export {
   DeterministicArchitect,
   LlmArchitect,

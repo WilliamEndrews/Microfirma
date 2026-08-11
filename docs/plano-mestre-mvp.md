@@ -226,10 +226,13 @@ sem "start" explicito do dono do produto. Esta secao e so o mapa.
 ## 6. Frente de trabalho aprovada: catalogo de assets (ADR-0012)
 
 > Direcao aprovada pelo dono do produto em 2026-08-10 apos feedback do cliente
-> de que o visual estava simples demais. **Implementacao ainda NAO iniciada** -
-> nenhuma linha de codigo escrita. Decisao completa em
+> de que o visual estava simples demais. Decisao completa em
 > `docs/adr/0012-catalogo-de-assets.md`; ADR-0008 (que estava sem arquivo) foi
 > escrita junto em `docs/adr/0008-sprites-pre-renderizados.md`.
+>
+> **Status em 2026-08-10 (mesmo dia, apos inicio): passos 1-3 da ordem de
+> execucao abaixo EM ANDAMENTO, com um desvio registrado.** Ver detalhe apos
+> a tabela de ordem de execucao.
 
 ### Causa raiz (auditada, nao suposta)
 
@@ -280,6 +283,17 @@ renderer, nao exige PixiJS e **nao revoga a ADR-0010**.
 Racional da ordem: os passos 1-3 sao aditivos e reversiveis; o passo 4 e o
 unico que pode quebrar invariante testada, entao entra depois de o ganho
 visual ja estar comprovado.
+
+### Progresso real (atualizar so com codigo+teste, ver secao 7)
+
+| Passo | Status | Evidencia |
+| --- | --- | --- |
+| 1. Pipeline de render (Blender -> PNGs) | **DESVIO deliberado, nao pipeline proprio** | Nao renderizamos os modelos 3D em Blender ainda. Em vez disso, validamos a projecao usando os sprites isometricos JA PRE-RENDERIZADOS pelo proprio Kenney (`assets-source/kenney-furniture-kit/Isometric/*_SW.png`), que por observacao empirica (`scripts/iso-validation/`, `bbox.js`, screenshot Playwright) batem em proporcao com a projecao dimetrica 2:1 do renderer (`LARGURA_TILE=44/ALTURA_TILE=22`). Isto cumpre o OBJETIVO do passo 1 (provar a projecao com poucos assets antes de processar o kit inteiro) sem o CUSTO do pipeline Blender. Risco aceito: fica sem a normalizacao entre packs de autores diferentes que so o pre-render proprio garante (ADR-0012, decisao 3) - por ora so um pack estrutural (`kenney-furniture-kit`) esta em uso, entao o risco de "colcha de retalhos" ainda nao se materializou. Pipeline Blender fica pendente para quando um segundo pack estrutural (ex.: MrEliptik, Khaleer) entrar. |
+| 2. Manifesto de catalogo + mapa de temas | **FEITO (parcial)** | `packages/contracts/src/asset-catalog.ts`: `AssetManifest`/`AssetEntry`/`AssetPack`, `KNOWN_PACKS` (registro dos 6 packs processados, com licenca/sourceUrl/basePath cada), `INITIAL_CATALOG` com 5 assets (desk/chair/plant/bookshelf/sofa). `packages/world-engine/src/themes.ts`: `TemaPacks`, `PACOTES_BASE_COMPARTILHADA` (piso=`sbs-isometric-floor-tiles`, vegetacao=`kenney-nature-kit`, fixos entre temas), `resolverPacksDoTema()` com fallback para temas customizados do LLM. Testado em `themes.test.ts` (valida que todo `packId` referenciado existe em `KNOWN_PACKS`). Parcial porque so 5 dos 13 `PropKind` tem asset mapeado, e todos os 6 temas apontam para o mesmo pack estrutural unico disponivel (diferenciacao real de forma so vira quando houver 2+ packs estruturais). |
+| 3. `assetId` opcional + atlas no renderer com fallback | **FEITO** | `apps/demo/src/asset-atlas.ts` (`carregarAtlas`, com fallback silencioso se a imagem faltar), `apps/demo/src/sprite-factory.ts` (`PropSprite`, `obterSpriteProp` agora prioriza o atlas e cai para o sprite procedural), `apps/demo/src/office-renderer-2d.ts` (injeta o atlas em `criarFabrica`). 210 testes passando, `tsc --noEmit` limpo em `contracts`, `world-engine` e `demo`. |
+| 4. Footprint multi-celula | GAP | Nao iniciado. |
+| 5. Array `decor[]` | GAP | Nao iniciado. |
+| 6. Reducao de temas (6 -> 2-3) | GAP (bloqueado pelo passo 1/2) | Nao ha ainda 2 packs estruturais completos para diferenciar temas por FORMA (so por cor seria a abordagem rejeitada pela ADR). |
 
 ## 7. Como manter este arquivo honesto
 

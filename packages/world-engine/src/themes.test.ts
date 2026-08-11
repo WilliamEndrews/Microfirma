@@ -1,9 +1,12 @@
 /**
- * Testes do sistema de temas (ADR-0008).
+ * Testes do sistema de temas (ADR-0008) e do mapa de temas -> packs (ADR-0012).
  */
 
 import { describe, it, expect } from 'vitest';
-import { TEMAS, resolverPaleta, buscarTema } from './themes.js';
+import { KNOWN_PACKS } from '@microfirma/contracts';
+import { TEMAS, resolverPaleta, buscarTema, resolverPacksDoTema, PACOTES_BASE_COMPARTILHADA } from './themes.js';
+
+const PACK_IDS_CONHECIDOS = new Set(KNOWN_PACKS.map((p) => p.packId));
 
 describe('themes', () => {
   it('TEMAS tem pelo menos 3 temas', () => {
@@ -62,5 +65,35 @@ describe('resolverPaleta', () => {
   it('fallback para palette incompleta', () => {
     const paleta = resolverPaleta({ name: 'x', palette: ['#FF0000'], greenery: 0.5 });
     expect(paleta.fundo).toBeGreaterThan(0);
+  });
+});
+
+describe('mapa de temas -> packs (ADR-0012)', () => {
+  it('cada tema declara pelo menos um pack estrutural', () => {
+    for (const tema of TEMAS) {
+      const packs = resolverPacksDoTema(tema);
+      expect(packs.structural.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('todo packId referenciado por um tema existe em KNOWN_PACKS', () => {
+    for (const tema of TEMAS) {
+      for (const packId of resolverPacksDoTema(tema).structural) {
+        expect(PACK_IDS_CONHECIDOS.has(packId)).toBe(true);
+      }
+    }
+  });
+
+  it('base compartilhada (piso, vegetacao) existe em KNOWN_PACKS', () => {
+    expect(PACK_IDS_CONHECIDOS.has(PACOTES_BASE_COMPARTILHADA.floor)).toBe(true);
+    expect(PACK_IDS_CONHECIDOS.has(PACOTES_BASE_COMPARTILHADA.vegetation)).toBe(true);
+  });
+
+  it('resolverPacksDoTema cai para o padrao quando o tema nao declara packs (LLM customizado)', () => {
+    const packs = resolverPacksDoTema({});
+    expect(packs.structural.length).toBeGreaterThanOrEqual(1);
+    for (const packId of packs.structural) {
+      expect(PACK_IDS_CONHECIDOS.has(packId)).toBe(true);
+    }
   });
 });

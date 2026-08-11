@@ -8,22 +8,74 @@
  *
  * Em producao, o Agente Decorador (LLM) escolhe o tema. Aqui ficam as
  * implementacoes deterministicas de referencia.
+ *
+ * MAPA DE TEMAS -> PACKS (ADR-0012, decisao 6, step 2 do plano mestre):
+ * cada tema aponta para um conjunto de `packId`s de mobilia ESTRUTURAL
+ * (`packages/contracts/src/asset-catalog.ts` e a fonte unica de verdade de
+ * quais `packId`s existem - ver `KNOWN_PACKS`). Piso e vegetacao sao BASE
+ * COMPARTILHADA, fixos entre todos os temas (evita costura visual entre
+ * salas do mesmo escritorio - motivo documentado na ADR).
+ *
+ * Estado honesto em 2026-08-10: o catalogo processado ainda tem UM UNICO
+ * pack de mobilia estrutural completo (`kenney-furniture-kit`), entao todo
+ * tema aponta para ele hoje. A reducao de 6 para 2-3 temas com
+ * DIFERENCIACAO DE FORMA (nao so de cor) so faz sentido depois que
+ * `mreliptik-office-low-poly` ou outro pack estrutural adicional entrar no
+ * catalogo (ver `assets-source/README.md`, secao "Pendentes"). Este mapa
+ * existe desde ja para o codigo (solver, renderer, Decorador) parar de
+ * assumir "so ha um pack" implicitamente - a decisao de QUAL pack fica
+ * inteiramente neste arquivo, nao espalhada.
  */
+
+/** Conjunto de packs que um tema usa para mobilia estrutural. */
+export interface TemaPacks {
+  /** `packId`s de mobilia estrutural, em ordem de preferencia do solver. */
+  structural: string[];
+}
+
+/**
+ * Base compartilhada: piso e vegetacao NAO variam por tema. Sao os unicos
+ * elementos presentes em toda sala e ao lado de toda mesa; variar entre
+ * temas produziria costura visual nas transicoes entre salas do mesmo
+ * escritorio (ADR-0012, decisao 6).
+ */
+export const PACOTES_BASE_COMPARTILHADA = {
+  floor: 'sbs-isometric-floor-tiles',
+  vegetation: 'kenney-nature-kit',
+} as const;
+
+/** Pack estrutural padrao - unico disponivel e completo hoje (ver comentario acima). */
+const PACOTES_ESTRUTURAIS_PADRAO: TemaPacks = { structural: ['kenney-furniture-kit'] };
 
 export interface Tema {
   name: string;
   palette: string[];
   greenery: number;
+  /**
+   * Opcional: temas customizados vindos do LlmDecorator (nome/paleta livres,
+   * fora de `TEMAS`) nao precisam declarar packs - `resolverPacksDoTema` cai
+   * para `PACOTES_ESTRUTURAIS_PADRAO` nesse caso.
+   */
+  packs?: TemaPacks;
 }
 
 export const TEMAS: readonly Tema[] = [
-  { name: 'nordic-calm', palette: ['#F4F1EC', '#D9CFC1', '#8FA6A1', '#3B4A4A'], greenery: 0.45 },
-  { name: 'warm-studio', palette: ['#F7EFE5', '#E4C7A8', '#C08457', '#4A3728'], greenery: 0.6 },
-  { name: 'cool-lab', palette: ['#EEF2F6', '#C9D6E3', '#7A93AC', '#2E3B4E'], greenery: 0.25 },
-  { name: 'forest-deep', palette: ['#E8EDE6', '#A8C0A0', '#5C7A5A', '#2A3B2A'], greenery: 0.75 },
-  { name: 'sunset-loft', palette: ['#FAF0E6', '#E8B894', '#C97864', '#3D2B2B'], greenery: 0.35 },
-  { name: 'midnight-ops', palette: ['#DDE3EA', '#9BA8BC', '#4A5C7A', '#1A2332'], greenery: 0.2 },
+  { name: 'nordic-calm', palette: ['#F4F1EC', '#D9CFC1', '#8FA6A1', '#3B4A4A'], greenery: 0.45, packs: PACOTES_ESTRUTURAIS_PADRAO },
+  { name: 'warm-studio', palette: ['#F7EFE5', '#E4C7A8', '#C08457', '#4A3728'], greenery: 0.6, packs: PACOTES_ESTRUTURAIS_PADRAO },
+  { name: 'cool-lab', palette: ['#EEF2F6', '#C9D6E3', '#7A93AC', '#2E3B4E'], greenery: 0.25, packs: PACOTES_ESTRUTURAIS_PADRAO },
+  { name: 'forest-deep', palette: ['#E8EDE6', '#A8C0A0', '#5C7A5A', '#2A3B2A'], greenery: 0.75, packs: PACOTES_ESTRUTURAIS_PADRAO },
+  { name: 'sunset-loft', palette: ['#FAF0E6', '#E8B894', '#C97864', '#3D2B2B'], greenery: 0.35, packs: PACOTES_ESTRUTURAIS_PADRAO },
+  { name: 'midnight-ops', palette: ['#DDE3EA', '#9BA8BC', '#4A5C7A', '#1A2332'], greenery: 0.2, packs: PACOTES_ESTRUTURAIS_PADRAO },
 ] as const;
+
+/**
+ * Resolve os packs de um tema. Temas customizados (LLM, sem `packs`
+ * declarado) caem para o padrao - nunca retorna lista vazia, porque o
+ * renderer sempre precisa de PELO MENOS um pack estrutural para desenhar.
+ */
+export function resolverPacksDoTema(tema: Pick<Tema, 'packs'>): TemaPacks {
+  return tema.packs ?? PACOTES_ESTRUTURAIS_PADRAO;
+}
 
 /**
  * Paleta resolvida: converte as cores hex do tema em valores numericos 0xRRGGBB
