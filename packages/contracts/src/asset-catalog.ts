@@ -9,14 +9,11 @@
  */
 
 import { z } from 'zod';
-import { Prop } from './layout.js';
+import { Footprint, Prop } from './layout.js';
 
-/** Footprint em celulas do grid (largura x profundidade). */
-export const Footprint = z.object({
-  w: z.number().int().min(1).default(1),
-  h: z.number().int().min(1).default(1),
-});
-export type Footprint = z.infer<typeof Footprint>;
+/** Footprint reexportado por compatibilidade - a definicao canonica vive em layout.ts,
+ *  porque e o mesmo formato usado por `Prop.footprint` (solver/navgrid). */
+export { Footprint };
 
 /** Deslocamento da ancora do sprite em pixels, relativo ao centro do tile. */
 export const AnchorOffset = z.object({

@@ -12,7 +12,7 @@
  */
 
 import type { Cell, OfficeLayout, Rect } from '@microfirma/contracts';
-import { buildNavGrid, isWalkable, reachableFrom } from './navgrid.js';
+import { buildNavGrid, footprintCells, isWalkable, reachableFrom } from './navgrid.js';
 
 export interface Violacao {
   regra: string;
@@ -65,6 +65,8 @@ export function validarLayout(layout: OfficeLayout): Violacao[] {
   }
 
   // (4) Mobiliario dentro da propria sala, sem empilhamento e fora da porta.
+  // Todas as celulas do footprint contam, nao so a celula-ancora - um sofa
+  // 2x1 que estoura a parede ou pisa na porta e tao invalido quanto um 1x1.
   const celulasOcupadas = new Map<string, string>();
   for (const p of layout.props) {
     const sala = layout.rooms.find((s) => s.roomId === p.roomId);
@@ -72,18 +74,21 @@ export function validarLayout(layout: OfficeLayout): Violacao[] {
       v.push({ regra: 'prop-tem-sala', detalhe: p.propId });
       continue;
     }
-    if (!dentro(p.cell, sala.rect)) {
+    const celulas = footprintCells(p);
+    if (!celulas.every((c) => dentro(c, sala.rect))) {
       v.push({ regra: 'prop-dentro-da-sala', detalhe: `${p.propId} fora de ${sala.roomId}` });
     }
-    if (p.cell.x === sala.door.x && p.cell.y === sala.door.y) {
+    if (celulas.some((c) => c.x === sala.door.x && c.y === sala.door.y)) {
       v.push({ regra: 'porta-desobstruida', detalhe: p.propId });
     }
-    const k = `${p.cell.x},${p.cell.y}`;
-    const anterior = celulasOcupadas.get(k);
-    if (anterior) {
-      v.push({ regra: 'sem-props-empilhados', detalhe: `${p.propId} sobre ${anterior}` });
-    } else {
-      celulasOcupadas.set(k, p.propId);
+    for (const c of celulas) {
+      const k = `${c.x},${c.y}`;
+      const anterior = celulasOcupadas.get(k);
+      if (anterior) {
+        v.push({ regra: 'sem-props-empilhados', detalhe: `${p.propId} sobre ${anterior}` });
+      } else {
+        celulasOcupadas.set(k, p.propId);
+      }
     }
   }
 

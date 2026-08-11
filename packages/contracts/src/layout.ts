@@ -76,6 +76,19 @@ export type Rect = z.infer<typeof Rect>;
 export const Cell = z.object({ x: z.number().int(), y: z.number().int() });
 export type Cell = z.infer<typeof Cell>;
 
+/**
+ * Footprint em celulas do grid (largura x profundidade), ancorado em `Prop.cell`
+ * (canto superior-esquerdo, sem rotacao por `facing` - o grid isometrico e
+ * estatico, so o sprite gira). Definido aqui, e nao no catalogo de assets,
+ * porque e o solver e o navgrid - nao o catalogo visual - quem precisam
+ * reservar e bloquear celulas (ADR-0012, decisao 7).
+ */
+export const Footprint = z.object({
+  w: z.number().int().min(1).default(1),
+  h: z.number().int().min(1).default(1),
+});
+export type Footprint = z.infer<typeof Footprint>;
+
 export const Room = z.object({
   roomId: z.string(),
   zoneId: z.string(),
@@ -96,6 +109,8 @@ export const Prop = z.object({
   ownerAgentId: z.string().optional(),
   /** Orientacao para o render (0=sul, 1=oeste, 2=norte, 3=leste). */
   facing: z.number().int().min(0).max(3).default(0),
+  /** Quantas celulas o objeto ocupa a partir de `cell` (canto sup.-esq.). Maioria e 1x1. */
+  footprint: Footprint.default({ w: 1, h: 1 }),
 });
 export type Prop = z.infer<typeof Prop>;
 

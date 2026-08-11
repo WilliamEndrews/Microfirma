@@ -7,10 +7,11 @@
  * invariante em muitas seeds e tamanhos de elenco diferentes.
  */
 import { describe, expect, it } from 'vitest';
-import type { AgentDescriptor, AgentRole } from '@microfirma/contracts';
+import type { AgentDescriptor, AgentRole, OfficeLayout } from '@microfirma/contracts';
 import { planSpaceProgram } from './space-program.js';
 import { solveLayout } from './layout-solver.js';
 import { validarLayout } from './layout-validation.js';
+import { buildNavGrid, footprintCells, isWalkable } from './navgrid.js';
 
 const PAPEIS: AgentRole[] = [
   'orchestrator',
@@ -64,5 +65,61 @@ describe('geracao de escritorio - invariantes geometricas', () => {
   it.each(tamanhos)('elenco de %i agente(s) (seed fixa): zero violacoes', (tamanho) => {
     const layout = gerarLayout(999, tamanho);
     expect(validarLayout(layout)).toEqual([]);
+  });
+});
+
+describe('footprint multi-celula', () => {
+  it('sofa 2x1 da copa bloqueia as duas celulas no navgrid, nao so a ancora', () => {
+    // Elenco pequeno gera copa apertada (tapete e sofa disputam o mesmo
+    // centro da sala), entao o footprint 2x1 so aparece com folga de espaco -
+    // elenco grande garante isso de forma deterministica.
+    let encontrado = false;
+    for (let seed = 0; seed < 20 && !encontrado; seed++) {
+      const layout = gerarLayout(seed, 20);
+      const sofaGrande = layout.props.find((p) => p.kind === 'sofa' && p.footprint.w > 1);
+      if (!sofaGrande) continue;
+      encontrado = true;
+      const nav = buildNavGrid(layout);
+      const celulas = footprintCells(sofaGrande);
+      expect(celulas.length).toBe(2);
+      for (const c of celulas) expect(isWalkable(nav, c)).toBe(false);
+    }
+    // Se nunca aconteceu em 20 seeds, o refinamento do sofa 2x1 nunca coube -
+    // sinal de regressao no solver, nao apenas ma sorte de seed.
+    expect(encontrado).toBe(true);
+  });
+
+  it('valida que um footprint que estoura a parede da sala e rejeitado', () => {
+    const layout = gerarLayout(999, 7);
+    const sala = layout.rooms[0]!;
+    const propInvalido: OfficeLayout['props'][number] = {
+      propId: 'sofa-invalido-teste',
+      kind: 'sofa',
+      cell: { x: sala.rect.x1 - 1, y: sala.rect.y0 + 1 },
+      roomId: sala.roomId,
+      facing: 0,
+      footprint: { w: 2, h: 1 }, // segunda celula cai fora da sala (x1 e exclusivo)
+    };
+    const layoutInvalido: OfficeLayout = { ...layout, props: [...layout.props, propInvalido] };
+    const violacoes = validarLayout(layoutInvalido);
+    expect(
+      violacoes.some((v) => v.regra === 'prop-dentro-da-sala' && v.detalhe.includes('sofa-invalido-teste')),
+    ).toBe(true);
+  });
+
+  it('valida que footprints sobrepostos contam como props empilhados', () => {
+    const layout = gerarLayout(999, 7);
+    const mesa = layout.props.find((p) => p.kind === 'desk')!;
+    const propSobreposto: OfficeLayout['props'][number] = {
+      propId: 'chair-sobreposta-teste',
+      kind: 'chair',
+      cell: mesa.cell,
+      roomId: mesa.roomId,
+      facing: 0,
+      footprint: { w: 1, h: 1 },
+    };
+    const layoutInvalido: OfficeLayout = { ...layout, props: [...layout.props, propSobreposto] };
+    const violacoes = validarLayout(layoutInvalido);
+    expect(violacoes.some((v) => v.regra === 'sem-props-empilhados')).toBe(true);
   });
 });

@@ -20,7 +20,7 @@
  * Nao ha LLM nenhum neste arquivo. E de proposito (ADR-0004).
  */
 
-import type { Cell, OfficeLayout, Prop, Room, SpaceProgram, ZoneRequest } from '@microfirma/contracts';
+import type { Cell, Footprint, OfficeLayout, Prop, Room, SpaceProgram, ZoneRequest } from '@microfirma/contracts';
 import { createRng, type Rng } from './prng.js';
 
 /** Largura minima util de uma sala, em celulas. Micro-firma: 4 (2x2 de mesa + circulacao). */
@@ -215,6 +215,9 @@ function mobiliar(
   const largura = x1 - x0;
   const altura = y1 - y0;
 
+  /** Props com footprint padrao 1x1 - a maioria. So sofa (copa) usa footprint maior hoje. */
+  const prop1x1 = (p: Omit<Prop, 'footprint'>): Prop => ({ ...p, footprint: { w: 1, h: 1 } });
+
   const ocupado = new Set<string>([`${sala.door.x},${sala.door.y}`]);
   // Coluna e linha da porta ficam livres para circulacao.
   const colunaLivre = sala.door.x;
@@ -225,6 +228,25 @@ function mobiliar(
     if (ocupado.has(k)) return false;
     if (c.x < x0 || c.x >= x1 || c.y < y0 || c.y >= y1) return false;
     ocupado.add(k);
+    return true;
+  };
+
+  /**
+   * Reserva um bloco w x h a partir de `origem` (canto sup.-esq.), tudo ou
+   * nada: se qualquer celula do bloco estiver ocupada ou fora da sala, nada e
+   * reservado. Usado por mobiliario com footprint > 1x1 (ex.: sofa 2x1).
+   */
+  const reservarBloco = (origem: Cell, fp: Footprint): boolean => {
+    const celulas: Cell[] = [];
+    for (let dy = 0; dy < fp.h; dy++) {
+      for (let dx = 0; dx < fp.w; dx++) {
+        const c = { x: origem.x + dx, y: origem.y + dy };
+        const k = `${c.x},${c.y}`;
+        if (ocupado.has(k) || c.x < x0 || c.x >= x1 || c.y < y0 || c.y >= y1) return false;
+        celulas.push(c);
+      }
+    }
+    for (const c of celulas) ocupado.add(`${c.x},${c.y}`);
     return true;
   };
 
@@ -244,25 +266,25 @@ function mobiliar(
     colunasMesas.push(x0 + dx);
     const mesa = { x: x0 + dx, y: atrasY };
     if (!reservar(mesa)) continue;
-    props.push({
+    props.push(prop1x1({
       propId: `desk-${agentes[indiceAgente]}`,
       kind: 'desk',
       cell: mesa,
       roomId: sala.roomId,
       ownerAgentId: agentes[indiceAgente] as string,
       facing: mesaFacing,
-    });
+    }));
     // Cadeira giratoria de frente para a mesa.
     const cadeira = { x: x0 + dx, y: atrasY + (ehSul ? -1 : 1) };
     if (cadeira.y >= y0 && cadeira.y < y1 && cadeira.y !== linhaLivre) {
       reservar(cadeira);
-      props.push({
+      props.push(prop1x1({
         propId: `chair-${agentes[indiceAgente]}`,
         kind: 'chair',
         cell: cadeira,
         roomId: sala.roomId,
         facing: cadeiraFacing,
-      });
+      }));
     }
     indiceAgente++;
   }
@@ -279,13 +301,13 @@ function mobiliar(
   const tapete = { x: rugX, y: rugY };
   if (tapete.x !== colunaLivre && !ocupado.has(`${tapete.x},${tapete.y}`)) {
     reservar(tapete);
-    props.push({
+    props.push(prop1x1({
       propId: `rug-${sala.roomId}`,
       kind: 'rug',
       cell: tapete,
       roomId: sala.roomId,
       facing: 0,
-    });
+    }));
   }
 
   // Armario ou estante na parede oposta as mesas, ocupando cantos vazios.
@@ -295,13 +317,13 @@ function mobiliar(
     const canto = { x: px, y: frenteY };
     if (canto.x !== colunaLivre && !ocupado.has(`${canto.x},${canto.y}`) && reservar(canto)) {
       const tipo = (px + y0) % 2 === 0 ? 'cabinet' : 'bookshelf';
-      props.push({
+      props.push(prop1x1({
         propId: `${tipo}-${sala.roomId}-${px}`,
         kind: tipo,
         cell: canto,
         roomId: sala.roomId,
         facing: mesaFacing,
-      });
+      }));
     }
   }
 
@@ -309,13 +331,13 @@ function mobiliar(
   const lampX = x0 + Math.floor(largura / 2);
   const lampY = y0 + Math.floor(altura / 2);
   if (lampX !== colunaLivre && !ocupado.has(`${lampX},${lampY}`) && reservar({ x: lampX, y: lampY })) {
-    props.push({
+    props.push(prop1x1({
       propId: `lamp-${sala.roomId}`,
       kind: 'lamp',
       cell: { x: lampX, y: lampY },
       roomId: sala.roomId,
       facing: 0,
-    });
+    }));
   }
 
   // Plantas em cantos vazios (se houver).
@@ -329,50 +351,65 @@ function mobiliar(
     if (!rng.chance(program.theme.greenery)) continue;
     if (canto.x === colunaLivre) continue;
     if (!reservar(canto)) continue;
-    props.push({
+    props.push(prop1x1({
       propId: `plant-${sala.roomId}-${canto.x}-${canto.y}`,
       kind: 'plant',
       cell: canto,
       roomId: sala.roomId,
       facing: rng.int(0, 3) as Prop['facing'],
-    });
+    }));
   }
 
   // Mobiliario especifico por tipo de sala.
   const centro = { x: x0 + Math.floor(largura / 2), y: y0 + Math.floor(altura / 2) };
   switch (sala.kind) {
     case 'break': {
-      // Copa: sofa + mesa de cafe + bebedouro.
-      if (reservar(centro))
-        props.push({ propId: `sofa-${sala.roomId}`, kind: 'sofa', cell: centro, roomId: sala.roomId, facing: 0 });
-      const cafe = { x: centro.x + 1, y: centro.y };
+      // Copa: sofa + mesa de cafe + bebedouro. Sofa tenta 2x1 (banco de dois
+      // lugares); se a sala nao tiver espaco, cai para 1x1 sem quebrar nada -
+      // footprint e um refinamento estetico, nunca um requisito de geracao.
+      const sofaFootprint: Footprint = { w: 2, h: 1 };
+      const sofaGrande = reservarBloco(centro, sofaFootprint);
+      if (sofaGrande) {
+        props.push({
+          propId: `sofa-${sala.roomId}`,
+          kind: 'sofa',
+          cell: centro,
+          roomId: sala.roomId,
+          facing: 0,
+          footprint: sofaFootprint,
+        });
+      } else if (reservar(centro)) {
+        props.push(prop1x1({ propId: `sofa-${sala.roomId}`, kind: 'sofa', cell: centro, roomId: sala.roomId, facing: 0 }));
+      }
+      const larguraSofa = sofaGrande ? sofaFootprint.w : 1;
+      const cafe = { x: centro.x + larguraSofa, y: centro.y };
       if (cafe.x < x1 - 1 && reservar(cafe))
-        props.push({ propId: `coffee-${sala.roomId}`, kind: 'coffee', cell: cafe, roomId: sala.roomId, facing: 3 });
+        props.push(prop1x1({ propId: `coffee-${sala.roomId}`, kind: 'coffee', cell: cafe, roomId: sala.roomId, facing: 3 }));
       const bebedouro = { x: x0 + 1, y: frenteY };
       if (!ocupado.has(`${bebedouro.x},${bebedouro.y}`) && reservar(bebedouro))
-        props.push({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 3 });
+        props.push(prop1x1({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 3 }));
       break;
     }
     case 'meeting':
     case 'war_room': {
       // Sala de reuniao: mesa de centro + quadro + cadeiras.
       if (reservar(centro))
-        props.push({ propId: `board-${sala.roomId}`, kind: 'board', cell: centro, roomId: sala.roomId, facing: 2 });
+        props.push(prop1x1({ propId: `board-${sala.roomId}`, kind: 'board', cell: centro, roomId: sala.roomId, facing: 2 }));
       const mesaReuniao = { x: centro.x - 1, y: centro.y };
       if (mesaReuniao.x >= x0 && !ocupado.has(`${mesaReuniao.x},${mesaReuniao.y}`) && reservar(mesaReuniao))
-        props.push({ propId: `desk-${sala.roomId}-r`, kind: 'desk', cell: mesaReuniao, roomId: sala.roomId, facing: 0 });
+        props.push(prop1x1({ propId: `desk-${sala.roomId}-r`, kind: 'desk', cell: mesaReuniao, roomId: sala.roomId, facing: 0 }));
       break;
     }
     case 'reception': {
       // Recepcao: mesa do recepcionista + impressora + bebedouro.
       if (reservar(centro))
-        props.push({ propId: `desk-${sala.roomId}-recp`, kind: 'desk', cell: centro, roomId: sala.roomId, facing: mesaFacing });
+        props.push(prop1x1({ propId: `desk-${sala.roomId}-recp`, kind: 'desk', cell: centro, roomId: sala.roomId, facing: mesaFacing }));
       const impressora = { x: x0 + 1, y: frenteY };
       if (!ocupado.has(`${impressora.x},${impressora.y}`) && reservar(impressora))
-        props.push({ propId: `printer-${sala.roomId}`, kind: 'printer', cell: impressora, roomId: sala.roomId, facing: 0 });
+        props.push(prop1x1({ propId: `printer-${sala.roomId}`, kind: 'printer', cell: impressora, roomId: sala.roomId, facing: 0 }));
       const bebedouro = { x: x1 - 2, y: frenteY };
       if (!ocupado.has(`${bebedouro.x},${bebedouro.y}`) && reservar(bebedouro))
-        props.push({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 1 });
+        props.push(prop1x1({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 1 }));
       break;
     }
     default: {
@@ -380,7 +417,7 @@ function mobiliar(
       if (largura >= 5) {
         const agua = { x: x1 - 2, y: frenteY };
         if (!ocupado.has(`${agua.x},${agua.y}`) && reservar(agua))
-          props.push({ propId: `water-${sala.roomId}`, kind: 'water', cell: agua, roomId: sala.roomId, facing: 1 });
+          props.push(prop1x1({ propId: `water-${sala.roomId}`, kind: 'water', cell: agua, roomId: sala.roomId, facing: 1 }));
       }
       break;
     }

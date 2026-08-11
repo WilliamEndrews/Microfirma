@@ -46,10 +46,31 @@ export function buildNavGrid(layout: OfficeLayout): NavGrid {
   // Mobiliario bloqueia DEPOIS de liberar o piso.
   for (const p of layout.props) {
     if (!PROPS_BLOQUEANTES.has(p.kind)) continue;
-    cells[p.cell.y * width + p.cell.x] = 0;
+    for (const c of footprintCells(p)) bloquear(cells, width, height, c);
   }
 
   return { width, height, cells };
+}
+
+function bloquear(cells: Uint8Array, width: number, height: number, c: Cell): void {
+  if (c.x < 0 || c.y < 0 || c.x >= width || c.y >= height) return;
+  cells[c.y * width + c.x] = 0;
+}
+
+/**
+ * Todas as celulas cobertas pelo footprint de um prop, a partir de `cell`
+ * (canto superior-esquerdo), sem rotacao por `facing` - ver contracts/layout.ts.
+ * Compartilhado por navgrid e layout-validation para nao divergir.
+ */
+export function footprintCells(p: { cell: Cell; footprint: { w: number; h: number } }): Cell[] {
+  const { w, h } = p.footprint;
+  const out: Cell[] = [];
+  for (let dy = 0; dy < h; dy++) {
+    for (let dx = 0; dx < w; dx++) {
+      out.push({ x: p.cell.x + dx, y: p.cell.y + dy });
+    }
+  }
+  return out;
 }
 
 export function isWalkable(nav: NavGrid, c: Cell): boolean {
