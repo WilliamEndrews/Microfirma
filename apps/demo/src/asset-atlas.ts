@@ -5,6 +5,13 @@
  * mapeia por PropKind. Mantem o fallback procedural automatico: se a imagem
  * falhar ou nao existir, o renderer continua usando o sprite gerado em
  * canvas por sprite-factory.ts.
+ *
+ * LIMITACAO CONHECIDA: `byKind` guarda no maximo 1 asset por `PropKind` - se
+ * o catalogo tiver varios `AssetEntry` para o mesmo `kind` (ex.: varias
+ * plantas do kenney-nature-kit), o ultimo do array de `INITIAL_CATALOG.assets`
+ * vence e os demais ficam so como dados, sem uso visual ainda. Selecao
+ * deterministica por prop/seed entre variantes do mesmo `kind` e trabalho
+ * futuro (ver pendencias do ADR-0012) - nao construir aqui sem necessidade.
  */
 
 import { INITIAL_CATALOG } from '@microfirma/contracts';

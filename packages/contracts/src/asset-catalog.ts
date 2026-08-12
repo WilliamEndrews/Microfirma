@@ -138,12 +138,35 @@ export const KNOWN_PACKS: readonly AssetPack[] = [
 
 /**
  * Catalogo inicial - step 1 do ADR-0012.
- * Apenas os 5 primeiros sprites validados contra a grade isometrica 2:1.
  * Os offsets de ancora serao ajustados empiricamente apos screenshot.
+ *
+ * Cobertura por pack, hoje:
+ *  - kenney-furniture-kit: mobilia estrutural base (mesa, cadeira, estante, sofa).
+ *  - kenney-nature-kit: variedade de vegetacao (`kind: 'plant'`) - o pack ja vem
+ *    com uma pasta `Isometric/` pre-renderizada pelo fornecedor, na mesma
+ *    convencao de sufixo `_SW` do Furniture Kit, entao nao precisou de
+ *    pipeline Blender proprio (mesma verificacao feita para o Furniture Kit).
+ *
+ * Deliberadamente ausentes:
+ *  - kenney-foliage-pack e sbs-isometric-floor-tiles: nao correspondem a um
+ *    `Prop.kind` existente (sao piso e folhagem 2D "de chao", nao mobiliario
+ *    posicionado por celula); entram no catalogo quando o renderer ganhar um
+ *    caminho de piso/decor de superficie orientado a assets (ver ADR-0012,
+ *    decisao 6, e pendencias em docs/plano-mestre-mvp.md).
+ *  - kenney-isometric-tiles-landscape: mesmo motivo (piso), nao processado ainda.
+ *  - omies-assets-office-set: pack so tem modelos FBX + texturas PBR, sem
+ *    sprites isometricos pre-renderizados pelo fornecedor - precisa do
+ *    pipeline Blender (ainda nao construido) antes de virar `AssetEntry`.
+ *    Registrado em KNOWN_PACKS para reserva de `packId`, sem entradas em `assets`.
+ *
+ * NOTA para quem for consumir isto no renderer: `asset-atlas.ts` hoje mapeia
+ * no maximo 1 asset por `kind` (o ultimo do array vence) - varios `plant`
+ * abaixo nao geram variedade visual automatica ainda. Selecao determinada
+ * por prop/seed e trabalho futuro (ver pendencias do ADR-0012).
  */
 export const INITIAL_CATALOG: AssetManifest = {
   version: '1.0.0',
-  packs: [KENNEY_FURNITURE_PACK],
+  packs: [KENNEY_FURNITURE_PACK, KENNEY_NATURE_PACK],
   assets: [
     {
       assetId: 'table-sw',
@@ -199,6 +222,62 @@ export const INITIAL_CATALOG: AssetManifest = {
       license: 'CC0-1.0',
       sourceUrl: 'https://kenney.nl/assets/furniture-kit',
       tags: ['furniture', 'sofa', 'base'],
+    },
+    // Variedade de vegetacao (kenney-nature-kit/Isometric, sufixo _SW).
+    {
+      assetId: 'plant-bush-small-sw',
+      kind: 'plant',
+      packId: 'kenney-nature-kit',
+      fileName: 'plant_bushSmall_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/nature-kit',
+      tags: ['decoration', 'plant', 'variety'],
+    },
+    {
+      assetId: 'pot-small-sw',
+      kind: 'plant',
+      packId: 'kenney-nature-kit',
+      fileName: 'pot_small_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/nature-kit',
+      tags: ['decoration', 'plant', 'variety'],
+    },
+    {
+      assetId: 'flower-purple-a-sw',
+      kind: 'plant',
+      packId: 'kenney-nature-kit',
+      fileName: 'flower_purpleA_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/nature-kit',
+      tags: ['decoration', 'plant', 'variety'],
+    },
+    {
+      assetId: 'flower-red-a-sw',
+      kind: 'plant',
+      packId: 'kenney-nature-kit',
+      fileName: 'flower_redA_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/nature-kit',
+      tags: ['decoration', 'plant', 'variety'],
+    },
+    {
+      assetId: 'mushroom-tan-sw',
+      kind: 'plant',
+      packId: 'kenney-nature-kit',
+      fileName: 'mushroom_tan_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/nature-kit',
+      tags: ['decoration', 'plant', 'variety'],
     },
   ],
 };

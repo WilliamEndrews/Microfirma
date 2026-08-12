@@ -21,7 +21,7 @@ de entrar aqui.
 | Pasta | Pack | Fonte | Licenca | Verificado em | Conteudo |
 | --- | --- | --- | --- | --- | --- |
 | `kenney-furniture-kit/` | Furniture Kit | kenney.nl/assets/furniture-kit | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 140 modelos 3D (GLTF/FBX/OBJ/DAE/STL) + 560 sprites isometricos pre-renderizados pelo fornecedor (140 x 4 rotacoes NE/NW/SE/SW) + 140 sprites de vista lateral. Mobilia estrutural base: mesas, cadeiras, sofas, armarios, estantes. |
-| `kenney-nature-kit/` | Nature Kit | kenney.nl/assets/nature-kit | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 3D. Plantas, vasos, arvores, rochas. |
+| `kenney-nature-kit/` | Nature Kit | kenney.nl/assets/nature-kit | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | Modelos 3D (GLTF/FBX/OBJ/DAE/STL) + sprites isometricos pre-renderizados pelo fornecedor em `Isometric/` (mesma convencao de sufixo `_SW/_SE/_NW/_NE` do Furniture Kit). Plantas, flores, vasos, arvores, rochas, cogumelos. 5 variantes de planta ja catalogadas em `packages/contracts/src/asset-catalog.ts` (`kind: 'plant'`). |
 | `kenney-isometric-tiles-landscape/` | Isometric Tiles Landscape | kenney.nl/assets/isometric-tiles-landscape | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 2D, sprites de piso/terreno ja em projecao isometrica. Candidato a base de piso compartilhada entre temas. |
 | `kenney-foliage-pack/` | Foliage Pack | kenney.nl/assets/foliage-pack | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 2D, 100 arquivos. Candidato a vegetacao como sprite plano (ver ADR-0012, secao 3b - camera nunca gira, folhagem pode nao precisar de render 3D). |
 | `sbs-isometric-floor-tiles/` | Isometric Tiles - Floor Pack (variante Large 256x128) | screamingbrainstudios.itch.io/isotilepack, autor Screaming Brain Studios | CC0/Public Domain (arquivo `License.txt` incluso, confirmado tambem na pagina do produto) | 2026-08-10 | 2D, 57 arquivos (1008 tiles no pack completo; esta variante e a "Large"). Renderizado pelo fornecedor como **projecao isometrica 2:1 verdadeira** ("true 2-Dimensional 2:1 isometric render", sem modelo 3D) - compativel em razao com `LARGURA_TILE=44/ALTURA_TILE=22` do renderer. Entregue pelo dono do produto via `D:\jogo\SBS - Isometric Floor Tiles - Large 256x128.rar`; extraido com WinRAR (RAR nao suportado por `Expand-Archive`). Candidato mais provavel a piso compartilhado entre temas (ver decisao 6 do ADR-0012), alternativa/complemento ao Kenney Isometric Tiles Landscape. |
@@ -41,11 +41,29 @@ mesma estrutura de proveniencia.
 
 ## Estado atual
 
-**Nenhum processamento foi feito.** Isto e apenas a etapa de preparacao
-(download + verificacao de licenca). O pipeline de render (Blender),
-manifesto de catalogo (`assetId`, `packId`, footprint, ancoras de superficie),
-e a integracao com `Prop.assetId` no contrato (`packages/contracts`) sao
-trabalho futuro, sem "start" ainda - ver `docs/plano-mestre-mvp.md` secao 6.
+O manifesto de catalogo (`AssetEntry`/`AssetPack` em
+`packages/contracts/src/asset-catalog.ts`) ja existe e cobre, hoje:
+
+- `kenney-furniture-kit`: mesa, cadeira, estante, sofa (mobilia estrutural base).
+- `kenney-nature-kit`: 5 variantes de vegetacao (`kind: 'plant'`).
+
+Os demais packs desta pasta estao **registrados** em `KNOWN_PACKS` (fonte
+unica de verdade de `packId` valido, para o mapa de temas do Agente
+Decorador) mas ainda **sem `AssetEntry`**:
+
+- `kenney-foliage-pack` e `sbs-isometric-floor-tiles`: nao correspondem a um
+  `Prop.kind` existente (sao piso/folhagem 2D "de chao", nao mobiliario
+  posicionado por celula) - entram quando o renderer ganhar um caminho de
+  piso/decor de superficie orientado a assets.
+- `kenney-isometric-tiles-landscape`: mesmo motivo (piso).
+- `omies-assets-office-set`: so tem modelos FBX + texturas PBR, sem sprites
+  isometricos pre-renderizados pelo fornecedor - precisa do pipeline Blender
+  (nao construido ainda) antes de virar `AssetEntry`.
+
+O pipeline de render (Blender) proprio da MicroFirma continua nao construido;
+ate agora, so foram usados sprites isometricos ja pre-renderizados pelos
+fornecedores (Furniture Kit e Nature Kit) - ver `docs/plano-mestre-mvp.md`
+secao 6 e ADR-0012.
 
 ## Observacao tecnica relevante para o pipeline futuro
 
