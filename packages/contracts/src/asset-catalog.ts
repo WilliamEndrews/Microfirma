@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { Footprint, Prop } from './layout.js';
+import { Decor, Footprint, Prop } from './layout.js';
 
 /** Footprint reexportado por compatibilidade - a definicao canonica vive em layout.ts,
  *  porque e o mesmo formato usado por `Prop.footprint` (solver/navgrid). */
@@ -22,10 +22,15 @@ export const AnchorOffset = z.object({
 });
 export type AnchorOffset = z.infer<typeof AnchorOffset>;
 
-/** Uma entrada de asset. Ligada semanticamente a um Prop.kind. */
+/**
+ * Uma entrada de asset. Ligada semanticamente a um `Prop.kind` OU a um
+ * `Decor.kind` (os dois enums nao se sobrepoem) - um unico catalogo cobre
+ * mobilia posicionada por celula e decoracao de superficie nao-colidivel,
+ * porque a estrutura de proveniencia/licenca/footprint/ancora e identica.
+ */
 export const AssetEntry = z.object({
   assetId: z.string().min(1),
-  kind: Prop.shape.kind,
+  kind: z.union([Prop.shape.kind, Decor.shape.kind]),
   packId: z.string().min(1),
   fileName: z.string().min(1),
   /** Quantos tiles de grade o objeto ocupa. */
@@ -141,7 +146,11 @@ export const KNOWN_PACKS: readonly AssetPack[] = [
  * Os offsets de ancora serao ajustados empiricamente apos screenshot.
  *
  * Cobertura por pack, hoje:
- *  - kenney-furniture-kit: mobilia estrutural base (mesa, cadeira, estante, sofa).
+ *  - kenney-furniture-kit: mobilia estrutural base (mesa, cadeira, estante, sofa)
+ *    + decor de superficie (`kind` de `Decor`: laptop, monitor, teclado, mouse,
+ *    livros, radio) - o mesmo pack ja tinha esses itens em `Isometric/`, entao
+ *    o passo 5 do ADR-0012 (array `decor[]`) NAO precisou do Omie's Assets nem
+ *    do pipeline Blender para uma primeira versao util.
  *  - kenney-nature-kit: variedade de vegetacao (`kind: 'plant'`) - o pack ja vem
  *    com uma pasta `Isometric/` pre-renderizada pelo fornecedor, na mesma
  *    convencao de sufixo `_SW` do Furniture Kit, entao nao precisou de
@@ -278,6 +287,73 @@ export const INITIAL_CATALOG: AssetManifest = {
       license: 'CC0-1.0',
       sourceUrl: 'https://kenney.nl/assets/nature-kit',
       tags: ['decoration', 'plant', 'variety'],
+    },
+    // Decor de superficie (kenney-furniture-kit/Isometric, sufixo _SW) - passo 5 do ADR-0012.
+    {
+      assetId: 'laptop-sw',
+      kind: 'laptop',
+      packId: 'kenney-furniture-kit',
+      fileName: 'laptop_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
+      tags: ['decor', 'surface', 'base'],
+    },
+    {
+      assetId: 'computer-screen-sw',
+      kind: 'monitor',
+      packId: 'kenney-furniture-kit',
+      fileName: 'computerScreen_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
+      tags: ['decor', 'surface', 'base'],
+    },
+    {
+      assetId: 'computer-keyboard-sw',
+      kind: 'keyboard',
+      packId: 'kenney-furniture-kit',
+      fileName: 'computerKeyboard_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
+      tags: ['decor', 'surface', 'base'],
+    },
+    {
+      assetId: 'computer-mouse-sw',
+      kind: 'mouse',
+      packId: 'kenney-furniture-kit',
+      fileName: 'computerMouse_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
+      tags: ['decor', 'surface', 'base'],
+    },
+    {
+      assetId: 'books-sw',
+      kind: 'books',
+      packId: 'kenney-furniture-kit',
+      fileName: 'books_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
+      tags: ['decor', 'surface', 'base'],
+    },
+    {
+      assetId: 'radio-sw',
+      kind: 'radio',
+      packId: 'kenney-furniture-kit',
+      fileName: 'radio_SW.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'CC0-1.0',
+      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
+      tags: ['decor', 'surface', 'base'],
     },
   ],
 };

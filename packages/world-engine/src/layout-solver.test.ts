@@ -123,3 +123,53 @@ describe('footprint multi-celula', () => {
     expect(violacoes.some((v) => v.regra === 'sem-props-empilhados')).toBe(true);
   });
 });
+
+describe('decor de superficie', () => {
+  it('gera laptop/desktop em pelo menos algumas mesas, e livros em pelo menos alguma estante', () => {
+    const kindsVistos = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const layout = gerarLayout(seed, 7);
+      for (const d of layout.decor) kindsVistos.add(d.kind);
+    }
+    // Nem toda mesa ganha decor (90% de chance, ver decorar() em layout-solver.ts),
+    // mas em 30 seeds todo kind de decor definido deve aparecer pelo menos uma vez.
+    expect(kindsVistos).toEqual(new Set(['laptop', 'monitor', 'keyboard', 'mouse', 'books']));
+  });
+
+  it('todo decor aponta para um Prop existente e fica dentro da sala dele', () => {
+    const layout = gerarLayout(999, 12);
+    expect(layout.decor.length).toBeGreaterThan(0);
+    const propsPorId = new Map(layout.props.map((p) => [p.propId, p]));
+    for (const d of layout.decor) {
+      expect(d.onPropId).toBeDefined();
+      const prop = propsPorId.get(d.onPropId as string);
+      expect(prop).toBeDefined();
+      expect(d.cell).toEqual(prop!.cell);
+      expect(d.roomId).toBe(prop!.roomId);
+    }
+  });
+
+  it('decor e deterministico pela seed, como o resto do layout', () => {
+    const a = gerarLayout(42, 6);
+    const b = gerarLayout(42, 6);
+    expect(b.decor).toEqual(a.decor);
+  });
+
+  it('decor com onPropId inexistente e rejeitado pela validacao', () => {
+    const layout = gerarLayout(999, 7);
+    const sala = layout.rooms[0]!;
+    const decorInvalido: OfficeLayout['decor'][number] = {
+      decorId: 'laptop-invalido-teste',
+      kind: 'laptop',
+      cell: { x: sala.rect.x0 + 1, y: sala.rect.y0 + 1 },
+      roomId: sala.roomId,
+      onPropId: 'prop-que-nao-existe',
+      facing: 0,
+    };
+    const layoutInvalido: OfficeLayout = { ...layout, decor: [...layout.decor, decorInvalido] };
+    const violacoes = validarLayout(layoutInvalido);
+    expect(
+      violacoes.some((v) => v.regra === 'decor-prop-valido' && v.detalhe.includes('laptop-invalido-teste')),
+    ).toBe(true);
+  });
+});

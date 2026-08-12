@@ -20,7 +20,7 @@
  * Nao ha LLM nenhum neste arquivo. E de proposito (ADR-0004).
  */
 
-import type { Cell, Footprint, OfficeLayout, Prop, Room, SpaceProgram, ZoneRequest } from '@microfirma/contracts';
+import type { Cell, Decor, Footprint, OfficeLayout, Prop, Room, SpaceProgram, ZoneRequest } from '@microfirma/contracts';
 import { createRng, type Rng } from './prng.js';
 
 /** Largura minima util de uma sala, em celulas. Micro-firma: 4 (2x2 de mesa + circulacao). */
@@ -51,11 +51,15 @@ export function solveLayout(program: SpaceProgram): OfficeLayout {
     ...alocarFaixa(sul, faixaSul, W, 'sul', corredorY1),
   ];
 
-  // --- 6. mobiliario -------------------------------------------------------
+  // --- 6. mobiliario e decor de superficie ---------------------------------
   const props: Prop[] = [];
+  const decor: Decor[] = [];
   for (const sala of rooms) {
     const zona = program.zones.find((z) => z.zoneId === sala.zoneId);
-    props.push(...mobiliar(sala, zona, program, rng.fork(sala.roomId)));
+    const rngSala = rng.fork(sala.roomId);
+    const propsSala = mobiliar(sala, zona, program, rngSala);
+    props.push(...propsSala);
+    decor.push(...decorar(propsSala, rngSala.fork('decor')));
   }
 
   return {
@@ -64,6 +68,7 @@ export function solveLayout(program: SpaceProgram): OfficeLayout {
     grid: program.grid,
     rooms,
     props,
+    decor,
     corridors,
     theme: program.theme,
   };
@@ -424,4 +429,39 @@ function mobiliar(
   }
 
   return props;
+}
+
+// ---------------------------------------------------------------------------
+// 6b. Decor de superficie (passo 5 do ADR-0012)
+// ---------------------------------------------------------------------------
+
+/**
+ * Decor de superficie: notebook OU (monitor+teclado+mouse) sobre cada mesa,
+ * livros sobre estantes/armarios. Puramente estetico e deterministico por
+ * seed - deliberadamente NAO reserva celula nenhuma (`ocupado`/`reservar`):
+ * decor pousa sobre um `Prop` existente, o navgrid nunca o consome (ver
+ * docstring de `Decor` em contracts/layout.ts). Se o solver "errar" a
+ * posicao, o pior caso e um item flutuando visualmente, nunca um agente
+ * preso ou uma mesa inalcancavel.
+ */
+function decorar(props: Prop[], rng: Rng): Decor[] {
+  const decor: Decor[] = [];
+  for (const p of props) {
+    const base = { cell: p.cell, roomId: p.roomId, onPropId: p.propId, facing: p.facing };
+    if (p.kind === 'desk') {
+      if (!rng.chance(0.9)) continue; // mesa vazia - nem todo agente esta "logado"
+      if (rng.chance(0.55)) {
+        decor.push({ decorId: `laptop-${p.propId}`, kind: 'laptop', ...base });
+      } else {
+        decor.push(
+          { decorId: `monitor-${p.propId}`, kind: 'monitor', ...base },
+          { decorId: `keyboard-${p.propId}`, kind: 'keyboard', ...base },
+          { decorId: `mouse-${p.propId}`, kind: 'mouse', ...base },
+        );
+      }
+    } else if ((p.kind === 'bookshelf' || p.kind === 'cabinet') && rng.chance(0.7)) {
+      decor.push({ decorId: `books-${p.propId}`, kind: 'books', ...base });
+    }
+  }
+  return decor;
 }

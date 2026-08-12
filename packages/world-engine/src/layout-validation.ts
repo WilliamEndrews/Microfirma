@@ -92,6 +92,24 @@ export function validarLayout(layout: OfficeLayout): Violacao[] {
     }
   }
 
+  // (4b) Decor de superficie: so verificamos contencao/proveniencia, NUNCA
+  // colisao - por design (ADR-0012, decisao 4), decor pousa sobre um Prop e
+  // o navgrid nunca o consome, entao nao ha "empilhamento invalido" aqui.
+  const propsPorId = new Map(layout.props.map((p) => [p.propId, p]));
+  for (const d of layout.decor) {
+    const sala = layout.rooms.find((s) => s.roomId === d.roomId);
+    if (!sala) {
+      v.push({ regra: 'decor-tem-sala', detalhe: d.decorId });
+      continue;
+    }
+    if (!dentro(d.cell, sala.rect)) {
+      v.push({ regra: 'decor-dentro-da-sala', detalhe: `${d.decorId} fora de ${sala.roomId}` });
+    }
+    if (d.onPropId !== undefined && !propsPorId.has(d.onPropId)) {
+      v.push({ regra: 'decor-prop-valido', detalhe: `${d.decorId} aponta para ${d.onPropId}, que nao existe` });
+    }
+  }
+
   // (5) Todo o corredor e um unico componente conexo (ninguem fica ilhado).
   if (layout.corridors.length > 0) {
     const nav = buildNavGrid(layout);

@@ -114,12 +114,35 @@ export const Prop = z.object({
 });
 export type Prop = z.infer<typeof Prop>;
 
+/**
+ * Decoracao de superficie (ADR-0012, decisao 4): notebook, monitor, teclado,
+ * mouse, livros - itens pequenos QUE POUSAM sobre um `Prop` (tipicamente uma
+ * mesa ou estante). Deliberadamente um array SEPARADO de `props`, e
+ * deliberadamente SEM footprint: `navgrid` nunca consome `decor`, entao um
+ * item de decor nao pode travar pathfinding nem quebrar a invariante de
+ * alcancabilidade de mesa. E puramente estetico - se o solver errar a
+ * posicao, o pior caso e uma xicara flutuando, nao um agente preso.
+ */
+export const Decor = z.object({
+  decorId: z.string(),
+  kind: z.enum(['laptop', 'monitor', 'keyboard', 'mouse', 'books', 'radio']),
+  cell: Cell,
+  roomId: z.string(),
+  /** Prop sobre o qual este item repousa (a mesa, a estante). Opcional para decor "solto". */
+  onPropId: z.string().optional(),
+  /** Orientacao para o render (0=sul, 1=oeste, 2=norte, 3=leste). */
+  facing: z.number().int().min(0).max(3).default(0),
+});
+export type Decor = z.infer<typeof Decor>;
+
 export const OfficeLayout = z.object({
   officeId: z.string(),
   seed: z.number().int().nonnegative(),
   grid: z.object({ width: z.number().int(), height: z.number().int() }),
   rooms: z.array(Room),
   props: z.array(Prop),
+  /** Decoracao de superficie, nao-colidivel - ver docstring de `Decor`. */
+  decor: z.array(Decor).default([]),
   /** Celulas de circulacao (corredores). Base do pathfinding entre salas. */
   corridors: z.array(Cell),
   theme: SpaceProgram.shape.theme,
