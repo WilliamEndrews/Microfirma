@@ -20,6 +20,10 @@ __pycache__/
 # Artefatos gerados
 docs/generated/
 packages/contracts/schema/*.json
+# Renders de teste/calibracao do pipeline Blender - o script fica versionado
+# (scripts/blender-render/render_isometric.py), a saida nao. PNGs finais
+# aprovados vao para assets-source/<pack>/Isometric/ manualmente, com LFS.
+scripts/blender-render/output/
 
 # Lixo de sistema de arquivos (assets-source recebe muitos diretorios extraidos)
 Thumbs.db
