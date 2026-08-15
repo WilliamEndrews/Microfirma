@@ -22,11 +22,14 @@ import { carregarAtlas, type AssetAtlas } from './asset-atlas';
 import {
   criarFabrica,
   desenharSpriteProp,
+  desenharSpriteDecor,
   desenharSpriteAtor,
   obterSpriteProp,
+  obterSpriteDecor,
   obterSpriteAtor,
   type SpriteCache,
   type PropKind,
+  type DecorKind,
 } from './sprite-factory';
 
 const LARGURA_TILE = 44;
@@ -376,6 +379,18 @@ function desenharCenarioEstatico(
         const kind = p.kind as PropKind;
         if (kind === 'lamp') return;
         desenharSpriteProp(ctx, obterSpriteProp(sprites, kind), p.cell.x, p.cell.y);
+      },
+    });
+  }
+
+  // Decor de superficie: desenhado DEPOIS do prop sobre o qual repousa,
+  // com depth ligeiramente maior para manter ordem correta na projecao isometrica.
+  const decor = [...layout.decor].sort((a, b) => a.cell.x + a.cell.y - (b.cell.x + b.cell.y));
+  for (const d of decor) {
+    itens.push({
+      depth: d.cell.x + d.cell.y + 0.5,
+      draw: () => {
+        desenharSpriteDecor(ctx, obterSpriteDecor(sprites, d.kind as DecorKind), d.cell.x, d.cell.y);
       },
     });
   }

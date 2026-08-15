@@ -172,4 +172,29 @@ describe('decor de superficie', () => {
       violacoes.some((v) => v.regra === 'decor-prop-valido' && v.detalhe.includes('laptop-invalido-teste')),
     ).toBe(true);
   });
+
+  it('decor adicional em celula vazia nao bloqueia o navgrid', () => {
+    const layout = gerarLayout(42, 7);
+    const sala = layout.rooms[0]!;
+    // Encontra uma celula livre dentro da sala (nao e porta, nao tem prop).
+    const ocupadas = new Set(layout.props.map((p) => `${p.cell.x},${p.cell.y}`));
+    let celulaLivre: { x: number; y: number } | null = null;
+    for (let y = sala.rect.y0; y < sala.rect.y1 && !celulaLivre; y++) {
+      for (let x = sala.rect.x0; x < sala.rect.x1 && !celulaLivre; x++) {
+        if (x === sala.door.x && y === sala.door.y) continue;
+        if (!ocupadas.has(`${x},${y}`)) celulaLivre = { x, y };
+      }
+    }
+    expect(celulaLivre).not.toBeNull();
+    const decorExtra: OfficeLayout['decor'][number] = {
+      decorId: 'xicara-livre-teste',
+      kind: 'radio',
+      cell: celulaLivre!,
+      roomId: sala.roomId,
+      facing: 0,
+    };
+    const layoutComDecor: OfficeLayout = { ...layout, decor: [...layout.decor, decorExtra] };
+    const nav = buildNavGrid(layoutComDecor);
+    expect(isWalkable(nav, celulaLivre!)).toBe(true);
+  });
 });

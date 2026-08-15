@@ -15,7 +15,9 @@
  */
 
 import { INITIAL_CATALOG } from '@microfirma/contracts';
-import type { PropKind } from './sprite-factory';
+import type { DecorKind, PropKind } from './sprite-factory';
+
+export type AtlasKind = PropKind | DecorKind;
 
 export interface LoadedAsset {
   image: HTMLImageElement;
@@ -28,9 +30,9 @@ export interface AssetAtlas {
   /** Promise resolvida quando todas as imagens tiverem sido carregadas (ou falhado). */
   ready: Promise<void>;
   /** Retorna o asset carregado para um kind, ou undefined se nao houver/falhou. */
-  get(kind: PropKind): LoadedAsset | undefined;
+  get(kind: AtlasKind): LoadedAsset | undefined;
   /** Url final de um asset, util para depuracao. */
-  url(kind: PropKind): string | undefined;
+  url(kind: AtlasKind): string | undefined;
 }
 
 function buildAssetUrl(packId: string, fileName: string, baseUrl: string): string {
@@ -40,11 +42,11 @@ function buildAssetUrl(packId: string, fileName: string, baseUrl: string): strin
 }
 
 export function carregarAtlas(baseUrl = ''): AssetAtlas {
-  const byKind = new Map<PropKind, LoadedAsset>();
+  const byKind = new Map<AtlasKind, LoadedAsset>();
   const loads: Promise<void>[] = [];
 
   for (const asset of INITIAL_CATALOG.assets) {
-    const kind = asset.kind as PropKind;
+    const kind = asset.kind as AtlasKind;
     const url = buildAssetUrl(asset.packId, asset.fileName, baseUrl);
     const img = new Image();
     img.decoding = 'async';
@@ -70,8 +72,8 @@ export function carregarAtlas(baseUrl = ''): AssetAtlas {
 
   return {
     ready: Promise.all(loads).then(() => undefined),
-    get: (kind: PropKind) => byKind.get(kind),
-    url: (kind: PropKind) => {
+    get: (kind: AtlasKind) => byKind.get(kind),
+    url: (kind: AtlasKind) => {
       const a = byKind.get(kind);
       if (!a) return undefined;
       return a.image.src;
