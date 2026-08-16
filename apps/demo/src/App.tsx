@@ -37,6 +37,16 @@ import { simular, type SimularResult } from './api';
  */
 const URL_SERVIDOR = import.meta.env.VITE_MICROFIRMA_WS as string | undefined;
 
+/**
+ * Cenario de teste: ?agents=2 ativa uma micro-firma com 2 agentes privativos
+ * (triagem + email) em 2 escritorios + 1 copa. Grid reduzido, sem recepcao.
+ */
+const PARAM_AGENTES = (() => {
+  const url = new URL(window.location.href);
+  const v = url.searchParams.get('agents');
+  return v ? parseInt(v, 10) : undefined;
+})();
+
 const CHAVE_CONEXAO: Record<EstadoConexao, string> = {
   local: 'conexao.local',
   conectando: 'conexao.conectando',
@@ -113,10 +123,10 @@ export default function App() {
           setAvisoFonte(
             t('app.servidorIndisponivel', { url: URL_SERVIDOR }),
           );
-          criada = criarFonteLocal(seed);
+          criada = criarFonteLocal(seed, PARAM_AGENTES);
         }
       } else {
-        criada = criarFonteLocal(seed);
+        criada = criarFonteLocal(seed, PARAM_AGENTES);
       }
 
       if (!vivo) {

@@ -19,6 +19,8 @@
  */
 
 import type {
+  AgentDescriptor,
+  AgentRole,
   ClientCommand,
   DomainEvent,
   OfficeLayout,
@@ -34,7 +36,7 @@ import {
   validarLayout,
   type Violacao,
 } from '@microfirma/world-engine';
-import { SyntheticStream, colaboracaoDoElenco } from '@microfirma/synthetic';
+import { SyntheticStream, colaboracaoDoElenco, type SyntheticOptions } from '@microfirma/synthetic';
 
 /** Passo de simulacao: 10 Hz. Mesmo valor no navegador e no servidor. */
 export const PASSO_MS = 100;
@@ -102,8 +104,35 @@ function criarEmissor<T>() {
 // FONTE LOCAL - simulacao no navegador (Fase 0)
 // ---------------------------------------------------------------------------
 
-export function criarFonteLocal(seed: number): WorldSource {
-  const stream = new SyntheticStream({ seed, comRoteiro: true });
+/**
+ * Elenco de 2 agentes para micro-firma: um que capita mensagens (support,
+ * mas em sala privativa) e um que envia e-mails (finance, tambem privativo).
+ * Papeis privativos garantem 2 escritorios separados no space program.
+ */
+const ELENCO_2_AGENTES: SyntheticOptions['elencoCustomizado'] = [
+  { id: 'agent-triagem', nome: 'Triagem', role: 'guardian', framework: 'langgraph', taxa: 0.55, duracao: 2600, erro: 0.04, custo: 0.004, modelo: 'gpt-4o-mini' },
+  { id: 'agent-email', nome: 'Email', role: 'finance', framework: 'langgraph', taxa: 0.3, duracao: 3200, erro: 0.05, custo: 0.008, modelo: 'gpt-4o-mini' },
+];
+
+/**
+ * Cenario de 1 agente: um unico agente em escritorio privativo + copa.
+ * Usado para validar visualmente a escala e proporcao dos assets sem
+ * ruido de outras salas.
+ */
+const ELENCO_1_AGENTE: SyntheticOptions['elencoCustomizado'] = [
+  { id: 'agent-triagem', nome: 'Triagem', role: 'guardian', framework: 'langgraph', taxa: 0.4, duracao: 2600, erro: 0.04, custo: 0.004, modelo: 'gpt-4o-mini' },
+];
+
+export function criarFonteLocal(seed: number, agentes?: number): WorldSource {
+  const opts: SyntheticOptions = { seed, comRoteiro: true };
+  if (agentes === 1) {
+    opts.elencoCustomizado = ELENCO_1_AGENTE;
+    opts.comRoteiro = false;
+  } else if (agentes === 2) {
+    opts.elencoCustomizado = ELENCO_2_AGENTES;
+    opts.comRoteiro = false; // roteiro padrao referencia agentes que nao existem aqui
+  }
+  const stream = new SyntheticStream(opts);
   const programa = planSpaceProgram(stream.agents, {
     officeId: `office-${seed}`,
     seed,

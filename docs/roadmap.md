@@ -494,6 +494,82 @@ Total: 123 testes, 9 arquivos, suite verde.
 
 ---
 
+## Fase 3.5 - Refinamento visual com TinyHouse - em andamento
+
+### Motivacao
+
+O visual da Fase 2 usava primitivas geometricas (`caixaIso3D`) com teto
+intransponivel de qualidade. O usuario rejeitou o resultado ("um conjunto de
+formas geometricas que juntas dao a impressao de parecer uma mesa") e pediu
+escritorio reconhecivel, proximo de Stardew Valley / SoWork / Gather.town.
+
+### 3.5.1 Migracao para TinyHouse pack
+
+- **Pack**: `TinyHouse_0.17(@Pixel_Salvaje)` extraido para
+  `assets-source/TinyHouse`. Pack CC0 com tiles de piso/parede 128px,
+  mobiliario de escritorio, computadores, portas, plantas, livros, etc.
+- **Projecao nativa** (`apps/demo/src/projecao.ts`): `LARGURA_TILE=128`,
+  `ALTURA_TILE=64`, `ALTURA_PERSONAGEM=96`. Substituiu a projecao 44x22.
+- **Tiles pelo atlas**: `Wall_L_128` (oeste), `Wall_R_128` (norte), floor
+  tiles. Oclusao por construcao: sul e leste sem parede.
+
+### 3.5.2 Correcoes de parede e porta
+
+- **Recorte de parede** (`comRecorte`): clip de canvas limita a largura das
+  paredes a extensao do piso da sala, impedindo transbordamento da laje.
+- **Porta sobreposta**: a porta e desenhada como OBJETO (centro-inferior)
+  sobreposto a parede, nao como substituicao do tile de parede. Motivo: a
+  porta e um retangulo frontal, incompativel com o paralelogramo inclinado
+  de Wall_L/Wall_R.
+- **Ordenacao por profundidade**: paredes com depth `gx + y0 + 0.4` (entre o
+  piso da propria celula e o da proxima fileira).
+
+### 3.5.3 Salas mais quadradas
+
+- **Grid por maxPorFaixa**: `largura = clamp(maxPorFaixa * 5 + 2, 7, 56)` onde
+  `maxPorFaixa = ceil(zones.length / 2)`. Antes usava `zones.length * 5 + 1`,
+  que produzia predios largos demais para poucas zonas.
+- **Corredor centralizado**: `floor(H/2)` em vez de `floor(H/2) - 1`,
+  equilibrando as alturas das faixas norte e sul.
+- **Cap de largura quadrada**: cada sala limitada a `alturaFaixa + 1` de
+  largura, com excecao para acomodar N agentes (`max(cap, 2N + 1)`).
+- **Celulas excedentes viram corredor**: o espaco nao alocado recebe piso em
+  vez de ficar vazio (fundo preto).
+- **Estantes na parede do fundo**: movidas de `frenteY` para `fundoY` (parede
+  oposta a porta) para evitar conflito com cadeiras em salas compactas.
+- **Espacamento de mesas adaptativo**: 3 celulas em salas largas, 2 em salas
+  pequenas (<=5) para garantir mesa para todos os agentes.
+
+### 3.5.4 Cenarios de demo
+
+- `?agents=1`: 1 agente (guardian), 1 escritorio privativo + 1 copa.
+- `?agents=2`: 2 agentes (guardian + finance), 2 escritorios + 1 copa.
+- Elencos customizados em `world-source.ts` (`ELENCO_1_AGENTE`,
+  `ELENCO_2_AGENTES`).
+
+### 3.5.5 Supressao de procedural
+
+- `PROP_KINDS_COM_ASSET` e `DECOR_KINDS_COM_ASSET` em `sprite-factory.ts`:
+  kinds com asset no catalogo que falham ao carregar retornam placeholder
+  transparente, nao forma geometrica procedural. Procedural so sobrevive para
+  kinds sem cobertura de asset (lamp, rug, mouse, radio).
+
+### Resultado parcial
+
+- **Typecheck:** limpo
+- **Testes:** 218 passando, 20 arquivos, 0 falhas
+- **Visual:** piso e paredes TinyHouse nativos, salas mais quadradas, porta
+  alinhada com a parede, cenarios de 1 e 2 agentes para iteracao
+
+### Pendencias da fase 3.5
+
+- Expandir catalogo com mais assets TinyHouse (monitores, gaveteiros,
+  impressoras, copiadoras, bebedouros, relogios, posters, racks, particoes).
+- Definir assets obrigatorios vs opcionais no space program.
+- Validar visualmente com o usuario e iterar.
+
+---
+
 ## Fase 4 - Go-to-Market: landing page
 
 **Objetivo:** apresentar o MicroFirma como produto e converter a curiosidade

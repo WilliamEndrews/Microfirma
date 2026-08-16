@@ -88,6 +88,22 @@ export interface SyntheticOptions {
   comRoteiro?: boolean;
   /** Multiplica a taxa de eventos sinteticos (1 = normal, 10 = 10x carga). */
   carga?: number;
+  /**
+   * Elenco customizado que substitui o ELENCO padrao. Cada entrada define
+   * um agente com seu perfil comportamental. Usado para cenarios de teste
+   * especificos (ex.: micro-firma de 2 agentes com papeis privativos).
+   */
+  elencoCustomizado?: Array<{
+    id: string;
+    nome: string;
+    role: AgentRole;
+    framework: string;
+    taxa: number;
+    duracao: number;
+    erro: number;
+    custo: number;
+    modelo: string;
+  }>;
 }
 
 export class SyntheticStream {
@@ -105,9 +121,11 @@ export class SyntheticStream {
     this.rng = createRng(opts.seed).fork('synthetic');
     this.tenantId = opts.tenantId ?? 'tenant-demo';
     this.carga = Math.max(0, opts.carga ?? 1);
-    const quantos = Math.max(1, Math.min(ELENCO.length, opts.quantidadeAgentes ?? ELENCO.length));
 
-    this.perfis = ELENCO.slice(0, quantos).map((e) => ({
+    const elenco = opts.elencoCustomizado ?? ELENCO;
+    const quantos = Math.max(1, Math.min(elenco.length, opts.quantidadeAgentes ?? elenco.length));
+
+    this.perfis = elenco.slice(0, quantos).map((e) => ({
       descriptor: {
         agentId: e.id,
         displayName: e.nome,

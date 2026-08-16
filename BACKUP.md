@@ -2,7 +2,7 @@
 
 > Documento de resgate de contexto. Destinado a qualquer pessoa ou agente que
 > precise retomar o projeto sem relembrar toda a conversa de implementacao.
-> Ultima atualizacao: 2026-08-07.
+> Ultima atualizacao: 2026-08-09.
 
 ---
 
@@ -183,9 +183,64 @@ ainda nao tem arquivos fisicos, so citacoes no codigo.
 8. **Landing page 3D** (`apps/landing/`) — quarto branco, vultos, transicao
    cinematografica para a demo
 
-**Testes atuais**: `pnpm typecheck` limpo.
+**Testes atuais**: `pnpm typecheck` limpo. `pnpm test` = 218 testes, 20 arquivos, 0 falhas.
+
+### Frente de refinamento visual (agosto/2026)
+
+1. **Migracao para TinyHouse pack** (`assets-source/TinyHouse`): pack 0.17 do
+   Pixel_Salvaje extraido e renomeado (original tinha `@` e parenteses no nome).
+   Tornou-se a fonte primaria de assets estruturais e de escritorio. Contem:
+   `Office`, `Desks`, `Chairs`, `Computer`, `Floor_Wall_Tiles_128/64/32`,
+   `Doors`, `Plants`, `Books`, `Carpets`, `Lamp`, `Sofa`, `Windows`,
+   `Bathroom`, `Kitchen`, etc.
+2. **Projecao nativa TinyHouse** (`apps/demo/src/projecao.ts`): `PX_POR_CELULA=128`,
+   `LARGURA_TILE=128`, `ALTURA_TILE=64`, `ALTURA_PERSONAGEM=96`. Substituiu a
+   projecao anterior de 44x22. Tiles de piso/parede blitados nativamente.
+3. **Tiles de piso e parede pelo atlas**: `Wall_L_128` (oeste), `Wall_R_128`
+   (norte), floor tiles 128x128. Oclusao por construcao: apenas arestas norte
+   e oeste recebem parede; sul e leste sao omitidas para manter o interior
+   visivel sem parede translucida.
+4. **Recorte de parede** (`comRecorte` em `office-renderer-2d.ts`): clip de
+   canvas limita a largura das paredes a extensao exata do piso da sala,
+   impedindo que a laje de 8px do tile de parede transborde para fora do chao.
+5. **Porta sobreposta como objeto**: a porta do TinyHouse e um retangulo
+   frontal, incompativel com o paralelogramo inclinado de Wall_L/Wall_R. Em vez
+   de substituir o tile de parede, a parede e desenhada normalmente e a porta
+   e sobreposta como objeto ancorado pelo centro-inferior (`spriteDeAsset` +
+   `desenharObjetoPorta`).
+6. **Salas mais quadradas**: grid baseado em `maxPorFaixa` (max de zonas por
+   faixa norte/sul), nao no total de zonas. Corredor centralizado em
+   `floor(H/2)`. Cap de largura por sala em `alturaFaixa + 1`, com excecao para
+   acomodar N agentes (`2N + 1`). Celulas nao alocadas viram corredor (piso).
+7. **Cenarios de demo**: `?agents=1` (1 agente, 1 escritorio, 1 copa) e
+   `?agents=2` (2 agentes, 2 escritorios, 1 copa). Elencos customizados em
+   `world-source.ts`.
+8. **Supressao de procedural para kinds com asset**: `PROP_KINDS_COM_ASSET` e
+   `DECOR_KINDS_COM_ASSET` em `sprite-factory.ts` - se o asset falha ao
+   carregar, retorna placeholder transparente em vez de forma geometrica.
+9. **Estantes na parede do fundo**: movidas de `frenteY` (conflitava com
+   cadeiras em salas compactas) para `fundoY` (parede oposta a porta).
+10. **Espacamento de mesas adaptativo**: 3 celulas em salas largas, 2 em salas
+    pequenas (<=5) para garantir que todos os agentes tenham mesa.
 
 ## 6. O que ainda falta (proximos passos)
+
+### Refinamento visual em andamento
+
+- **Expandir catalogo TinyHouse**: catalogar e integrar mais assets do pack:
+  monitores, variantes de mesas, gaveteiros, impressoras, copiadoras,
+  bebedouros/filtros, relogios, posters, decoracoes de parede, racks,
+  particionadores, lampadas, livros, plantas adicionais.
+- **Assets obrigatorios vs opcionais**: definir regras no space program/solver
+  para garantir que todo escritorio tenha: 1 mesa por agente, 1 cadeira por
+  agente, 1 computador/laptop por estacao, espaco de circulacao, infra de
+  piso/parede/porta. Deixar extensao para assets opcionais escolhidos pelo
+  usuario (futura aba de customizacao).
+- **Validacao visual continua**: o cenario `?agents=1` e o banco de testes
+  visual para iteracao. Verificar: seam piso/parede, contencao de parede,
+  alinhamento de porta, proporcao de salas, escala de mobiliario/personagens.
+
+### Producao e escala
 
 - **Observabilidade produtiva:** conectar `/metrics` a Prometheus/Grafana,
   tracar via collector OTLP real (Jaeger/Tempo), logs estruturados.
@@ -196,8 +251,8 @@ ainda nao tem arquivos fisicos, so citacoes no codigo.
 - **CI/CD:** GitHub Actions com typecheck/test/build/deploy canario no Fly.
 - **Air-gapped / VPC / SaaS:** modos de deployment, Helm, SOC2 prep.
 - **LOD semantico e escala para 5.000 agentes:** agregacao visual por
-  proximidade, campus → predio → andar → sala → mesa.
-- **Modo executivo / NOC wallboard:** visual sobio, exportacao de video
+  proximidade, campus -> predio -> andar -> sala -> mesa.
+- **Modo executivo / NOC wallboard:** visual sobrio, exportacao de video
   server-side, narrador automatico de incidentes.
 - **SimFirma what-if:** interface para rodar cenarios sinteticos e comparar.
 - **Watercooler seguro:** mural de artefatos estruturados, com escopo, TTL,

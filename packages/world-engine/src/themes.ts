@@ -40,12 +40,12 @@ export interface TemaPacks {
  * escritorio (ADR-0012, decisao 6).
  */
 export const PACOTES_BASE_COMPARTILHADA = {
-  floor: 'sbs-isometric-floor-tiles',
-  vegetation: 'kenney-nature-kit',
+  floor: 'tinyhouse-pixel-salvaje',
+  vegetation: 'tinyhouse-pixel-salvaje',
 } as const;
 
 /** Pack estrutural padrao - unico disponivel e completo hoje (ver comentario acima). */
-const PACOTES_ESTRUTURAIS_PADRAO: TemaPacks = { structural: ['kenney-furniture-kit'] };
+const PACOTES_ESTRUTURAIS_PADRAO: TemaPacks = { structural: ['tinyhouse-pixel-salvaje'] };
 
 export interface Tema {
   name: string;

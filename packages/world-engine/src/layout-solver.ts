@@ -23,15 +23,18 @@
 import type { Cell, Decor, Footprint, OfficeLayout, Prop, Room, SpaceProgram, ZoneRequest } from '@microfirma/contracts';
 import { createRng, type Rng } from './prng.js';
 
-/** Largura minima util de uma sala, em celulas. Micro-firma: 4 (2x2 de mesa + circulacao). */
-const LARGURA_MINIMA_SALA = 4;
+/** Largura minima util de uma sala, em celulas. Micro-escritorio: 3 (mesa + cadeira + circulacao). */
+const LARGURA_MINIMA_SALA = 3;
 
 export function solveLayout(program: SpaceProgram): OfficeLayout {
   const rng = createRng(program.seed).fork('layout');
   const { width: W, height: H } = program.grid;
 
   // --- 2. corredor-espinha (1 celula, central) --------------------------
-  const corredorY = Math.floor(H / 2) - 1;
+  // Corredor centralizado: floor(H/2) em vez de floor(H/2)-1 produz faixas
+  // norte e sul de altura mais equilibrada, evitando salas baixas e retangulares
+  // no norte. Para H=9: corredor no y=4, faixas de altura 4 (norte) e 4 (sul).
+  const corredorY = Math.floor(H / 2);
   const corredorY0 = corredorY;
   const corredorY1 = corredorY;
   const corridors: Cell[] = [];
@@ -50,6 +53,31 @@ export function solveLayout(program: SpaceProgram): OfficeLayout {
     ...alocarFaixa(norte, faixaNorte, W, 'norte', corredorY0),
     ...alocarFaixa(sul, faixaSul, W, 'sul', corredorY1),
   ];
+
+  // --- 3b. celulas nao alocadas viram corredor --------------------------------
+  // Quando o cap de largura quadrada encurta salas, sobra area na faixa. Essas
+  // celulas nao pertencem a nenhuma sala, mas ficam dentro do predio. Sem piso
+  // elas apareceriam como vazio (fundo preto). Transforma-las em corredor da
+  // a elas piso e mantem a planta visualmente continua - sao o "hall" ou area
+  // de circulacao extra da micro-firma.
+  const celulasDeSala = new Set<string>();
+  for (const sala of rooms) {
+    for (let y = sala.rect.y0; y < sala.rect.y1; y++) {
+      for (let x = sala.rect.x0; x < sala.rect.x1; x++) {
+        celulasDeSala.add(`${x},${y}`);
+      }
+    }
+  }
+  const celulasCorredor = new Set(corridors.map((c) => `${c.x},${c.y}`));
+  for (let y = 1; y < H - 1; y++) {
+    for (let x = 1; x < W - 1; x++) {
+      const k = `${x},${y}`;
+      if (!celulasDeSala.has(k) && !celulasCorredor.has(k)) {
+        corridors.push({ x, y });
+        celulasCorredor.add(k);
+      }
+    }
+  }
 
   // --- 6. mobiliario e decor de superficie ---------------------------------
   const props: Prop[] = [];
@@ -143,6 +171,7 @@ function alocarFaixa(
 ): Room[] {
   if (zonas.length === 0) return [];
 
+  const alturaFaixa = faixa.y1 - faixa.y0;
   const paredes = zonas.length - 1;
   const utilizavel = W - 2 - paredes;
   const somaPesos = zonas.reduce((s, z) => s + z.areaWeight, 0);
@@ -151,6 +180,22 @@ function alocarFaixa(
   const larguras = zonas.map((z) =>
     Math.max(LARGURA_MINIMA_SALA, Math.floor((utilizavel * z.areaWeight) / somaPesos)),
   );
+  // CAP DE QUADRADO: limita a largura de cada sala a ~alturaFaixa+1 para
+  // produzir salas quase quadradas. Sem isto, uma faixa com 1 zona recebe
+  // toda a largura do predio e gera um retangulo longo e fino. O excesso
+  // de largura simplesmente nao e alocado (vira area nao construida).
+  //
+  // EXCECAO: o cap nunca pode cortar abaixo do necessario para acomodar os
+  // agentes da zona. Cada agente precisa de uma mesa, e o espacamento entre
+  // mesas e 2-3 celulas. Se a zona tem N agentes, a largura minima e ~2N+1.
+  const larguraMaximaQuadrada = alturaFaixa + 1;
+  for (let i = 0; i < larguras.length; i++) {
+    const zona = zonas[i] as ZoneRequest;
+    const nAgentes = zona.agentIds.length;
+    const larguraMinimaAgentes = Math.max(LARGURA_MINIMA_SALA, nAgentes * 2 + 1);
+    const cap = Math.max(larguraMaximaQuadrada, larguraMinimaAgentes);
+    larguras[i] = Math.min(larguras[i] as number, cap);
+  }
   // Reconciliacao do arredondamento: a sobra (ou falta) vai para a maior sala,
   // que e a que melhor absorve a diferenca sem ficar inutilizavel.
   const diferenca = utilizavel - larguras.reduce((s, l) => s + l, 0);
@@ -159,9 +204,16 @@ function alocarFaixa(
     for (let i = 1; i < larguras.length; i++) {
       if ((larguras[i] as number) > (larguras[idxMaior] as number)) idxMaior = i;
     }
+    // Reaplica o cap per-zone (agentes + quadrado) para nao desfazer a excecao
+    // de agentes na reconciliacao.
+    const zonaMaior = zonas[idxMaior] as ZoneRequest;
+    const capMaior = Math.max(
+      larguraMaximaQuadrada,
+      Math.max(LARGURA_MINIMA_SALA, zonaMaior.agentIds.length * 2 + 1),
+    );
     larguras[idxMaior] = Math.max(
       LARGURA_MINIMA_SALA,
-      (larguras[idxMaior] as number) + diferenca,
+      Math.min(capMaior, (larguras[idxMaior] as number) + diferenca),
     );
   }
 
@@ -262,11 +314,13 @@ function mobiliar(
   const cadeiraFacing = ehSul ? 0 : 2;
 
   // Mesas: uma por agente, encostadas na parede oposta a porta.
-  // Espacamento de 3 celulas garante circulacao na micro-sala.
+  // Espacamento adaptativo: 3 celulas em salas largas, 2 em salas pequenas
+  // (<=5 celulas) para garantir que todos os agentes tenham mesa.
   const agentes = zona?.agentIds ?? [];
+  const espacamentoMesas = largura <= 5 ? 2 : 3;
   let indiceAgente = 0;
   const colunasMesas: number[] = [];
-  for (let dx = 1; dx < largura - 1 && indiceAgente < agentes.length; dx += 3) {
+  for (let dx = 1; dx < largura - 1 && indiceAgente < agentes.length; dx += espacamentoMesas) {
     if (x0 + dx === colunaLivre) continue;
     colunasMesas.push(x0 + dx);
     const mesa = { x: x0 + dx, y: atrasY };
@@ -300,49 +354,37 @@ function mobiliar(
     );
   }
 
-  // Tapete no centro da sala (ocupa 1 ou 2 celulas).
-  const rugX = x0 + Math.max(1, Math.min(largura - 2, Math.floor(largura / 2)));
-  const rugY = y0 + Math.max(1, Math.min(altura - 2, Math.floor(altura / 2)));
-  const tapete = { x: rugX, y: rugY };
-  if (tapete.x !== colunaLivre && !ocupado.has(`${tapete.x},${tapete.y}`)) {
-    reservar(tapete);
-    props.push(prop1x1({
-      propId: `rug-${sala.roomId}`,
-      kind: 'rug',
-      cell: tapete,
-      roomId: sala.roomId,
-      facing: 0,
-    }));
-  }
+  // Tapete, luminaria e itens sem asset real foram REMOVIDOS do solver.
+  // Estes kinds (rug, lamp, coffee, water, board, printer) nao tem asset
+  // no catalogo TinyHouse e geravam formas geometricas procedural que
+  // destoavam dos sprites pre-renderizados. Serao reintroduzidos quando
+  // tiverem assets correspondentes no catalogo.
 
-  // Armario ou estante na parede oposta as mesas, ocupando cantos vazios.
-  for (let dx = 1; dx < largura - 1; dx++) {
-    const px = x0 + dx;
-    if (px === colunaLivre) continue;
-    const canto = { x: px, y: frenteY };
-    if (canto.x !== colunaLivre && !ocupado.has(`${canto.x},${canto.y}`) && reservar(canto)) {
-      const tipo = (px + y0) % 2 === 0 ? 'cabinet' : 'bookshelf';
-      props.push(prop1x1({
-        propId: `${tipo}-${sala.roomId}-${px}`,
-        kind: tipo,
-        cell: canto,
-        roomId: sala.roomId,
-        facing: mesaFacing,
-      }));
+  // Armario ou estante na parede do FUNDO (oposta a porta), ocupando celulas
+  // vazias. Pula em salas pequenas (< 5 celulas de largura) para nao amontoar.
+  //
+  // Antes ficavam em `frenteY` (parede da porta), mas com salas mais compactas
+  // (altura 4) essa fileira e a mesma das cadeiras, causando conflito e
+  // impedindo que estantes fossem colocadas. Mover para a parede do fundo
+  // (`fundoY`) resolve o conflito e e arquitetonicamente mais sensato:
+  // estantes encostadas na parede oposta a porta, atraves das mesas.
+  const fundoY = ehSul ? y1 - 1 : y0;
+  if (largura >= 5) {
+    for (let dx = 1; dx < largura - 1; dx++) {
+      const px = x0 + dx;
+      if (px === colunaLivre) continue;
+      const canto = { x: px, y: fundoY };
+      if (canto.x !== colunaLivre && !ocupado.has(`${canto.x},${canto.y}`) && reservar(canto)) {
+        const tipo = (px + y0) % 2 === 0 ? 'cabinet' : 'bookshelf';
+        props.push(prop1x1({
+          propId: `${tipo}-${sala.roomId}-${px}`,
+          kind: tipo,
+          cell: canto,
+          roomId: sala.roomId,
+          facing: mesaFacing,
+        }));
+      }
     }
-  }
-
-  // Luminaria no centro do teto (se cabe).
-  const lampX = x0 + Math.floor(largura / 2);
-  const lampY = y0 + Math.floor(altura / 2);
-  if (lampX !== colunaLivre && !ocupado.has(`${lampX},${lampY}`) && reservar({ x: lampX, y: lampY })) {
-    props.push(prop1x1({
-      propId: `lamp-${sala.roomId}`,
-      kind: 'lamp',
-      cell: { x: lampX, y: lampY },
-      roomId: sala.roomId,
-      facing: 0,
-    }));
   }
 
   // Plantas em cantos vazios (se houver).
@@ -366,12 +408,12 @@ function mobiliar(
   }
 
   // Mobiliario especifico por tipo de sala.
+  // NOTA: coffee, water, board, printer foram REMOVIDOS - sem asset no catalogo.
+  // So ficam kinds com asset real do TinyHouse (desk, chair, sofa, plant, etc.)
   const centro = { x: x0 + Math.floor(largura / 2), y: y0 + Math.floor(altura / 2) };
   switch (sala.kind) {
     case 'break': {
-      // Copa: sofa + mesa de cafe + bebedouro. Sofa tenta 2x1 (banco de dois
-      // lugares); se a sala nao tiver espaco, cai para 1x1 sem quebrar nada -
-      // footprint e um refinamento estetico, nunca um requisito de geracao.
+      // Copa: sofa. Mesa de cafe e bebedouro removidos (sem asset).
       const sofaFootprint: Footprint = { w: 2, h: 1 };
       const sofaGrande = reservarBloco(centro, sofaFootprint);
       if (sofaGrande) {
@@ -386,44 +428,25 @@ function mobiliar(
       } else if (reservar(centro)) {
         props.push(prop1x1({ propId: `sofa-${sala.roomId}`, kind: 'sofa', cell: centro, roomId: sala.roomId, facing: 0 }));
       }
-      const larguraSofa = sofaGrande ? sofaFootprint.w : 1;
-      const cafe = { x: centro.x + larguraSofa, y: centro.y };
-      if (cafe.x < x1 - 1 && reservar(cafe))
-        props.push(prop1x1({ propId: `coffee-${sala.roomId}`, kind: 'coffee', cell: cafe, roomId: sala.roomId, facing: 3 }));
-      const bebedouro = { x: x0 + 1, y: frenteY };
-      if (!ocupado.has(`${bebedouro.x},${bebedouro.y}`) && reservar(bebedouro))
-        props.push(prop1x1({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 3 }));
       break;
     }
     case 'meeting':
     case 'war_room': {
-      // Sala de reuniao: mesa de centro + quadro + cadeiras.
-      if (reservar(centro))
-        props.push(prop1x1({ propId: `board-${sala.roomId}`, kind: 'board', cell: centro, roomId: sala.roomId, facing: 2 }));
+      // Sala de reuniao: mesa de centro. Quadro removido (sem asset).
       const mesaReuniao = { x: centro.x - 1, y: centro.y };
       if (mesaReuniao.x >= x0 && !ocupado.has(`${mesaReuniao.x},${mesaReuniao.y}`) && reservar(mesaReuniao))
         props.push(prop1x1({ propId: `desk-${sala.roomId}-r`, kind: 'desk', cell: mesaReuniao, roomId: sala.roomId, facing: 0 }));
       break;
     }
     case 'reception': {
-      // Recepcao: mesa do recepcionista + impressora + bebedouro.
+      // Recepcao: mesa do recepcionista. Impressora e bebedouro removidos.
       if (reservar(centro))
         props.push(prop1x1({ propId: `desk-${sala.roomId}-recp`, kind: 'desk', cell: centro, roomId: sala.roomId, facing: mesaFacing }));
-      const impressora = { x: x0 + 1, y: frenteY };
-      if (!ocupado.has(`${impressora.x},${impressora.y}`) && reservar(impressora))
-        props.push(prop1x1({ propId: `printer-${sala.roomId}`, kind: 'printer', cell: impressora, roomId: sala.roomId, facing: 0 }));
-      const bebedouro = { x: x1 - 2, y: frenteY };
-      if (!ocupado.has(`${bebedouro.x},${bebedouro.y}`) && reservar(bebedouro))
-        props.push(prop1x1({ propId: `water-${sala.roomId}`, kind: 'water', cell: bebedouro, roomId: sala.roomId, facing: 1 }));
       break;
     }
     default: {
-      // Escritorios privativos e abertos: bebedouro no canto, se couber.
-      if (largura >= 5) {
-        const agua = { x: x1 - 2, y: frenteY };
-        if (!ocupado.has(`${agua.x},${agua.y}`) && reservar(agua))
-          props.push(prop1x1({ propId: `water-${sala.roomId}`, kind: 'water', cell: agua, roomId: sala.roomId, facing: 1 }));
-      }
+      // Escritorios privativos e abertos: sem mobiliario extra por ora.
+      // Bebedouro removido (sem asset).
       break;
     }
   }

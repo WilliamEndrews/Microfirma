@@ -20,31 +20,45 @@
  */
 
 import type { PaletaResolvida } from '@microfirma/world-engine';
-import type { AssetAtlas } from './asset-atlas';
+import type { TileKind } from '@microfirma/contracts';
+import type { AssetAtlas, AtlasKind, LoadedAsset } from './asset-atlas';
 
-const LARGURA_TILE = 44;
-const ALTURA_TILE = 22;
+import {
+  ALTURA_PERSONAGEM,
+  ALTURA_TILE,
+  ANCORA_TILE,
+  LARGURA_TILE,
+  iso as isoCompartilhado,
+} from './projecao';
+
 const SUPER = 2;
 
 export type PropKind = 'desk' | 'chair' | 'sofa' | 'board' | 'printer' | 'meter' | 'coffee' | 'plant' | 'lamp' | 'cabinet' | 'bookshelf' | 'water' | 'rug';
 
 export type DecorKind = 'laptop' | 'monitor' | 'keyboard' | 'mouse' | 'books' | 'radio';
 
-export interface PropSprite {
+/**
+ * Sprite pronto para desenho, seja de asset externo ou procedural.
+ *
+ * `recorte` e a regiao do canvas de origem que contem pixel visivel. Para
+ * assets externos ela vem da caixa alfa medida pelo atlas: recortar no
+ * desenho (em vez de recortar o canvas na carga) preserva o canvas intacto,
+ * de que os tiles de piso/parede dependem para se alinhar entre si.
+ *
+ * `w`/`h` sao as dimensoes JA escaladas para a tela.
+ */
+export interface Sprite2D {
   source: CanvasImageSource;
-  anchor: { x: number; y: number };
+  recorte: { x: number; y: number; w: number; h: number };
   isExternal: boolean;
   w: number;
   h: number;
 }
 
-export interface DecorSprite {
-  source: CanvasImageSource;
-  anchor: { x: number; y: number };
-  isExternal: boolean;
-  w: number;
-  h: number;
-}
+/** @deprecated Use `Sprite2D`. Aliases mantidos para nao quebrar chamadores. */
+export type PropSprite = Sprite2D;
+/** @deprecated Use `Sprite2D`. */
+export type DecorSprite = Sprite2D;
 
 export interface SpriteCache {
   props: Map<PropKind, HTMLCanvasElement>;
@@ -82,9 +96,7 @@ export function criarFabrica(paleta: PaletaResolvida, atlas?: AssetAtlas): Sprit
 // Projecao
 // ---------------------------------------------------------------------------
 
-function iso(gx: number, gy: number): { x: number; y: number } {
-  return { x: ((gx - gy) * LARGURA_TILE) / 2, y: ((gx + gy) * ALTURA_TILE) / 2 };
-}
+const iso = isoCompartilhado;
 
 function losango(gx: number, gy: number, recuo = 0) {
   const a = recuo;
@@ -1228,19 +1240,70 @@ function renderizarRadio(ctx: CanvasRenderingContext2D, paleta: PaletaResolvida)
 // API para o renderer
 // ---------------------------------------------------------------------------
 
-export function obterSpriteProp(cache: SpriteCache, kind: PropKind): PropSprite {
-  const asset = cache.atlas?.get(kind);
-  if (asset) {
-    return {
-      source: asset.image,
-      anchor: asset.anchor,
-      isExternal: true,
-      w: asset.image.naturalWidth,
-      h: asset.image.naturalHeight,
-    };
-  }
-  const sprite = cache.props.get(kind) ?? cache.props.get('desk')!;
-  return { source: sprite, anchor: { x: 0, y: 0 }, isExternal: false, w: sprite.width / SUPER, h: sprite.height / SUPER };
+/** Kinds de Prop que tem asset real no catalogo - NUNCA usar fallback procedural. */
+const PROP_KINDS_COM_ASSET: ReadonlySet<PropKind> = new Set([
+  'desk', 'chair', 'bookshelf', 'sofa', 'cabinet', 'plant',
+]);
+
+/** Kinds de Decor que tem asset real no catalogo - NUNCA usar fallback procedural. */
+const DECOR_KINDS_COM_ASSET: ReadonlySet<DecorKind> = new Set([
+  'laptop', 'monitor', 'keyboard', 'books',
+]);
+
+/** Placeholder vazio 1x1 para kinds sem asset e sem fallback procedural. */
+const PLACEHOLDER_VAZIO: HTMLCanvasElement = (() => {
+  const c = document.createElement('canvas');
+  c.width = 1; c.height = 1;
+  return c;
+})();
+
+/** Sprite invisivel, para kind que deveria ter asset mas falhou ao carregar. */
+const SPRITE_VAZIO: Sprite2D = {
+  source: PLACEHOLDER_VAZIO,
+  recorte: { x: 0, y: 0, w: 1, h: 1 },
+  isExternal: false,
+  w: 0,
+  h: 0,
+};
+
+/**
+ * Converte um asset do atlas em sprite de tela, aplicando a escala global.
+ *
+ * Exportado para casos como a porta: seu grafico e um retangulo frontal, com
+ * proporcao incompativel com o paralelogramo inclinado de Wall_L/Wall_R.
+ * Em vez de tentar ancora-la como um TILE de estrutura (que assume a mesma
+ * geometria inclinada da parede), o renderer a trata como um OBJETO comum
+ * (centro-inferior da bbox no centro da celula) e a sobrepoe a parede.
+ */
+export function spriteDeAsset(asset: LoadedAsset): Sprite2D {
+  return {
+    source: asset.image,
+    recorte: asset.caixa,
+    isExternal: true,
+    w: asset.caixa.w * asset.scale,
+    h: asset.caixa.h * asset.scale,
+  };
+}
+
+/** Sprite procedural inteiro (sem recorte), desescalado do supersampling. */
+function spriteProcedural(canvas: HTMLCanvasElement): Sprite2D {
+  return {
+    source: canvas,
+    recorte: { x: 0, y: 0, w: canvas.width, h: canvas.height },
+    isExternal: false,
+    w: canvas.width / SUPER,
+    h: canvas.height / SUPER,
+  };
+}
+
+export function obterSpriteProp(cache: SpriteCache, kind: PropKind): Sprite2D {
+  const asset = cache.atlas?.get(kind as AtlasKind);
+  if (asset) return spriteDeAsset(asset);
+  // Kind tem asset no catalogo mas falhou ao carregar: NAO cai para o sprite
+  // procedural. Formas geometricas ao lado de pixel art sao pior que ausencia.
+  if (PROP_KINDS_COM_ASSET.has(kind)) return SPRITE_VAZIO;
+  // Kind sem asset no catalogo: fallback procedural mantido (lamp, rug, etc.)
+  return spriteProcedural(cache.props.get(kind) ?? cache.props.get('desk')!);
 }
 
 export function obterSpriteAtor(cache: SpriteCache, cor: number, interno: boolean): HTMLCanvasElement {
@@ -1250,49 +1313,103 @@ export function obterSpriteAtor(cache: SpriteCache, cor: number, interno: boolea
   return cache.actors.get(cor) ?? cache.actors.values().next().value!;
 }
 
-export function obterSpriteDecor(cache: SpriteCache, kind: DecorKind): DecorSprite {
-  const asset = cache.atlas?.get(kind as PropKind);
-  if (asset) {
-    return {
-      source: asset.image,
-      anchor: asset.anchor,
-      isExternal: true,
-      w: asset.image.naturalWidth,
-      h: asset.image.naturalHeight,
-    };
-  }
-  const sprite = cache.decor.get(kind) ?? cache.decor.get('laptop')!;
-  return { source: sprite, anchor: { x: 0, y: 0 }, isExternal: false, w: sprite.width / SUPER, h: sprite.height / SUPER };
+export function obterSpriteDecor(cache: SpriteCache, kind: DecorKind): Sprite2D {
+  const asset = cache.atlas?.get(kind as AtlasKind);
+  if (asset) return spriteDeAsset(asset);
+  if (DECOR_KINDS_COM_ASSET.has(kind)) return SPRITE_VAZIO;
+  // Kind sem asset no catalogo: fallback procedural mantido (mouse, radio)
+  return spriteProcedural(cache.decor.get(kind) ?? cache.decor.get('laptop')!);
+}
+
+/** Tile de estrutura (piso/parede/porta) por papel, ou undefined se faltar. */
+export function obterTile(cache: SpriteCache, kind: TileKind): LoadedAsset | undefined {
+  return cache.atlas?.tile(kind);
+}
+
+/**
+ * Desenha um sprite de OBJETO ancorado pelo pe: centro-inferior da caixa
+ * alfa no centro da celula. Independe do tamanho do canvas de origem, que e
+ * o que permite mobilia de canvas 128 e decor de canvas 32 conviverem em
+ * escala coerente.
+ *
+ * @param elevacao deslocamento vertical em px de tela; use negativo para
+ *   levantar o objeto (decor sobre o tampo da mesa, por exemplo).
+ */
+function desenharObjeto(
+  ctx: CanvasRenderingContext2D,
+  sprite: Sprite2D,
+  gx: number,
+  gy: number,
+  elevacao = 0,
+): void {
+  if (sprite.w <= 0 || sprite.h <= 0) return; // SPRITE_VAZIO
+  const c = iso(gx + 0.5, gy + 0.5);
+  const x = c.x - sprite.w / 2;
+  const y = c.y - sprite.h + elevacao;
+  const r = sprite.recorte;
+  ctx.drawImage(sprite.source, r.x, r.y, r.w, r.h, x, y, sprite.w, sprite.h);
 }
 
 export function desenharSpriteProp(
   ctx: CanvasRenderingContext2D,
-  sprite: PropSprite,
+  sprite: Sprite2D,
   gx: number,
   gy: number,
 ): void {
-  const c = iso(gx + 0.5, gy + 0.5);
-  const x = c.x - sprite.w / 2 + sprite.anchor.x;
-  const y = sprite.isExternal
-    ? c.y - sprite.h + sprite.anchor.y
-    : c.y - sprite.h / 2 + 4 + sprite.anchor.y;
-  ctx.drawImage(sprite.source, x, y, sprite.w, sprite.h);
+  desenharObjeto(ctx, sprite, gx, gy);
 }
+
+/**
+ * Decor de superficie repousa SOBRE o tampo da mesa, nao no piso. A altura
+ * do tampo no pack e ~1/4 da altura do tile, medida nos sprites de mesa.
+ */
+const ALTURA_TAMPO = ALTURA_TILE * 0.5;
 
 export function desenharSpriteDecor(
   ctx: CanvasRenderingContext2D,
-  sprite: DecorSprite,
+  sprite: Sprite2D,
+  gx: number,
+  gy: number,
+): void {
+  desenharObjeto(ctx, sprite, gx, gy, -ALTURA_TAMPO);
+}
+
+/**
+ * Desenha um TILE de estrutura (piso/parede/porta).
+ *
+ * Modo de ancoragem diferente do de objeto: blita o canvas 128x128 INTEIRO
+ * com `ANCORA_TILE` sobre o centro da celula. Piso, Wall_L e Wall_R foram
+ * autorados alinhados nesse mesmo canvas pelo artista, entao este caminho os
+ * compoe sem nenhum ajuste por-asset - trimar ou recentrar aqui quebraria o
+ * encaixe entre piso e parede.
+ */
+export function desenharTile(
+  ctx: CanvasRenderingContext2D,
+  tile: LoadedAsset,
   gx: number,
   gy: number,
 ): void {
   const c = iso(gx + 0.5, gy + 0.5);
-  const x = c.x - sprite.w / 2 + sprite.anchor.x;
-  const y = sprite.isExternal
-    ? c.y - sprite.h + sprite.anchor.y - 8
-    : c.y - sprite.h / 2 + sprite.anchor.y - 2;
-  ctx.drawImage(sprite.source, x, y, sprite.w, sprite.h);
+  const w = tile.image.width * tile.scale;
+  const h = tile.image.height * tile.scale;
+  const x = c.x - ANCORA_TILE.x * tile.scale;
+  const y = c.y - ANCORA_TILE.y * tile.scale;
+  ctx.drawImage(tile.image, x, y, w, h);
 }
 
+/**
+ * Desenha o ator ancorado pelos PES na posicao (x, y).
+ *
+ * O sprite procedural e autorado num espaco logico de 32x56, herdado de
+ * quando o tile tinha 44px. Em vez de reescrever todo o desenho, reescalamos
+ * uniformemente para `ALTURA_PERSONAGEM`, que e derivado da regua do pack
+ * (0,75 x largura do tile ~ 1,75m a ~56 px/m). Assim a altura do personagem
+ * deixa de ser um numero solto e passa a ser a MESMA regua que dimensiona
+ * mobilia e paredes - que era a inconsistencia central do visual.
+ *
+ * Ancorar pelos pes (e nao pelo centro) e o que faz o personagem pisar no
+ * piso em vez de flutuar sobre ele.
+ */
 export function desenharSpriteAtor(
   ctx: CanvasRenderingContext2D,
   sprite: HTMLCanvasElement,
@@ -1300,7 +1417,9 @@ export function desenharSpriteAtor(
   y: number,
   bob: number,
 ): void {
-  const sw = sprite.width / SUPER;
-  const sh = sprite.height / SUPER;
-  ctx.drawImage(sprite, x - sw / 2, y - sh / 2 + 2 - bob, sw, sh);
+  const alturaLogica = sprite.height / SUPER;
+  const escala = ALTURA_PERSONAGEM / alturaLogica;
+  const sw = (sprite.width / SUPER) * escala;
+  const sh = alturaLogica * escala;
+  ctx.drawImage(sprite, x - sw / 2, y - sh - bob, sw, sh);
 }

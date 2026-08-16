@@ -86,20 +86,27 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
   }
 
   // Salas obrigatorias e condicionais (compactas).
+  // Copa proporcional ao tamanho da firma: 1-2 agentes = copa minima,
+  // 3+ agentes = copa normal.
+  const pesoCopa = agents.length <= 2 ? 0.8 : 1.2;
   zones.push({
     zoneId: 'zone-break',
     name: 'Copa',
     kind: 'break',
-    areaWeight: 1.2,
+    areaWeight: pesoCopa,
     agentIds: [],
   });
-  zones.push({
-    zoneId: 'zone-reception',
-    name: 'Recepcao',
-    kind: 'reception',
-    areaWeight: 0.9,
-    agentIds: [],
-  });
+  // Recepcao so faz sentido com 3+ agentes: uma micro-firma de 2 pessoas
+  // nao tem recepcionista, e a copa ja cumpre o papel de sala comum.
+  if (agents.length >= 3) {
+    zones.push({
+      zoneId: 'zone-reception',
+      name: 'Recepcao',
+      kind: 'reception',
+      areaWeight: 0.9,
+      agentIds: [],
+    });
+  }
   if (agents.length >= 4) {
     zones.push({
       zoneId: 'zone-meeting',
@@ -119,9 +126,17 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
     });
   }
 
-  // Grid compacto, estilo predio de escritorios pequeno.
-  const largura = clamp(20 + zones.length * 3, 24, 56);
-  const altura = clamp(16 + Math.ceil(zones.length / 2), 20, 40);
+  // Grid compacto, proporcional ao numero de zonas.
+  // Micro-firma de 1 agente (2 zonas): 7x9 = ~63 celulas, com salas ~4x4.
+  // Empresa de 7 agentes (9+ zonas): cresce proporcionalmente.
+  //
+  // A largura e baseada no MAXIMO de zonas por faixa (norte/sul), nao no total,
+  // porque as zonas sao distribuidas em duas faixas. Usar o total produzia
+  // predios largos demais para poucas zonas, resultando em salas longas e
+  // retangulares. Com maxPorFaixa, cada faixa tem largura justa para suas salas.
+  const maxPorFaixa = Math.max(1, Math.ceil(zones.length / 2));
+  const largura = clamp(maxPorFaixa * 5 + 2, 7, 56);
+  const altura = clamp(9 + Math.ceil(zones.length / 4), 9, 40);
 
   return {
     officeId: opts.officeId,

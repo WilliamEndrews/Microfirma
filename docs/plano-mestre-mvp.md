@@ -20,13 +20,15 @@
 ## 1. Veredito em uma frase
 
 O projeto tem uma **Fase 0-3 de demonstracao sintetica completa e testada**
-(206 testes, typecheck limpo) com a arquitetura correta nos pontos que a
+(218 testes, typecheck limpo) com a arquitetura correta nos pontos que a
 terceira analise identificou como criticos (motor de tempo narrativo, LLM sem
-coordenadas, simulacao autoritativa no servidor). O que falta para um **MVP
-com clientes reais** nao e retrabalho - e a camada de ingestao/persistencia
-de producao (Semantic Core) e a camada de orquestracao de agentes internos
-(Agent Ops), que hoje **nao existem como codigo**, apenas como decisao
-arquitetural registrada em ADR e como scaffold determinístico.
+coordenadas, simulacao autoritativa no servidor). A frente de refinamento
+visual (Fase 3.5) migrou para o pack TinyHouse com tiles nativos de piso/parede,
+salas mais quadradas, porta alinhada e cenarios de 1-2 agentes. O que falta
+para um **MVP com clientes reais** nao e retrabalho - e a camada de
+ingestao/persistencia de producao (Semantic Core) e a camada de orquestracao
+de agentes internos (Agent Ops), que hoje **nao existem como codigo**, apenas
+como decisao arquitetural registrada em ADR e como scaffold deterministico.
 
 ## 2. Mapa de camadas: arquitetura de referencia vs. codigo real
 
@@ -293,7 +295,9 @@ visual ja estar comprovado.
 | 3. `assetId` opcional + atlas no renderer com fallback | **FEITO (parcial)** | `apps/demo/src/asset-atlas.ts` (`carregarAtlas`, com fallback silencioso se a imagem faltar), `apps/demo/src/sprite-factory.ts` (`PropSprite`, `obterSpriteProp` agora prioriza o atlas e cai para o sprite procedural), `apps/demo/src/office-renderer-2d.ts` (injeta o atlas em `criarFabrica`). 213 testes passando, `tsc --noEmit` limpo em `contracts`, `world-engine` e `demo`. Parcial porque `byKind` no atlas guarda 1 asset por `PropKind` (o ultimo do catalogo vence) - selecao deterministica entre variantes do mesmo `kind` (ex.: qual planta usar em cada celula) ainda nao existe. |
 | 4. Footprint multi-celula | **FEITO** | `Prop.footprint` em `packages/contracts/src/layout.ts` (w/h, default 1x1, ancorado no canto sup.-esq. de `cell`, sem rotacao por `facing`). `navgrid.ts` (`footprintCells`, `buildNavGrid` bloqueia todas as celulas). `layout-validation.ts` estende `prop-dentro-da-sala`/`porta-desobstruida`/`sem-props-empilhados` para todo o footprint. `layout-solver.ts` (`reservarBloco`, sofa da copa tenta 2x1 e cai para 1x1 se nao couber). 3 novos testes em `layout-solver.test.ts` (commit `cf6dcd6`). 213 testes passando, `tsc --noEmit` limpo. |
 | 5. Array `decor[]` | **FEITO** | `packages/contracts/src/layout.ts`: `Decor` (laptop/monitor/keyboard/mouse/books/radio), `OfficeLayout.decor` separado de `props`, sem footprint - `navgrid` nunca o consome (ADR-0012, decisao 5). `packages/contracts/src/asset-catalog.ts`: `AssetEntry.kind` generalizado para `Prop.kind` OU `Decor.kind`; 6 novas entradas usando itens que ja existiam em `kenney-furniture-kit/Isometric` (nao precisou do Omie's Assets nem do pipeline Blender). `layout-solver.ts` (`decorar()`): notebook OU monitor+teclado+mouse em ~90% das mesas, livros em ~70% de estantes/armarios, forkado da mesma seed. `layout-validation.ts` valida contencao na sala e que `onPropId` aponta para um prop existente - deliberadamente SEM checar colisao (nao-colidivel por design). `apps/demo/src/sprite-factory.ts`: `DecorKind`, cache de sprites procedurais para os 6 decor kinds, `obterSpriteDecor`/`desenharSpriteDecor` com suporte ao atlas. `apps/demo/src/office-renderer-2d.ts`: desenha `decor` apos os props, com depth +0.5 para ordenacao isometrica correta. `apps/demo/src/asset-atlas.ts`: `AtlasKind` unifica `PropKind` e `DecorKind`. 5 novos testes em `layout-solver.test.ts` (incluindo decor em celula vazia nao bloqueando navgrid). 218 testes passando, `tsc --noEmit` limpo. |
+| 5b. Migracao TinyHouse + correcoes visuais | **FEITO** | `assets-source/TinyHouse` extraido do pack 0.17 do Pixel_Salvaje (CC0). Projecao nativa 128x64 em `apps/demo/src/projecao.ts`. Tiles de piso/parede blitados pelo atlas. Oclusao por construcao (arestas norte/oeste apenas). Recorte de parede (`comRecorte`) impede transbordamento. Porta sobreposta como objeto (nao substitui tile de parede). Grid por `maxPorFaixa` + corredor centralizado + cap de largura quadrada produzem salas mais compactas e quadradas. Estantes movidas para parede do fundo (`fundoY`). Espacamento de mesas adaptativo (2-3). Cenarios `?agents=1` e `?agents=2`. Supressao de procedural via `PROP_KINDS_COM_ASSET`/`DECOR_KINDS_COM_ASSET`. 218 testes, 20 arquivos, 0 falhas. |
 | 6. Reducao de temas (6 -> 2-3) | GAP (bloqueado pelo passo 1/2) | Nao ha ainda 2 packs estruturais completos para diferenciar temas por FORMA (so por cor seria a abordagem rejeitada pela ADR). |
+| 7. Expandir catalogo TinyHouse | **PENDENTE** | Catalogar e integrar mais assets do pack: monitores, variantes de mesas, gaveteiros, impressoras, copiadoras, bebedouros, relogios, posters, decoracoes de parede, racks, particionadores, lampadas, livros, plantas adicionais. Definir assets obrigatorios vs opcionais no space program. |
 
 ## 7. Como manter este arquivo honesto
 

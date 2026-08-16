@@ -55,6 +55,13 @@ export const AssetPack = z.object({
   license: z.string().min(1),
   /** Caminho relativo ao public/ ou raiz do app, SEM leading slash, sem trailing slash. */
   basePath: z.string().min(1),
+  /**
+   * Largura do tile-base isometrico do pack em pixels (ex.: 128 para packs
+   * Kenney). O renderer usa isto para escalar o sprite ao tile do MicroFirma
+   * (LARGURA_TILE=44): escala = 44 / tileWidth. Sem isto, sprites sao
+   * desenhados em resolucao nativa e ficam desproporcionais ao grid.
+   */
+  tileWidth: z.number().int().min(1).default(128),
 });
 export type AssetPack = z.infer<typeof AssetPack>;
 
@@ -74,6 +81,7 @@ export const KENNEY_FURNITURE_PACK: AssetPack = {
   sourceUrl: 'https://kenney.nl/assets/furniture-kit',
   license: 'CC0-1.0',
   basePath: 'kenney-furniture-kit/Isometric',
+  tileWidth: 128,
 };
 
 /** Pack Kenney Nature Kit (CC0). Plantas, vasos, arvores - candidato a vegetacao 3D. */
@@ -83,7 +91,8 @@ export const KENNEY_NATURE_PACK: AssetPack = {
   author: 'Kenney',
   sourceUrl: 'https://kenney.nl/assets/nature-kit',
   license: 'CC0-1.0',
-  basePath: 'kenney-nature-kit',
+  basePath: 'kenney-nature-kit/Isometric',
+  tileWidth: 128,
 };
 
 /** Pack Kenney Foliage Pack (CC0). Vegetacao como sprite 2D plano (ADR-0012, secao 3b). */
@@ -94,6 +103,7 @@ export const KENNEY_FOLIAGE_PACK: AssetPack = {
   sourceUrl: 'https://kenney.nl/assets/foliage-pack',
   license: 'CC0-1.0',
   basePath: 'kenney-foliage-pack/PNG/Default size',
+  tileWidth: 128,
 };
 
 /** Pack Kenney Isometric Tiles Landscape (CC0). Candidato a piso/terreno base compartilhado. */
@@ -104,6 +114,7 @@ export const KENNEY_ISOMETRIC_TILES_PACK: AssetPack = {
   sourceUrl: 'https://kenney.nl/assets/isometric-tiles-landscape',
   license: 'CC0-1.0',
   basePath: 'kenney-isometric-tiles-landscape',
+  tileWidth: 128,
 };
 
 /** Pack SBS Isometric Floor Tiles (CC0/Public Domain). Piso em projecao 2:1 verdadeira. */
@@ -114,6 +125,7 @@ export const SBS_FLOOR_TILES_PACK: AssetPack = {
   sourceUrl: 'https://screamingbrainstudios.itch.io/isotilepack',
   license: 'CC0-1.0',
   basePath: 'sbs-isometric-floor-tiles',
+  tileWidth: 256,
 };
 
 /** Pack Omie's Assets Office Set (CC0, declarado na pagina do produto). Decor de superficie fino. */
@@ -124,6 +136,34 @@ export const OMIES_OFFICE_SET_PACK: AssetPack = {
   sourceUrl: 'https://omies-assets.itch.io/omies-assets-office-set',
   license: 'CC0-1.0',
   basePath: 'omies-assets-office-set',
+  tileWidth: 128,
+};
+
+/**
+ * Pack TinyHouse por Pixel_Salvaje - pack COMERCIAL pago, autorizado para uso
+ * no projeto. Tile base isometrico 2:1 de 128px. Contem:
+ *  - Pasta Office/ com mobilia de escritorio dedicada (mesas, cadeiras, PCs,
+ *    impressora, copiadora, divisoria, porta de vidro, bebedouro, shredder).
+ *  - Pasta Desks/ com mesas de escritorio (Office_Main_Table, Office_Normal_Table).
+ *  - Pasta Chairs/ com cadeiras de escritorio (Basic_Office_Chair, Office_Main_Chair).
+ *  - Pasta Computer/ com iMacs, PCs, MacBooks, telas.
+ *  - Pasta Floor_Wall_Tiles_128/ com 40+ cores de piso (diamante 128x72) E
+ *    paredes (Wall_L/Wall_R, 72x115) - resolve o problema de paredes transparentes.
+ *  - Pasta Plants/, Sofa/, Books/, Carpets/, Lamp/, Doors/ com variedade.
+ *
+ * Este pack substitui o Kenney Furniture Kit como fonte primaria de mobilia
+ * porque o Kenney e voltado para casa (banheiros, camas, estantes domesticas),
+ * enquanto o TinyHouse tem uma pasta Office/ dedicada com itens que um
+ * escritorio real tem (copiadora, divisoria, porta de vidro, shredder, etc.).
+ */
+export const TINYHOUSE_PACK: AssetPack = {
+  packId: 'tinyhouse-pixel-salvaje',
+  name: 'TinyHouse 0.17',
+  author: 'Pixel_Salvaje',
+  sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+  license: 'commercial-paid',
+  basePath: 'tinyhouse-pixel-salvaje/TinyHouse',
+  tileWidth: 128,
 };
 
 /**
@@ -133,6 +173,7 @@ export const OMIES_OFFICE_SET_PACK: AssetPack = {
  * e um erro de dados, nao apenas visual.
  */
 export const KNOWN_PACKS: readonly AssetPack[] = [
+  TINYHOUSE_PACK,
   KENNEY_FURNITURE_PACK,
   KENNEY_NATURE_PACK,
   KENNEY_FOLIAGE_PACK,
@@ -142,218 +183,234 @@ export const KNOWN_PACKS: readonly AssetPack[] = [
 ];
 
 /**
- * Catalogo inicial - step 1 do ADR-0012.
- * Os offsets de ancora serao ajustados empiricamente apos screenshot.
+ * Catalogo inicial - ADR-0012.
  *
- * Cobertura por pack, hoje:
- *  - kenney-furniture-kit: mobilia estrutural base (mesa, cadeira, estante, sofa)
- *    + decor de superficie (`kind` de `Decor`: laptop, monitor, teclado, mouse,
- *    livros, radio) - o mesmo pack ja tinha esses itens em `Isometric/`, entao
- *    o passo 5 do ADR-0012 (array `decor[]`) NAO precisou do Omie's Assets nem
- *    do pipeline Blender para uma primeira versao util.
- *  - kenney-nature-kit: variedade de vegetacao (`kind: 'plant'`) - o pack ja vem
- *    com uma pasta `Isometric/` pre-renderizada pelo fornecedor, na mesma
- *    convencao de sufixo `_SW` do Furniture Kit, entao nao precisou de
- *    pipeline Blender proprio (mesma verificacao feita para o Furniture Kit).
+ * REFORMULACAO: TinyHouse (Pixel_Salvaje) substitui Kenney Furniture Kit como
+ * fonte primaria de mobilia. O TinyHouse tem uma pasta Office/ dedicada com
+ * itens de escritorio reais (copiadora, divisoria, porta de vidro, shredder,
+ * bebedouro), alem de floor tiles e wall tiles isometricos proprios.
  *
- * Deliberadamente ausentes:
- *  - kenney-foliage-pack e sbs-isometric-floor-tiles: nao correspondem a um
- *    `Prop.kind` existente (sao piso e folhagem 2D "de chao", nao mobiliario
- *    posicionado por celula); entram no catalogo quando o renderer ganhar um
- *    caminho de piso/decor de superficie orientado a assets (ver ADR-0012,
- *    decisao 6, e pendencias em docs/plano-mestre-mvp.md).
- *  - kenney-isometric-tiles-landscape: mesmo motivo (piso), nao processado ainda.
- *  - omies-assets-office-set: pack so tem modelos FBX + texturas PBR, sem
- *    sprites isometricos pre-renderizados pelo fornecedor - precisa do
- *    pipeline Blender (ainda nao construido) antes de virar `AssetEntry`.
- *    Registrado em KNOWN_PACKS para reserva de `packId`, sem entradas em `assets`.
+ * O Kenney Furniture Kit fica registrado em KNOWN_PACKS para referencia, mas
+ * seus assets nao sao mais mapeados em INITIAL_CATALOG.assets - o TinyHouse
+ * cobre todos os kinds de Prop com qualidade superior e contexto de escritorio.
  *
- * NOTA para quem for consumir isto no renderer: `asset-atlas.ts` hoje mapeia
- * no maximo 1 asset por `kind` (o ultimo do array vence) - varios `plant`
- * abaixo nao geram variedade visual automatica ainda. Selecao determinada
- * por prop/seed e trabalho futuro (ver pendencias do ADR-0012).
+ * Cobertura por kind:
+ *  - desk: Office_Main_Table_Base (128x128, mesa de escritorio com gavetas)
+ *  - chair: Basic_Office_Chair_A (64x64, cadeira de escritorio)
+ *  - bookshelf: Rack (256x256, estante de armazenamento office)
+ *  - sofa: Sofa_3_A_Tile (128x128, sofa)
+ *  - plant: Plant_2 (64x64, planta office)
+ *  - cabinet: Office_Wood_Closet (64x64, armario office)
+ *  - laptop: Macbook_1_Open_Tile (32x32, MacBook aberto)
+ *  - monitor: NewImac_B_Tile (64x64, iMac moderno)
+ *  - keyboard: NewKeyboard_Tile (64x64, teclado)
+ *  - mouse: (sem equivalente direto no TinyHouse, fallback procedural)
+ *  - books: Books_Pile (128x128, pilha de livros)
+ *  - radio: (sem equivalente direto, fallback procedural)
+ *
+ * Piso e paredes:
+ *  - Floor tiles: Floor_128_WoodLight (128x72 diamante isometrico)
+ *  - Wall tiles: Wall_L_128_WoodLight + Wall_R_128_WoodLight (72x115 cada)
+ *
+ * NOTA: `asset-atlas.ts` mapeia no maximo 1 asset por `kind` (ultimo vence).
+ * Variedade deterministica por seed e trabalho futuro.
  */
 export const INITIAL_CATALOG: AssetManifest = {
-  version: '1.0.0',
-  packs: [KENNEY_FURNITURE_PACK, KENNEY_NATURE_PACK],
+  version: '2.0.0',
+  packs: [TINYHOUSE_PACK],
   assets: [
+    // === MOBILIA ESTRUTURAL (Prop) ===
     {
-      assetId: 'table-sw',
+      assetId: 'office-main-table',
       kind: 'desk',
-      packId: 'kenney-furniture-kit',
-      fileName: 'table_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Desks/Office_Main_Table_Desk/Office_Main_Table_Base.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['furniture', 'desk', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['furniture', 'desk', 'office'],
     },
     {
-      assetId: 'chair-desk-sw',
+      assetId: 'basic-office-chair',
       kind: 'chair',
-      packId: 'kenney-furniture-kit',
-      fileName: 'chairDesk_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Chairs/Basic_Office_Chair_A.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['furniture', 'chair', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['furniture', 'chair', 'office'],
     },
     {
-      assetId: 'plant-small-1-sw',
-      kind: 'plant',
-      packId: 'kenney-furniture-kit',
-      fileName: 'plantSmall1_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decoration', 'plant', 'base'],
-    },
-    {
-      assetId: 'bookcase-open-sw',
+      assetId: 'office-rack',
       kind: 'bookshelf',
-      packId: 'kenney-furniture-kit',
-      fileName: 'bookcaseOpen_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Office/Rack.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['furniture', 'storage', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['furniture', 'storage', 'office'],
     },
     {
-      assetId: 'lounge-sofa-sw',
+      assetId: 'sofa-3',
       kind: 'sofa',
-      packId: 'kenney-furniture-kit',
-      fileName: 'loungeSofa_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Sofa/Sofa_3_A_Tile.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['furniture', 'sofa', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['furniture', 'sofa'],
     },
-    // Variedade de vegetacao (kenney-nature-kit/Isometric, sufixo _SW).
     {
-      assetId: 'plant-bush-small-sw',
+      assetId: 'office-wood-closet',
+      kind: 'cabinet',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Office/Office_Wood_Closet.png',
+      footprint: { w: 1, h: 1 },
+      anchor: { x: 0, y: 0 },
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['furniture', 'cabinet', 'office'],
+    },
+    {
+      assetId: 'plant-2',
       kind: 'plant',
-      packId: 'kenney-nature-kit',
-      fileName: 'plant_bushSmall_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Plants/Plant_2.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/nature-kit',
-      tags: ['decoration', 'plant', 'variety'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['decoration', 'plant', 'office'],
     },
+    // === DECOR DE SUPERFICIE (Decor) ===
     {
-      assetId: 'pot-small-sw',
-      kind: 'plant',
-      packId: 'kenney-nature-kit',
-      fileName: 'pot_small_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/nature-kit',
-      tags: ['decoration', 'plant', 'variety'],
-    },
-    {
-      assetId: 'flower-purple-a-sw',
-      kind: 'plant',
-      packId: 'kenney-nature-kit',
-      fileName: 'flower_purpleA_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/nature-kit',
-      tags: ['decoration', 'plant', 'variety'],
-    },
-    {
-      assetId: 'flower-red-a-sw',
-      kind: 'plant',
-      packId: 'kenney-nature-kit',
-      fileName: 'flower_redA_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/nature-kit',
-      tags: ['decoration', 'plant', 'variety'],
-    },
-    {
-      assetId: 'mushroom-tan-sw',
-      kind: 'plant',
-      packId: 'kenney-nature-kit',
-      fileName: 'mushroom_tan_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/nature-kit',
-      tags: ['decoration', 'plant', 'variety'],
-    },
-    // Decor de superficie (kenney-furniture-kit/Isometric, sufixo _SW) - passo 5 do ADR-0012.
-    {
-      assetId: 'laptop-sw',
+      assetId: 'macbook-open',
       kind: 'laptop',
-      packId: 'kenney-furniture-kit',
-      fileName: 'laptop_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Computer/MacBook_Ani/Macbook_1_Open_Tile.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decor', 'surface', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['decor', 'surface', 'computer'],
     },
     {
-      assetId: 'computer-screen-sw',
+      assetId: 'imac-new',
       kind: 'monitor',
-      packId: 'kenney-furniture-kit',
-      fileName: 'computerScreen_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Computer/NewImac_B_Tile.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decor', 'surface', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['decor', 'surface', 'computer'],
     },
     {
-      assetId: 'computer-keyboard-sw',
+      assetId: 'new-keyboard',
       kind: 'keyboard',
-      packId: 'kenney-furniture-kit',
-      fileName: 'computerKeyboard_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Computer/NewKeyboard_Tile.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decor', 'surface', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['decor', 'surface', 'computer'],
     },
     {
-      assetId: 'computer-mouse-sw',
-      kind: 'mouse',
-      packId: 'kenney-furniture-kit',
-      fileName: 'computerMouse_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decor', 'surface', 'base'],
-    },
-    {
-      assetId: 'books-sw',
+      assetId: 'books-pile',
       kind: 'books',
-      packId: 'kenney-furniture-kit',
-      fileName: 'books_SW.png',
+      packId: 'tinyhouse-pixel-salvaje',
+      fileName: 'Books/Books_Pile.png',
       footprint: { w: 1, h: 1 },
       anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decor', 'surface', 'base'],
-    },
-    {
-      assetId: 'radio-sw',
-      kind: 'radio',
-      packId: 'kenney-furniture-kit',
-      fileName: 'radio_SW.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'CC0-1.0',
-      sourceUrl: 'https://kenney.nl/assets/furniture-kit',
-      tags: ['decor', 'surface', 'base'],
+      license: 'commercial-paid',
+      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
+      tags: ['decor', 'surface', 'books'],
     },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// TILESETS DE PISO E PAREDE
+// ---------------------------------------------------------------------------
+
+/**
+ * Papeis de tile na construcao do ambiente. Diferente de `Prop.kind`, que e
+ * mobiliario posicionado por celula, um tile e ESTRUTURA: existe em toda
+ * celula (piso) ou em arestas de celula (paredes).
+ *
+ *  - `floor`  - diamante do piso, uma por celula
+ *  - `wall_l` - parede na aresta OESTE da celula (face voltada a camera-esquerda)
+ *  - `wall_r` - parede na aresta NORTE da celula (face voltada a camera-direita)
+ *  - `door`   - vao de porta, substitui a parede na celula da porta
+ */
+export const TileKind = z.enum(['floor', 'wall_l', 'wall_r', 'door']);
+export type TileKind = z.infer<typeof TileKind>;
+
+/**
+ * Conjunto coordenado de piso + paredes + porta.
+ *
+ * Por que um tileset e uma unidade, e nao 4 assets soltos: piso e paredes
+ * precisam combinar visualmente. Escolher `Floor_128_WoodLight` com
+ * `Wall_L_128_DarkBlue` da um resultado incoerente. Agrupando, o Agente
+ * Decorador escolhe UM tileset (decisao de alto nivel, que ele sabe tomar)
+ * em vez de 4 arquivos (decisao de detalhe, que ele erra).
+ *
+ * Todos os arquivos de um tileset compartilham o canvas 128x128 e a mesma
+ * ancoragem, entao o renderer os compoe sem calculo por-asset.
+ */
+export const TileSet = z.object({
+  tileSetId: z.string().min(1),
+  packId: z.string().min(1),
+  /** Caminho relativo ao `basePath` do pack, por papel de tile. */
+  files: z.record(TileKind, z.string().min(1)),
+});
+export type TileSet = z.infer<typeof TileSet>;
+
+const DIR_TILES = 'Floor_Wall_Tiles_128';
+const PORTA_VIDRO = 'Doors/Office_Glass_Door_Ani/Office_Glass_Door_1.png';
+
+/** Monta um tileset do TinyHouse a partir dos nomes de variante de piso e parede. */
+function tileSetTinyHouse(tileSetId: string, piso: string, parede: string): TileSet {
+  return {
+    tileSetId,
+    packId: 'tinyhouse-pixel-salvaje',
+    files: {
+      floor: `${DIR_TILES}/Floor_128_${piso}.png`,
+      wall_l: `${DIR_TILES}/Wall_L_128_${parede}.png`,
+      wall_r: `${DIR_TILES}/Wall_R_128_${parede}.png`,
+      door: PORTA_VIDRO,
+    },
+  };
+}
+
+/**
+ * Tilesets disponiveis, um por tema visual. Os nomes de variante foram
+ * conferidos no pack: cada par piso/parede existe de fato em
+ * `Floor_Wall_Tiles_128/` nas tres formas (Floor, Wall_L, Wall_R).
+ *
+ * O pack traz 40+ variantes; estas 6 cobrem os temas atuais. Adicionar um
+ * tema novo e uma linha aqui, nao codigo de renderer - que e exatamente a
+ * separacao que o ADR-0012 pede (dados de catalogo vs. logica de desenho).
+ */
+export const TILESETS: readonly TileSet[] = [
+  tileSetTinyHouse('nordic-calm', 'WoodLight', 'BrokenWhite'),
+  tileSetTinyHouse('warm-studio', 'WoodBright', 'BeigeYellow'),
+  tileSetTinyHouse('cool-lab', 'Concrete', 'White'),
+  tileSetTinyHouse('forest-deep', 'Natural', 'Green'),
+  tileSetTinyHouse('sunset-loft', 'WoodHard', 'Orange'),
+  tileSetTinyHouse('midnight-ops', 'Dark', 'DarkBlue'),
+];
+
+/**
+ * Resolve o tileset de um tema, caindo para o primeiro se o tema for
+ * desconhecido - o Agente Decorador pode inventar nomes de tema, e um nome
+ * inventado deve degradar para um ambiente valido, nunca para tela vazia.
+ */
+export function resolverTileSet(nomeTema: string): TileSet {
+  return TILESETS.find((t) => t.tileSetId === nomeTema) ?? (TILESETS[0] as TileSet);
+}

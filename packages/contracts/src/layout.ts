@@ -43,7 +43,7 @@ export const SpaceProgram = z.object({
   officeId: z.string().min(1),
   /** Semente determinística. Mesma seed => mesmo escritorio. */
   seed: z.number().int().nonnegative(),
-  grid: z.object({ width: z.number().int().min(16), height: z.number().int().min(12) }),
+  grid: z.object({ width: z.number().int().min(10), height: z.number().int().min(9) }),
   zones: z.array(ZoneRequest).min(1),
   /** Pares de zonas que devem ficar proximas, com peso. */
   adjacency: z
