@@ -17,21 +17,20 @@
  */
 
 import type { OfficeLayout, WorldDelta, WorldSnapshot } from '@microfirma/contracts';
-import { resolverPaleta, type PaletaResolvida } from '@microfirma/world-engine';
-import { carregarAtlas, type AssetAtlas, type LoadedAsset } from './asset-atlas';
+import { resolverPaleta, tileSetsDoLayout, type PaletaResolvida } from '@microfirma/world-engine';
+import { carregarAtlas, type LoadedAsset } from './asset-atlas';
 import {
   criarFabrica,
   desenharSpriteProp,
   desenharSpriteDecor,
   desenharSpriteAtor,
+  desenharAnexoParede,
   obterSpriteProp,
   obterSpriteDecor,
   obterSpriteAtor,
   obterTile,
   desenharTile,
-  spriteDeAsset,
   type SpriteCache,
-  type Sprite2D,
   type PropKind,
   type DecorKind,
 } from './sprite-factory';
@@ -74,7 +73,7 @@ export async function criarRenderer(
   const ext = extensaoDoMundo(layout);
   const paleta = resolverPaleta(layout.theme);
   // O tema decide o tileset de piso/parede, entao o atlas precisa saber dele.
-  const atlas = carregarAtlas('', layout.theme.name);
+  const atlas = carregarAtlas('', tileSetsDoLayout(layout));
   await atlas.ready;
   const sprites = criarFabrica(paleta, atlas);
 
@@ -333,27 +332,36 @@ function desenharPiso(
   paleta: PaletaResolvida,
   sprites: SpriteCache,
 ): void {
-  const tilePiso = obterTile(sprites, 'floor');
+  const tilePisoPadrao = obterTile(sprites, 'floor', layout.corridorTileSetId ?? layout.theme.name);
 
   /** Todas as celulas com piso: salas + corredores. */
-  const celulas: Array<{ x: number; y: number; corBase: number }> = [];
+  const celulas: Array<{
+    x: number;
+    y: number;
+    corBase: number;
+    tileSetId: string;
+    calibracao?: OfficeLayout['rooms'][number]['calibracao'];
+  }> = [];
+  const idCorredor = layout.corridorTileSetId ?? layout.theme.name;
   for (const c of layout.corridors) {
-    celulas.push({ x: c.x, y: c.y, corBase: paleta.corredor });
+    celulas.push({ x: c.x, y: c.y, corBase: paleta.corredor, tileSetId: idCorredor });
   }
   for (const sala of layout.rooms) {
     const base = paleta.piso[sala.kind] ?? paleta.piso.open!;
+    const tileSetId = sala.tileSetId ?? layout.theme.name;
     for (let y = sala.rect.y0; y < sala.rect.y1; y++) {
       for (let x = sala.rect.x0; x < sala.rect.x1; x++) {
-        celulas.push({ x, y, corBase: base });
+        celulas.push({ x, y, corBase: base, tileSetId, calibracao: sala.calibracao });
       }
     }
   }
 
-  if (tilePiso) {
-    // Ordem de pintura por profundidade: a laje de 8px de cada tile se
-    // sobrepoe ao vizinho de tras, entao o de frente precisa vir depois.
+  if (tilePisoPadrao) {
     celulas.sort((a, b) => a.x + a.y - (b.x + b.y));
-    for (const c of celulas) desenharTile(ctx, tilePiso, c.x, c.y);
+    for (const c of celulas) {
+      const tile = obterTile(sprites, 'floor', c.tileSetId) ?? tilePisoPadrao;
+      desenharTile(ctx, tile, c.x, c.y, 'floor', c.calibracao);
+    }
     return;
   }
 
@@ -373,106 +381,111 @@ function desenharCenarioEstatico(
   interface Item { depth: number; draw: () => void; }
   const itens: Item[] = [];
 
-  // ---- paredes -----------------------------------------------------------
-  //
-  // OCLUSAO POR CONSTRUCAO: desenhamos parede apenas nas arestas NORTE (y0)
-  // e OESTE (x0), que sao as do FUNDO na projecao isometrica. As arestas sul
-  // e leste ficariam entre a camera e o interior da sala, entao simplesmente
-  // nao existem. Resultado: o interior e sempre visivel sem precisar de
-  // parede translucida ou fade dinamico. E a mesma solucao que The Sims,
-  // Gather e SoWork usam - e o motivo pelo qual paredes ali parecem solidas
-  // em vez de fantasmas.
-  const tileWallL = obterTile(sprites, 'wall_l');
-  const tileWallR = obterTile(sprites, 'wall_r');
-  const tilePorta = obterTile(sprites, 'door');
-
-  /**
-   * Desenha um segmento de parede (tile Wall_L ou Wall_R) e, se for celula de
-   * porta, sobrepoe o grafico da porta como OBJETO por cima.
-   *
-   * A porta do TinyHouse e um retangulo frontal (vista de frente), com
-   * proporcao incompativel com o paralelogramo inclinado do tile de parede.
-   * Substituir o tile de parede pelo tile de porta diretamente produzia
-   * desalinhamento e flutuacao. A solucao correta e:
-   *   1. Desenhar a parede normalmente (tile Wall_L/Wall_R).
-   *   2. Sobrepor a porta como objeto ancorado pelo centro-inferior,
-   *      exatamente como fazemos com mesas e cadeiras.
-   * Assim a parede fica no lugar certo e a porta "fecha" o vazio na frente.
-   */
-  const desenharSegmentoOuPorta = (
+  const desenharParede = (
     gx: number,
     gy: number,
     tileWall: LoadedAsset | undefined,
-    ehPorta: boolean,
+    papelWall: 'wall_l' | 'wall_r',
+    cal?: OfficeLayout['rooms'][number]['calibracao'],
   ): void => {
     if (tileWall) {
-      desenharTile(ctx, tileWall, gx, gy);
-    } else {
-      segmentoParede(ctx, iso(gx, gy), iso(gx + 1, gy), ALTURA_PAREDE, paleta.paredeInterna, false);
+      desenharTile(ctx, tileWall, gx, gy, papelWall, cal);
+      return;
     }
-    if (ehPorta && tilePorta) {
-      const spritePorta = spriteDeAsset(tilePorta);
-      desenharObjetoPorta(ctx, spritePorta, gx, gy);
-    }
+    segmentoParede(ctx, iso(gx, gy), iso(gx + 1, gy), ALTURA_PAREDE, paleta.paredeInterna, false);
   };
 
-  for (const sala of layout.rooms) {
-    const { x0, y0, y1 } = sala.rect;
-    const x1 = sala.rect.x1;
+  const tileSetDaSala = (roomId: string): string => {
+    const sala = layout.rooms.find((s) => s.roomId === roomId);
+    return sala?.tileSetId ?? layout.theme.name;
+  };
 
-    // Recorte da sala em espaco de tela: limita X a extensao exata do piso da
-    // sala. Os tiles de parede do TinyHouse tem bbox mais LARGO que 1 celula
-    // (72px vs 64px de passo entre celulas), entao a celula do CANTO de uma
-    // fileira de paredes projeta uma lasca ~8px para fora do piso. Sem este
-    // recorte essa lasca fica visivel passando do limite do chao.
-    const cantos = [iso(x0, y0), iso(x1, y0), iso(x1, y1), iso(x0, y1)];
-    const clipXMin = Math.min(...cantos.map((c) => c.x));
-    const clipXMax = Math.max(...cantos.map((c) => c.x));
-    const clipYMax = Math.max(...cantos.map((c) => c.y));
-    const comRecorte = (desenhar: () => void): void => {
-      ctx.save();
-      ctx.beginPath();
-      // Sem limite superior: a parede precisa subir livremente acima do piso.
-      ctx.rect(clipXMin, -1e5, clipXMax - clipXMin, clipYMax + 1e5);
-      ctx.clip();
-      desenhar();
-      ctx.restore();
-    };
+  const calibracaoDaSala = (roomId: string) =>
+    layout.rooms.find((s) => s.roomId === roomId)?.calibracao;
 
-    // Aresta norte -> Wall_R (face voltada para a direita da camera).
-    for (let x = x0; x < x1; x++) {
-      const ehPorta = x === sala.door.x && y0 === sala.door.y;
-      const gx = x;
+  if ((layout.walls ?? []).length > 0) {
+    for (const face of layout.walls) {
+      const ts = tileSetDaSala(face.roomId);
+      const cal = calibracaoDaSala(face.roomId);
+      const gx = face.cell.x;
+      const gy = face.cell.y;
+      const papel = face.papel === 'wall_l' ? 'wall_l' : 'wall_r';
       itens.push({
-        // Parede desenhada DEPOIS do proprio piso da celula (que tem depth
-        // gx+y0), mas ANTES do piso da proxima fileira (depth +1) - assim o
-        // piso cobre so a base da parede, deixando a parte alta visivel.
-        // Um valor de +0.5 fazia o oposto: piso da PROPRIA celula pintava
-        // por cima da parede, sobrando so uma lasca triangular do topo.
-        depth: gx + y0 + 0.4,
-        draw: () => comRecorte(() => desenharSegmentoOuPorta(gx, y0, tileWallR, ehPorta)),
+        depth: gx + gy + 0.4,
+        draw: () => desenharParede(gx, gy, obterTile(sprites, papel, ts), papel, cal),
       });
+      if (face.temPorta) {
+        const porta = obterTile(sprites, 'door', ts);
+        if (porta) {
+          itens.push({
+            depth: gx + gy + 0.45,
+            draw: () => desenharTile(ctx, porta, gx, gy, 'door', cal),
+          });
+        }
+      }
     }
+  } else {
+    // Proto do lab: estrutura NW + porta no norte, iguais ao blitEstrutura.
+    for (const sala of layout.rooms) {
+      const { x0, y0, y1 } = sala.rect;
+      const x1 = sala.rect.x1;
+      const ts = sala.tileSetId ?? layout.theme.name;
+      const cal = sala.calibracao;
+      const wallR = obterTile(sprites, 'wall_r', ts);
+      const wallL = obterTile(sprites, 'wall_l', ts);
+      const porta = obterTile(sprites, 'door', ts);
+      const gxPorta = x0 + Math.floor((x1 - x0 - 1) / 2);
 
-    // Aresta oeste -> Wall_L (face voltada para a esquerda da camera).
-    for (let y = y0; y < y1; y++) {
-      const ehPorta = x0 === sala.door.x && y === sala.door.y;
-      const gy = y;
-      itens.push({
-        depth: x0 + gy + 0.4,
-        draw: () => comRecorte(() => desenharSegmentoOuPorta(x0, gy, tileWallL, ehPorta)),
-      });
+      for (let x = x0; x < x1; x++) {
+        itens.push({
+          depth: x + y0 + 0.4,
+          draw: () => desenharParede(x, y0, wallR, 'wall_r', cal),
+        });
+        if (x === gxPorta && porta) {
+          itens.push({
+            depth: x + y0 + 0.45,
+            draw: () => desenharTile(ctx, porta, x, y0, 'door', cal),
+          });
+        }
+      }
+      for (let y = y0; y < y1; y++) {
+        itens.push({
+          depth: x0 + y + 0.4,
+          draw: () => desenharParede(x0, y, wallL, 'wall_l', cal),
+        });
+      }
     }
+  }
+
+  for (const m of layout.wallMounts ?? []) {
+    const cal = calibracaoDaSala(m.roomId);
+    itens.push({
+      depth: m.gx + m.gy + 0.43,
+      draw: () => {
+        const asset = sprites.atlas?.getById(m.assetId);
+        if (!asset) return;
+        desenharAnexoParede(ctx, asset, m.face, m.gx, m.gy, m.dx, m.dy, cal);
+      },
+    });
   }
 
   const props = [...layout.props].sort((a, b) => a.cell.x + a.cell.y - (b.cell.x + b.cell.y));
   for (const p of props) {
     itens.push({
-      depth: p.cell.x + p.cell.y,
+      // +0.5: na frente da parede da mesma celula (0.4). Permite mesa na
+      // fileira do fundo sem a Wall_R pintar por cima do tampo.
+      depth: p.cell.x + p.cell.y + 0.5,
       draw: () => {
         const kind = p.kind as PropKind;
-        if (kind === 'lamp') return;
-        desenharSpriteProp(ctx, obterSpriteProp(sprites, kind), p.cell.x, p.cell.y);
+        const asset = (p.assetId ? sprites.atlas?.getById(p.assetId) : undefined) ?? sprites.atlas?.get(kind);
+        desenharSpriteProp(
+          ctx,
+          obterSpriteProp(sprites, kind, p.assetId),
+          p.cell.x,
+          p.cell.y,
+          kind,
+          asset,
+        );
       },
     });
   }
@@ -482,7 +495,7 @@ function desenharCenarioEstatico(
   const decor = [...layout.decor].sort((a, b) => a.cell.x + a.cell.y - (b.cell.x + b.cell.y));
   for (const d of decor) {
     itens.push({
-      depth: d.cell.x + d.cell.y + 0.5,
+      depth: d.cell.x + d.cell.y + 0.7,
       draw: () => {
         desenharSpriteDecor(ctx, obterSpriteDecor(sprites, d.kind as DecorKind), d.cell.x, d.cell.y);
       },
@@ -491,21 +504,6 @@ function desenharCenarioEstatico(
 
   itens.sort((a, b) => a.depth - b.depth);
   for (const item of itens) item.draw();
-}
-
-/** Ancora o sprite da porta pelo centro-inferior no centro da celula. */
-function desenharObjetoPorta(
-  ctx: CanvasRenderingContext2D,
-  sprite: Sprite2D,
-  gx: number,
-  gy: number,
-): void {
-  if (sprite.w <= 0 || sprite.h <= 0) return;
-  const c = iso(gx + 0.5, gy + 0.5);
-  const x = c.x - sprite.w / 2;
-  const y = c.y - sprite.h;
-  const r = sprite.recorte;
-  ctx.drawImage(sprite.source, r.x, r.y, r.w, r.h, x, y, sprite.w, sprite.h);
 }
 
 function segmentoParede(

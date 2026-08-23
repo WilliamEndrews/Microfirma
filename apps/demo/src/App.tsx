@@ -38,8 +38,10 @@ import { simular, type SimularResult } from './api';
 const URL_SERVIDOR = import.meta.env.VITE_MICROFIRMA_WS as string | undefined;
 
 /**
- * Cenario de teste: ?agents=2 ativa uma micro-firma com 2 agentes privativos
- * (triagem + email) em 2 escritorios + 1 copa. Grid reduzido, sem recepcao.
+ * Cenarios de teste via query string:
+ *   sem param / ?agents=7  elenco padrao (7 agentes, demo completa)
+ *   ?agents=1              micro-firma (1 privativo + copa)
+ *   ?agents=2              micro-firma (2 privativos + copa)
  */
 const PARAM_AGENTES = (() => {
   const url = new URL(window.location.href);

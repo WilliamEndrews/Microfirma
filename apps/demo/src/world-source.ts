@@ -131,6 +131,8 @@ export function criarFonteLocal(seed: number, agentes?: number): WorldSource {
   } else if (agentes === 2) {
     opts.elencoCustomizado = ELENCO_2_AGENTES;
     opts.comRoteiro = false; // roteiro padrao referencia agentes que nao existem aqui
+  } else if (agentes != null && agentes >= 1) {
+    opts.quantidadeAgentes = agentes;
   }
   const stream = new SyntheticStream(opts);
   const programa = planSpaceProgram(stream.agents, {

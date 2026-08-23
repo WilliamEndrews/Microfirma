@@ -20,15 +20,20 @@
  */
 
 import type { PaletaResolvida } from '@microfirma/world-engine';
-import type { TileKind } from '@microfirma/contracts';
+import type { CalibracaoSala, TileKind } from '@microfirma/contracts';
 import type { AssetAtlas, AtlasKind, LoadedAsset } from './asset-atlas';
 
 import {
   ALTURA_PERSONAGEM,
   ALTURA_TILE,
-  ANCORA_TILE,
   LARGURA_TILE,
+  PE_WALL_L,
+  PE_WALL_R,
+  ancoraDoPapel,
   iso as isoCompartilhado,
+  specObjeto,
+  type PapelTile,
+  type SpecObjeto,
 } from './projecao';
 
 const SUPER = 2;
@@ -1243,11 +1248,12 @@ function renderizarRadio(ctx: CanvasRenderingContext2D, paleta: PaletaResolvida)
 /** Kinds de Prop que tem asset real no catalogo - NUNCA usar fallback procedural. */
 const PROP_KINDS_COM_ASSET: ReadonlySet<PropKind> = new Set([
   'desk', 'chair', 'bookshelf', 'sofa', 'cabinet', 'plant',
+  'printer', 'water', 'coffee', 'board', 'lamp', 'rug',
 ]);
 
 /** Kinds de Decor que tem asset real no catalogo - NUNCA usar fallback procedural. */
 const DECOR_KINDS_COM_ASSET: ReadonlySet<DecorKind> = new Set([
-  'laptop', 'monitor', 'keyboard', 'books',
+  'laptop', 'monitor', 'keyboard', 'books', 'radio', 'mouse',
 ]);
 
 /** Placeholder vazio 1x1 para kinds sem asset e sem fallback procedural. */
@@ -1269,11 +1275,9 @@ const SPRITE_VAZIO: Sprite2D = {
 /**
  * Converte um asset do atlas em sprite de tela, aplicando a escala global.
  *
- * Exportado para casos como a porta: seu grafico e um retangulo frontal, com
- * proporcao incompativel com o paralelogramo inclinado de Wall_L/Wall_R.
- * Em vez de tentar ancora-la como um TILE de estrutura (que assume a mesma
- * geometria inclinada da parede), o renderer a trata como um OBJETO comum
- * (centro-inferior da bbox no centro da celula) e a sobrepoe a parede.
+ * Usado por mobiliario/decor (modo objeto: pe da bbox no centro da celula).
+ * Tiles de estrutura NAO passam por aqui - usam `desenharTile` com ancora de
+ * canvas 128x128, senao a porta nasce no meio da sala.
  */
 export function spriteDeAsset(asset: LoadedAsset): Sprite2D {
   return {
@@ -1296,8 +1300,8 @@ function spriteProcedural(canvas: HTMLCanvasElement): Sprite2D {
   };
 }
 
-export function obterSpriteProp(cache: SpriteCache, kind: PropKind): Sprite2D {
-  const asset = cache.atlas?.get(kind as AtlasKind);
+export function obterSpriteProp(cache: SpriteCache, kind: PropKind, assetId?: string): Sprite2D {
+  const asset = (assetId ? cache.atlas?.getById(assetId) : undefined) ?? cache.atlas?.get(kind as AtlasKind);
   if (asset) return spriteDeAsset(asset);
   // Kind tem asset no catalogo mas falhou ao carregar: NAO cai para o sprite
   // procedural. Formas geometricas ao lado de pixel art sao pior que ausencia.
@@ -1317,13 +1321,21 @@ export function obterSpriteDecor(cache: SpriteCache, kind: DecorKind): Sprite2D 
   const asset = cache.atlas?.get(kind as AtlasKind);
   if (asset) return spriteDeAsset(asset);
   if (DECOR_KINDS_COM_ASSET.has(kind)) return SPRITE_VAZIO;
-  // Kind sem asset no catalogo: fallback procedural mantido (mouse, radio)
   return spriteProcedural(cache.decor.get(kind) ?? cache.decor.get('laptop')!);
 }
 
-/** Tile de estrutura (piso/parede/porta) por papel, ou undefined se faltar. */
-export function obterTile(cache: SpriteCache, kind: TileKind): LoadedAsset | undefined {
-  return cache.atlas?.tile(kind);
+/** Tile de estrutura (piso/parede/porta) por papel e tileset. */
+export function obterTile(
+  cache: SpriteCache,
+  kind: TileKind,
+  tileSetId?: string,
+): LoadedAsset | undefined {
+  return cache.atlas?.tile(kind, tileSetId);
+}
+
+/** Divisoria de vidro (face do corredor). Nao e papel de tileset. */
+export function obterParedeVidro(cache: SpriteCache): LoadedAsset | undefined {
+  return cache.atlas?.glassWall();
 }
 
 /**
@@ -1350,12 +1362,41 @@ function desenharObjeto(
   ctx.drawImage(sprite.source, r.x, r.y, r.w, r.h, x, y, sprite.w, sprite.h);
 }
 
+function desenharObjetoCalibrado(
+  ctx: CanvasRenderingContext2D,
+  asset: LoadedAsset,
+  gx: number,
+  gy: number,
+  spec: SpecObjeto,
+): void {
+  const escala = asset.scale;
+  const w = asset.image.width * escala;
+  const h = asset.image.height * escala;
+  if (spec.modo === 'canto' && spec.pe) {
+    const v = iso(gx, gy);
+    ctx.drawImage(asset.image, v.x - spec.pe.x * escala, v.y - spec.pe.y * escala, w, h);
+    return;
+  }
+  const ancora = spec.ancora ?? { x: 64, y: 68 };
+  const c = iso(gx + 0.5, gy + 0.5);
+  ctx.drawImage(asset.image, c.x - ancora.x * escala, c.y - ancora.y * escala, w, h);
+}
+
 export function desenharSpriteProp(
   ctx: CanvasRenderingContext2D,
   sprite: Sprite2D,
   gx: number,
   gy: number,
+  kind?: PropKind,
+  asset?: LoadedAsset,
 ): void {
+  if (kind && asset) {
+    const spec = specObjeto(kind);
+    if (spec) {
+      desenharObjetoCalibrado(ctx, asset, gx, gy, spec);
+      return;
+    }
+  }
   desenharObjeto(ctx, sprite, gx, gy);
 }
 
@@ -1377,24 +1418,49 @@ export function desenharSpriteDecor(
 /**
  * Desenha um TILE de estrutura (piso/parede/porta).
  *
- * Modo de ancoragem diferente do de objeto: blita o canvas 128x128 INTEIRO
- * com `ANCORA_TILE` sobre o centro da celula. Piso, Wall_L e Wall_R foram
- * autorados alinhados nesse mesmo canvas pelo artista, entao este caminho os
- * compoe sem nenhum ajuste por-asset - trimar ou recentrar aqui quebraria o
- * encaixe entre piso e parede.
+ * Modo de ancoragem diferente do de objeto: blita o canvas INTEIRO com a
+ * ancora do papel sobre o centro da celula. Piso usa (64, 68). Paredes e
+ * porta usam ancora derivada do pe de chao (ver calibracao-tinyhouse.json).
+ * Trimar ou recentrar aqui quebraria o encaixe. A porta e folha sobre a
+ * parede, nao substitui o tile (office-renderer-2d, plano B).
  */
 export function desenharTile(
   ctx: CanvasRenderingContext2D,
   tile: LoadedAsset,
   gx: number,
   gy: number,
+  papel: PapelTile = 'floor',
+  cal?: CalibracaoSala,
 ): void {
   const c = iso(gx + 0.5, gy + 0.5);
+  const ancora = ancoraDoPapel(papel, cal);
   const w = tile.image.width * tile.scale;
   const h = tile.image.height * tile.scale;
-  const x = c.x - ANCORA_TILE.x * tile.scale;
-  const y = c.y - ANCORA_TILE.y * tile.scale;
+  const x = c.x - ancora.x * tile.scale;
+  const y = c.y - ancora.y * tile.scale;
   ctx.drawImage(tile.image, x, y, w, h);
+}
+
+/**
+ * Anexo de parede do Construtor. Pe no vertice da face (lab) + dx/dy.
+ * Nao inventa ancora em calibracao-tinyhouse.json.
+ */
+export function desenharAnexoParede(
+  ctx: CanvasRenderingContext2D,
+  asset: LoadedAsset,
+  face: 'R' | 'L',
+  gx: number,
+  gy: number,
+  dx = 0,
+  dy = 0,
+  cal?: CalibracaoSala,
+): void {
+  const pe = face === 'L' ? (cal?.peWallL ?? PE_WALL_L) : (cal?.peWallR ?? PE_WALL_R);
+  const v = iso(gx, gy);
+  const escala = asset.scale;
+  const w = asset.image.width * escala;
+  const h = asset.image.height * escala;
+  ctx.drawImage(asset.image, v.x + dx - pe.x * escala, v.y + dy - pe.y * escala, w, h);
 }
 
 /**

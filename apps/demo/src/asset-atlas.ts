@@ -3,7 +3,8 @@
  *
  * Carrega do pack TinyHouse:
  *  - mobilia e decor (`INITIAL_CATALOG.assets`), indexados por kind semantico;
- *  - tiles de piso/parede/porta (`TILESETS`), indexados por papel de tile.
+ *  - tiles de piso/parede/porta (`TILESETS`), indexados por papel de tile;
+ *  - `Glass_Wall` como extra (`glassWall()`), nao como 5o papel de tileset.
  *
  * ---------------------------------------------------------------------------
  * ESCALA: UM FATOR GLOBAL, NUNCA POR-ASSET
@@ -19,9 +20,10 @@
  * ---------------------------------------------------------------------------
  * ANCORAGEM: DOIS MODOS
  * ---------------------------------------------------------------------------
- *  - `tile`   - blita o canvas 128x128 inteiro com `ANCORA_TILE` no centro da
- *               celula. Piso, Wall_L e Wall_R foram autorados alinhados no
- *               mesmo canvas, entao compoem-se sozinhos por este caminho.
+ *  - `tile`   - blita o canvas 128x128 inteiro com a ancora do papel
+ *               (`ancoraDoPapel` em projecao.ts) no centro da celula. Piso
+ *               ancora na face (64, 68); paredes/porta usam pe-no-vertice
+ *               gravado em calibracao-tinyhouse.json (laboratorio iso).
  *  - `objeto` - usa a caixa alfa do sprite e alinha seu centro-inferior ao
  *               centro da celula. Funciona para qualquer tamanho de canvas,
  *               que e o que mobilia e decor precisam.
@@ -30,7 +32,7 @@
  * posicao que o modo `tile` depende. A caixa alfa e guardada como metadado.
  */
 
-import { INITIAL_CATALOG, resolverTileSet, type TileKind } from '@microfirma/contracts';
+import { INITIAL_CATALOG, resolverTileSet, type TileKind, type TileSet } from '@microfirma/contracts';
 import type { DecorKind, PropKind } from './sprite-factory';
 import { ESCALA_ASSET } from './projecao';
 
@@ -58,10 +60,14 @@ export interface LoadedAsset {
 export interface AssetAtlas {
   /** Resolve quando todas as imagens carregaram (ou falharam). */
   ready: Promise<void>;
-  /** Asset de mobilia/decor por kind semantico. */
+  /** Asset de mobilia/decor por kind semantico (last-wins, fallback). */
   get(kind: AtlasKind): LoadedAsset | undefined;
-  /** Tile de estrutura por papel. */
-  tile(kind: TileKind): LoadedAsset | undefined;
+  /** Variante visual escolhida pelo Construtor. */
+  getById(assetId: string): LoadedAsset | undefined;
+  /** Tile de estrutura por papel e tileset. */
+  tile(kind: TileKind, tileSetId?: string): LoadedAsset | undefined;
+  /** Divisoria de vidro (face do corredor). Nao e papel de tileset. */
+  glassWall(): LoadedAsset | undefined;
 }
 
 function urlDoPack(packId: string, fileName: string, baseUrl: string): string {
@@ -115,12 +121,18 @@ function medirEConverter(img: HTMLImageElement): { canvas: HTMLCanvasElement; ca
 
 /**
  * @param baseUrl prefixo servido pelo Vite (`publicDir` = assets-source/)
- * @param nomeTema tema do layout, define qual tileset de piso/parede carregar
+ * @param temaOuSets nome de tema (1 tileset) ou lista emitida pelo Construtor
  */
-export function carregarAtlas(baseUrl = '', nomeTema = ''): AssetAtlas {
+export function carregarAtlas(baseUrl = '', temaOuSets: string | TileSet[] = ''): AssetAtlas {
   const porKind = new Map<AtlasKind, LoadedAsset>();
-  const porTile = new Map<TileKind, LoadedAsset>();
+  const porId = new Map<string, LoadedAsset>();
+  const porTile = new Map<string, LoadedAsset>();
   const cargas: Promise<void>[] = [];
+  const tileSets: TileSet[] = Array.isArray(temaOuSets)
+    ? temaOuSets
+    : [resolverTileSet(temaOuSets)];
+  if (tileSets.length === 0) tileSets.push(resolverTileSet(''));
+  const tileSetPadrao = tileSets[0]!.tileSetId;
 
   /** Dispara uma carga e registra o resultado no mapa indicado. */
   function carregar<K>(
@@ -129,6 +141,7 @@ export function carregarAtlas(baseUrl = '', nomeTema = ''): AssetAtlas {
     assetId: string,
     packId: string,
     fileName: string,
+    extra?: (loaded: LoadedAsset) => void,
   ): void {
     const img = new Image();
     img.decoding = 'async';
@@ -137,7 +150,9 @@ export function carregarAtlas(baseUrl = '', nomeTema = ''): AssetAtlas {
       new Promise<void>((resolve) => {
         img.onload = () => {
           const { canvas, caixa } = medirEConverter(img);
-          destino.set(chave, { image: canvas, assetId, fileName, caixa, scale: ESCALA_ASSET });
+          const loaded: LoadedAsset = { image: canvas, assetId, fileName, caixa, scale: ESCALA_ASSET };
+          destino.set(chave, loaded);
+          extra?.(loaded);
           resolve();
         };
         img.onerror = () => {
@@ -151,17 +166,42 @@ export function carregarAtlas(baseUrl = '', nomeTema = ''): AssetAtlas {
   }
 
   for (const asset of INITIAL_CATALOG.assets) {
-    carregar(porKind, asset.kind as AtlasKind, asset.assetId, asset.packId, asset.fileName);
+    carregar(
+      porId,
+      asset.assetId,
+      asset.assetId,
+      asset.packId,
+      asset.fileName,
+      (loaded) => porKind.set(asset.kind as AtlasKind, loaded),
+    );
   }
 
-  const tileSet = resolverTileSet(nomeTema);
-  for (const [papel, arquivo] of Object.entries(tileSet.files)) {
-    carregar(porTile, papel as TileKind, `${tileSet.tileSetId}-${papel}`, tileSet.packId, arquivo);
+  for (const tileSet of tileSets) {
+    for (const [papel, arquivo] of Object.entries(tileSet.files)) {
+      carregar(
+        porTile,
+        `${tileSet.tileSetId}:${papel}`,
+        `${tileSet.tileSetId}-${papel}`,
+        tileSet.packId,
+        arquivo,
+      );
+    }
   }
+
+  const porExtra = new Map<string, LoadedAsset>();
+  carregar(
+    porExtra,
+    'wall-glass',
+    'office-glass-wall',
+    'tinyhouse-pixel-salvaje',
+    'Office/Glass_Wall.png',
+  );
 
   return {
     ready: Promise.all(cargas).then(() => undefined),
     get: (kind) => porKind.get(kind),
-    tile: (kind) => porTile.get(kind),
+    getById: (assetId) => porId.get(assetId),
+    tile: (kind, tileSetId) => porTile.get(`${tileSetId ?? tileSetPadrao}:${kind}`),
+    glassWall: () => porExtra.get('wall-glass'),
   };
 }
