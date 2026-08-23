@@ -1,0 +1,16 @@
+{
+  "rodada": 5,
+  "plano": "B",
+  "data": "2026-08-17",
+  "notas": "Paredes pregam o pe do chao no vertice da aresta. Porta e folha 1:1 sobre Wall_R. Mesa principal: canvas 128 alinhado ao piso (ancora 64,68), nao pe da bbox. Bebedouro (canto): pe do diamante do chao (64,63) no vertice NW da celula - o mesmo esquadro amarelo das paredes. Andar extra no laboratorio: subidaAndar = peWallR.y - bbox.y da Wall_R (altura da parede acima do pe); override opcional neste JSON. Origem: laboratorio tinyhouse.html.",
+  "ancoraPiso": { "x": 64, "y": 68 },
+  "peWallR": { "x": 32, "y": 83 },
+  "peWallL": { "x": 95, "y": 83 },
+  "pePorta": { "x": 46, "y": 101 },
+  "folgaPorta": { "x": 11, "y": 4 },
+  "portaComoFolha": true,
+  "objetos": {
+    "desk": { "modo": "centro", "ancora": { "x": 64, "y": 68 } },
+    "water": { "modo": "canto", "pe": { "x": 64, "y": 63 } }
+  }
+}

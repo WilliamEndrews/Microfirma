@@ -8,10 +8,12 @@
     "dev": "pnpm --filter @microfirma/demo dev",
     "dev:server": "pnpm --filter @microfirma/server dev",
     "dev:landing": "pnpm --filter @microfirma/landing dev",
+    "dev:debugpreview": "pnpm --filter @microfirma/debugpreview dev",
     "build": "turbo run build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lab:iso": "node scripts/iso-validation/lab-server.mjs",
     "load-test": "npx tsx scripts/load-test.ts",
     "contracts:jsonschema": "pnpm --filter @microfirma/contracts gen:jsonschema"
   },
