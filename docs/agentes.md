@@ -330,8 +330,11 @@ geometria deterministica por seed. O LLM nunca toca em coordenadas (ADR-0004).
 
 - Renderer Canvas 2D na Fase 0 (ADR-0010); PixiJS/WebGPU na Fase 2 com sprites
   3D pre-renderizados (ADR-0008).
-- Projecao dimetrica 2:1; piso por tipo de sala; paredes extrudidas nas faces
-  norte/oeste com vao na porta; mobiliario ordenado por profundidade.
+- Projecao dimetrica 2:1; piso por tipo de sala; paredes nas faces
+  norte/oeste. Ajuste visual de tile TinyHouse passa pelo laboratorio
+  (`pnpm lab:iso`, `scripts/iso-validation/tinyhouse.html`); numeros
+  gravados em `apps/demo/src/calibracao-tinyhouse.json`. Nao chutar ancora
+  em `projecao.ts` - a ancora deriva do JSON.
 - Pathfinding A* (`navgrid.ts`) + avoidance para atores nao se atropelarem.
 - Customizacao de personagens: layers (cabelo, roupa, acessorios, expressao);
   papel do agente sugere traje; agentes produtivos ganham acessorios de

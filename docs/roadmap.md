@@ -552,21 +552,58 @@ escritorio reconhecivel, proximo de Stardew Valley / SoWork / Gather.town.
 - `PROP_KINDS_COM_ASSET` e `DECOR_KINDS_COM_ASSET` em `sprite-factory.ts`:
   kinds com asset no catalogo que falham ao carregar retornam placeholder
   transparente, nao forma geometrica procedural. Procedural so sobrevive para
-  kinds sem cobertura de asset (lamp, rug, mouse, radio).
+  kinds sem PNG de repouso (mouse, meter).
+
+### 3.5.6 Gramatica de tiles medida (2026-08-16)
+
+- Laboratorio oficial: `pnpm lab:iso` abre
+  `scripts/iso-validation/tinyhouse.html`. Calibracao gravada em
+  `apps/demo/src/calibracao-tinyhouse.json`; `projecao.ts` deriva as
+  ancoras (`ancoraDePe`). Toda rodada de olhometro volta ao lab, nao ao
+  chute direto no renderer.
+- Piso ancora (64, 68). Paredes pregam o pe do chao no vertice da aresta
+  (Wall_R 32,83; Wall_L 95,83). Porta plano B: folha 1:1 sobre Wall_R,
+  folga (11, 4), sem substituir o tile.
+- Micro-escritorio `?agents=1`: grid 5x9, salas 3x3 (~14.7 m2), sem hall
+  residual, porta no centro da aresta do corredor.
+- **Testes:** `apps/demo/src/projecao.test.ts` trava o round-trip
+  pe -> ancora. Banco visual: `?agents=7`.
+
+### 3.5.7 Catalogo TinyHouse expandido (2026-08-17)
+
+- `INITIAL_CATALOG` v2.2 cobre printer, water, coffee, board, lamp, rug,
+  radio (telefone/calculadora/headset), copiadora preta, caixas, lixeiras,
+  fragmentadora, wacom (mouse) e variantes de mesa/cadeira/planta/armario.
+- `PROP_OBRIGATORIOS` vs `PROP_OPCIONAIS` em `asset-catalog.ts`. O solver
+  so coloca opcional se a celula estiver livre, fora da circulacao da porta.
+- Atlas: o ultimo asset de cada `kind` continua vencendo (variedade por
+  seed ainda nao existe).
+
+### 3.5.8 Laboratorio do arquiteto (2026-08-17)
+
+- `tinyhouse.html` deixou de ser so calibracao: palco 3x3 clicavel, tabela
+  de sprites (`catalogo-laboratorio.json`), temas TILESETS e mix livre de
+  piso/parede do pack.
+- Intencao obrigatorio/aleatorio/off e biblia visual. Ainda nao escreve
+  `PROP_OBRIGATORIOS` / o solver. Gravacao: localStorage + copiar JSON.
+- Combinar assets: segundo preview abaixo das medidas, drag-drop para
+  assentar notebook/telefone no tampo. Combos viram cards; JSON em
+  `combinacoes-laboratorio.json`. Ainda so no laboratorio.
 
 ### Resultado parcial
 
 - **Typecheck:** limpo
-- **Testes:** 218 passando, 20 arquivos, 0 falhas
-- **Visual:** piso e paredes TinyHouse nativos, salas mais quadradas, porta
-  alinhada com a parede, cenarios de 1 e 2 agentes para iteracao
+- **Testes:** 225 passando, 21 arquivos, 0 falhas
+- **Visual:** gramatica de tiles calibrada (plano B). Catalogo TinyHouse v2.2
+  no solver. Aceite humano de paredes/mesas em `?agents=7` ainda em aberto.
 
 ### Pendencias da fase 3.5
 
-- Expandir catalogo com mais assets TinyHouse (monitores, gaveteiros,
-  impressoras, copiadoras, bebedouros, relogios, posters, racks, particoes).
-- Definir assets obrigatorios vs opcionais no space program.
-- Validar visualmente com o usuario e iterar.
+- Aceite visual do usuario em `?agents=7` (mesas vs parede, seam, metragem).
+- Variedade por seed no atlas (hoje o ultimo asset de cada `kind` vence).
+- Meter ainda sem PNG de repouso no TinyHouse.
+- Promover combos do laboratorio e a intencao obrigatorio/aleatorio/off
+  para o solver/atlas, sem quebrar invariantes.
 
 ---
 

@@ -2,7 +2,7 @@
 
 > Documento de resgate de contexto. Destinado a qualquer pessoa ou agente que
 > precise retomar o projeto sem relembrar toda a conversa de implementacao.
-> Ultima atualizacao: 2026-08-09.
+> Ultima atualizacao: 2026-08-23.
 
 ---
 
@@ -102,6 +102,7 @@ CLIENTE WEB
 | `@microfirma/synthetic` | Gerador sintetico de eventos para testes | TS puro |
 | `@microfirma/server` | HTTP, WebSocket, multi-tenant, auth, alertas | ws, jose, aws-sdk |
 | `@microfirma/demo` | Canvas 2.5D + painel lateral React | Vite, React, Canvas 2D |
+| `@microfirma/debugpreview` | Bancada: biblia do lab -> agencia visual | Vite, React, Canvas 2D |
 | `@microfirma/landing` | Landing page 3D com transicao cinematografica | Vite, React, Three.js |
 
 ## 4. ADRs (Architecture Decision Records)
@@ -223,22 +224,52 @@ ainda nao tem arquivos fisicos, so citacoes no codigo.
 10. **Espacamento de mesas adaptativo**: 3 celulas em salas largas, 2 em salas
     pequenas (<=5) para garantir que todos os agentes tenham mesa.
 
+### Fase 3.5 - Laboratorio, Construtor e Debugpreview (2026-08-23)
+
+Evolucao central da frente visual: o laboratorio deixou de ser so calibracao
+e passou a alimentar o Construtor; o Debugpreview valida o empacote sem
+comprometer o blit que o olho ja aprovou.
+
+1. **Laboratorio TinyHouse persistente** (`pnpm lab:iso`):
+   `scripts/iso-validation/lab-server.mjs` serve o pack e expoe
+   `POST /api/temas-arquiteto`. A biblia vive em
+   `packages/world-engine/src/biblia/temas-arquiteto.json` (temas por
+   `zonaKind`, grade, tileset, palco, calibracao, `politicaTiles`).
+2. **Calibracao oficial** (`apps/demo/src/calibracao-tinyhouse.json` +
+   `projecao.ts`): ancora de piso (64, 68), pe de parede, folga da porta.
+   Teste de round-trip em `projecao.test.ts`.
+3. **Construtor da biblia** (`construtor-biblia.ts`): `escolherTema`,
+   `gradeDoProto`, `visualDoProto`, `resolverTilesetZona`, `colarProto`.
+   Corredor respeita politica `unico` → piso Concrete / tileset `cool-lab`.
+4. **Faces de parede** (`emitir-paredes.ts`, `face-corredor.ts`): o solver
+   pode emitir `WallFace[]` (oeste Wall_L, face do corredor glass, porta
+   como folha). A demo ainda pode blit NW quando `walls` esta vazio.
+5. **`solveLayout` cola ProtoComodos**: salas dimensionadas pela grade real
+   do tema escolhido; props/wallMounts vindos do palco (com espelho Y na
+   faixa norte no caminho de produto).
+6. **Debugpreview** (`apps/debugpreview`, `pnpm dev:debugpreview`):
+   - Dashboard: salas, copas, Gerar, Resetar.
+   - `selecionarPedido` escolhe protos (prioridade + `unicoNaAgencia`).
+   - `montarAgencia` empacota grades reais (3x3, 4x3, 5x3…) em faixas N/S
+     com espinha e gaps de corredor Concrete — **sem** `solveLayout` /
+     `emitirParedes` / `colarProto` no preview.
+   - `desenharProtoEm` reutiliza o blit completo do lab por slot; assim a
+     sala nao e cortada por parede no meio nem perde `qx/qy/passo/camadas`.
+
 ## 6. O que ainda falta (proximos passos)
 
 ### Refinamento visual em andamento
 
-- **Expandir catalogo TinyHouse**: catalogar e integrar mais assets do pack:
-  monitores, variantes de mesas, gaveteiros, impressoras, copiadoras,
-  bebedouros/filtros, relogios, posters, decoracoes de parede, racks,
-  particionadores, lampadas, livros, plantas adicionais.
-- **Assets obrigatorios vs opcionais**: definir regras no space program/solver
-  para garantir que todo escritorio tenha: 1 mesa por agente, 1 cadeira por
-  agente, 1 computador/laptop por estacao, espaco de circulacao, infra de
-  piso/parede/porta. Deixar extensao para assets opcionais escolhidos pelo
-  usuario (futura aba de customizacao).
-- **Validacao visual continua**: o cenario `?agents=1` e o banco de testes
-  visual para iteracao. Verificar: seam piso/parede, contencao de parede,
-  alinhamento de porta, proporcao de salas, escala de mobiliario/personagens.
+- **Aceite visual** em `?agents=7` e no Debugpreview (seam, escala, metragem).
+- **Variedade por seed no atlas**: hoje o ultimo asset de cada `kind` vence.
+- **Promover combos** do laboratorio (`combinacoes-laboratorio.json`) e a
+  intencao obrigatorio/aleatorio/off para o solver, sem quebrar invariantes.
+- **Alinhar preview e produto** quando fizer sentido: o Debugpreview
+  preserva o proto intacto; o caminho demo/solver ainda espelha faixa norte
+  e pode emitir vidro no corredor — evolucao consciente, nao regressao.
+- **Meter** ainda sem PNG de repouso no TinyHouse.
+- **Expandir catalogo TinyHouse** conforme aceite humano (variantes de mesa,
+  parede, decoracao).
 
 ### Producao e escala
 
@@ -272,6 +303,8 @@ pnpm install
 pnpm dev:landing       # landing page 3D na porta 5174
 pnpm dev:server        # servidor na porta 8787
 pnpm dev               # demo React no navegador
+pnpm lab:iso           # laboratorio TinyHouse (3333) + persistencia da biblia
+pnpm dev:debugpreview  # bancada de agencia (5175)
 ```
 
 ### Testes e typecheck
@@ -309,12 +342,16 @@ Para entender ou retomar o projeto, leia nesta ordem:
 7. `packages/contracts/src/` — contratos de dominio e wire.
 8. `packages/world-engine/src/narrative-scheduler.ts`
 9. `packages/world-engine/src/world-engine.ts`
-14. `apps/landing/src/App.tsx`
-15. `apps/landing/src/Scene.tsx`
-10. `apps/server/src/server.ts`
-11. `apps/server/src/office-session.ts`
-12. `apps/demo/src/App.tsx`
-13. `apps/demo/src/office-renderer-2d.ts`
+10. `packages/world-engine/src/construtor-biblia.ts` — biblia / ProtoComodo.
+11. `packages/world-engine/src/layout-solver.ts`
+12. `scripts/iso-validation/README.md` — laboratorio TinyHouse.
+13. `apps/server/src/server.ts`
+14. `apps/server/src/office-session.ts`
+15. `apps/demo/src/App.tsx`
+16. `apps/demo/src/office-renderer-2d.ts`
+17. `apps/debugpreview/src/montar-agencia.ts`
+18. `apps/landing/src/App.tsx`
+19. `apps/landing/src/Scene.tsx`
 
 ## 9. Notas para quem retoma com um agente LLM
 
@@ -327,6 +364,9 @@ Para entender ou retomar o projeto, leia nesta ordem:
 - **Todo pixel precisa de fato.** Se um novo elemento visual nao deriva de um
   `WorldSnapshot`/`WorldDelta`, ele esta errado.
 - **Mantenha determinismo.** Mesma seed + mesma sequencia = mesma historia.
+- **Preview visual da biblia**: use `pnpm lab:iso` + `pnpm dev:debugpreview`.
+  No Debugpreview, nao desmonte o proto com `emitirParedes`/`colarProto`;
+  o valor e validar o blit completo + empacote.
 - **Teste antes de commitar.** `pnpm typecheck` e `pnpm test` devem passar.
 - **Codigo em portugues ASCII-only.** Identificadores, comentarios, mensagens.
 

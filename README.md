@@ -173,17 +173,32 @@ microfirma/
 │   │   │   └── *.test.ts              # Testes junto ao codigo
 │   │   └── package.json
 │   │
-│   └── demo/                 # Cliente web (React + Vite + Canvas 2D)
+│   ├── demo/                 # Cliente web (React + Vite + Canvas 2D)
+│   │   ├── src/
+│   │   │   ├── App.tsx                 # Componente principal (painel + canvas)
+│   │   │   ├── office-renderer-2d.ts   # Renderer Canvas 2D com sprites + camera
+│   │   │   ├── sprite-factory.ts       # Pre-renderizacao de sprites isometricos
+│   │   │   ├── world-source.ts         # Cliente WebSocket (snapshots + deltas)
+│   │   │   ├── calibracao-tinyhouse.json # Ancoras medidas no laboratorio
+│   │   │   ├── i18n.ts                 # Internacionalizacao (pt-BR, en-US)
+│   │   │   ├── use-i18n.ts             # Hook de i18n
+│   │   │   ├── style.css               # Estilos do painel e palco
+│   │   │   └── main.tsx               # Entry point
+│   │   └── package.json
+│   │
+│   └── debugpreview/         # Bancada visual: protos da biblia -> agencia
 │       ├── src/
-│       │   ├── App.tsx                 # Componente principal (painel + canvas)
-│       │   ├── office-renderer-2d.ts   # Renderer Canvas 2D com sprites + camera
-│       │   ├── sprite-factory.ts       # Pre-renderizacao de sprites isometricos
-│       │   ├── world-source.ts         # Cliente WebSocket (snapshots + deltas)
-│       │   ├── i18n.ts                 # Internacionalizacao (pt-BR, en-US)
-│       │   ├── use-i18n.ts             # Hook de i18n
-│       │   ├── style.css               # Estilos do painel e palco
-│       │   └── main.tsx               # Entry point
+│       │   ├── App.tsx                 # Dashboard salas/copas + Resetar
+│       │   ├── montar-agencia.ts       # Empacota grades reais + corredor Concrete
+│       │   ├── desenhar-agencia.ts     # Blit lab intacto por slot
+│       │   └── proto-blit/             # Pipeline iso fiel ao laboratorio
 │       └── package.json
+│
+├── scripts/
+│   └── iso-validation/       # Laboratorio TinyHouse (calibracao + biblia)
+│       ├── tinyhouse.html
+│       ├── lab-server.mjs              # Serve assets + POST /api/temas-arquiteto
+│       └── catalogo-laboratorio.json
 │
 └── docs/
     ├── roadmap.md            # Documento vivo: planejamento e status
@@ -223,6 +238,38 @@ corepack pnpm dev
 ```
 
 O cliente abre em `http://localhost:5173` e conecta ao servidor em `ws://localhost:8787/mundo`.
+Cenario visual padrao (7 agentes): `http://localhost:5173/?agents=7`.
+
+### Laboratorio TinyHouse (calibracao visual)
+
+Sempre que piso, parede ou porta precisarem de ajuste, volte ao laboratorio
+antes de chutar ancora no renderer:
+
+```bash
+corepack pnpm lab:iso
+```
+
+Abra `http://127.0.0.1:3333/scripts/iso-validation/tinyhouse.html`. Os numeros
+ficam em `apps/demo/src/calibracao-tinyhouse.json`. Ver `scripts/iso-validation/README.md`.
+
+O lab tambem e a **bancada do Construtor**: monta ProtoComodos (grade, tileset,
+palco, calibracao), grava a biblia em
+`packages/world-engine/src/biblia/temas-arquiteto.json` via
+`POST /api/temas-arquiteto`, e define `politicaTiles` (ex.: corredor unico
+`Concrete`).
+
+### Debugpreview (agencia a partir da biblia)
+
+Bancada isolada para validar o empacote visual sem subir a demo completa:
+
+```bash
+corepack pnpm dev:debugpreview
+```
+
+Abra `http://127.0.0.1:5175/`. Informe quantas salas e copas, clique **Gerar**:
+cada proto e blitado **inteiro** (mesmo pipeline do lab) e as salas sao
+agrupadas em faixas com piso de corredor Concrete entre elas. **Resetar**
+volta ao palco vazio.
 
 ### Modo OTLP (telemetria real)
 
@@ -300,7 +347,7 @@ Eventos **nao** carregam conteudo de prompt/resposta por padrao. Apenas forma e 
 
 - **`planSpaceProgram`**: gera o **programa de necessidades** (quais salas, quais agentes em cada sala, adjacencias) a partir dos agentes descobertos. **Nao gera coordenadas** (ADR-0004) - isso e trabalho do solver.
 
-- **`solveLayout`**: transforma o programa de necessidades em **geometria concreta** (grid, retangulos de salas, posicoes de props). Deterministico por seed.
+- **`solveLayout`**: transforma o programa de necessidades em **geometria concreta** (grid, retangulos de salas, posicoes de props). Deterministico por seed. Na Fase 3.5, cola **ProtoComodos** da biblia do laboratorio (`construtor-biblia.ts`): escolhe tema por `zonaKind`, dimensiona pela grade do proto, aplica `politicaTiles` (piso do corredor incluso) e emite faces via `emitirParedes` quando o consumidor pede.
 
 - **`validarLayout`**: checa invariantes geometricos (salas nao se sobrepoem, todas tem porta, mesas sao acessiveis, perimetro e fechado). Se o layout e invalido, o servidor **nao sobe** - falhar alto e cedo.
 
@@ -587,10 +634,12 @@ O roadmap completo vive em `docs/roadmap.md` e e o documento vivo do projeto.
 | **Fase 1** - Fundacao de produto | Concluida | Servidor autoritativo (WS), OTLP/HTTP, i18n, schema cross-linguagem, persistencia/replay |
 | **Fase 2** - Fidelidade visual e escala | Concluida | Sprites pre-renderizados, temas, camera (zoom/pan/follow/reset), arquiteto/decorador (LLM scaffold) |
 | **Fase 3** - Produto | Concluida | Multi-tenant, JWT+RBAC, auditoria, alertas (Slack/PagerDuty), aprovacao acionavel, onboarding self-service |
+| **Fase 3.5** - Refinamento TinyHouse | Em andamento | Lab + biblia do Construtor, `solveLayout` cola ProtoComodos, Debugpreview monta agencia com blit lab intacto |
 
 ### Proxima fase
 
-Fase 3 esta concluida. O proximo passo e definido em `docs/roadmap.md` na secao "Sequenciamento recomendado".
+Fase 3.5 continua ate aceite visual estavel (`?agents=7` + Debugpreview). O
+sequenciamento seguinte permanece em `docs/roadmap.md`.
 
 ---
 
@@ -624,10 +673,14 @@ As frentes abaixo foram implementadas e refletidas nos commits da main. Todos os
 ### 6. Alertas reais (webhook/Slack/PagerDuty)
 - `apps/server/src/alert-engine.ts` — entrega real por webhook, Slack, PagerDuty e email.
 
-### 7. Refinamento do dashboard com historico
-- `apps/demo/src/App.tsx` — componente `Sparkline` e secao `Historico`.
-- `apps/demo/src/i18n.ts` — chaves `dashboard.historico` em `pt-BR`, `en-US` e `es-ES`.
-- `apps/demo/src/style.css` — estilos do historico e sparkline.
+### 7. Refinamento visual TinyHouse + Construtor (Fase 3.5)
+- Laboratorio oficial (`pnpm lab:iso`) com calibracao, catalogo, temas e
+  persistencia da biblia em `packages/world-engine/src/biblia/temas-arquiteto.json`.
+- Construtor: `construtor-biblia.ts`, `emitir-paredes.ts`, `face-corredor.ts`,
+  `politicaTiles` (corredor `Concrete` / `cool-lab`).
+- Debugpreview (`pnpm dev:debugpreview`): empacota N salas + M copas em
+  agencia, desenhando cada proto completo e separando por piso de corredor —
+  sem desmontar paredes/palco no preview.
 
 ---
 
