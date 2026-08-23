@@ -22,6 +22,12 @@ export const AnchorOffset = z.object({
 });
 export type AnchorOffset = z.infer<typeof AnchorOffset>;
 
+export const UsoAsset = z.enum(['obrigatorio', 'aleatorio', 'off']);
+export type UsoAsset = z.infer<typeof UsoAsset>;
+
+export const PapelAsset = z.enum(['prop', 'decor', 'wall']);
+export type PapelAsset = z.infer<typeof PapelAsset>;
+
 /**
  * Uma entrada de asset. Ligada semanticamente a um `Prop.kind` OU a um
  * `Decor.kind` (os dois enums nao se sobrepoem) - um unico catalogo cobre
@@ -43,6 +49,10 @@ export const AssetEntry = z.object({
   sourceUrl: z.string().optional(),
   /** Tags para selecao tematica e subset do catalogo. */
   tags: z.array(z.string()).default([]),
+  /** Intencao do Construtor (biblia do laboratorio). */
+  uso: UsoAsset.default('aleatorio'),
+  /** Onde planta: piso, superficie ou face de parede. */
+  papel: PapelAsset.default('prop'),
 });
 export type AssetEntry = z.infer<typeof AssetEntry>;
 
@@ -58,7 +68,7 @@ export const AssetPack = z.object({
   /**
    * Largura do tile-base isometrico do pack em pixels (ex.: 128 para packs
    * Kenney). O renderer usa isto para escalar o sprite ao tile do MicroFirma
-   * (LARGURA_TILE=44): escala = 44 / tileWidth. Sem isto, sprites sao
+   * (LARGURA_TILE=128): escala = 128 / tileWidth. Sem isto, sprites sao
    * desenhados em resolucao nativa e ficam desproporcionais ao grid.
    */
   tileWidth: z.number().int().min(1).default(128),
@@ -147,8 +157,10 @@ export const OMIES_OFFICE_SET_PACK: AssetPack = {
  *  - Pasta Desks/ com mesas de escritorio (Office_Main_Table, Office_Normal_Table).
  *  - Pasta Chairs/ com cadeiras de escritorio (Basic_Office_Chair, Office_Main_Chair).
  *  - Pasta Computer/ com iMacs, PCs, MacBooks, telas.
- *  - Pasta Floor_Wall_Tiles_128/ com 40+ cores de piso (diamante 128x72) E
- *    paredes (Wall_L/Wall_R, 72x115) - resolve o problema de paredes transparentes.
+ *  - Pasta Floor_Wall_Tiles_128/ com 40+ cores de piso. Canvas 128x128;
+ *    bbox do diamante 128x72 (y=36..107, face 2:1 em y=36..100, laje 8px).
+ *    Paredes Wall_L/Wall_R: mesmo canvas, bbox 72x115 (espessura de 8px
+ *    alem do passo isometrico de 64px - bleed do asset, nao erro de ancora).
  *  - Pasta Plants/, Sofa/, Books/, Carpets/, Lamp/, Doors/ com variedade.
  *
  * Este pack substitui o Kenney Furniture Kit como fonte primaria de mobilia
@@ -182,6 +194,68 @@ export const KNOWN_PACKS: readonly AssetPack[] = [
   OMIES_OFFICE_SET_PACK,
 ];
 
+const LICENCA_TH = 'commercial-paid';
+const ORIGEM_TH = 'https://pixelsalvaje.itch.io/tinyhouse';
+const PACK_TH = 'tinyhouse-pixel-salvaje';
+
+const DECOR_KINDS = new Set(['laptop', 'monitor', 'keyboard', 'mouse', 'books', 'radio']);
+const OBRIGATORIOS_VISUAIS = new Set(['office-main-table', 'basic-office-chair']);
+
+/** Entrada TinyHouse 1x1 com proveniencia padrao. */
+function th(
+  assetId: string,
+  kind: AssetEntry['kind'],
+  fileName: string,
+  tags: string[],
+): AssetEntry {
+  const papel: AssetEntry['papel'] = DECOR_KINDS.has(kind)
+    ? 'decor'
+    : tags.includes('wall')
+      ? 'wall'
+      : 'prop';
+  return {
+    assetId,
+    kind,
+    packId: PACK_TH,
+    fileName,
+    footprint: { w: 1, h: 1 },
+    anchor: { x: 0, y: 0 },
+    license: LICENCA_TH,
+    sourceUrl: ORIGEM_TH,
+    tags,
+    uso: OBRIGATORIOS_VISUAIS.has(assetId) ? 'obrigatorio' : 'aleatorio',
+    papel,
+  };
+}
+
+/**
+ * Kinds que o solver sempre tenta colocar (1 mesa + 1 cadeira por agente).
+ * Sem isto o escritorio deixa de ser um plano de controle espacial.
+ */
+export const PROP_OBRIGATORIOS = ['desk', 'chair'] as const;
+// Biblia visual: `uso`/`papel` em cada AssetEntry (espelha catalogo-laboratorio.json).
+// Temas do arquiteto: world-engine/src/biblia/temas-arquiteto.json.
+
+/**
+ * Kinds opcionais: o solver tenta se houver celula livre fora da circulacao
+ * da porta. Nao falha o layout se nao couber.
+ */
+export const PROP_OPCIONAIS: Readonly<{
+  cantos: readonly AssetEntry['kind'][];
+  paredesLargas: readonly AssetEntry['kind'][];
+  break: readonly AssetEntry['kind'][];
+  meeting: readonly AssetEntry['kind'][];
+  reception: readonly AssetEntry['kind'][];
+  open: readonly AssetEntry['kind'][];
+}> = {
+  cantos: ['plant'],
+  paredesLargas: ['cabinet', 'bookshelf'],
+  break: ['sofa', 'water', 'coffee', 'rug'],
+  meeting: ['board', 'lamp'],
+  reception: ['printer'],
+  open: ['printer'],
+};
+
 /**
  * Catalogo inicial - ADR-0012.
  *
@@ -194,143 +268,153 @@ export const KNOWN_PACKS: readonly AssetPack[] = [
  * seus assets nao sao mais mapeados em INITIAL_CATALOG.assets - o TinyHouse
  * cobre todos os kinds de Prop com qualidade superior e contexto de escritorio.
  *
- * Cobertura por kind:
- *  - desk: Office_Main_Table_Base (128x128, mesa de escritorio com gavetas)
- *  - chair: Basic_Office_Chair_A (64x64, cadeira de escritorio)
- *  - bookshelf: Rack (256x256, estante de armazenamento office)
- *  - sofa: Sofa_3_A_Tile (128x128, sofa)
- *  - plant: Plant_2 (64x64, planta office)
- *  - cabinet: Office_Wood_Closet (64x64, armario office)
- *  - laptop: Macbook_1_Open_Tile (32x32, MacBook aberto)
- *  - monitor: NewImac_B_Tile (64x64, iMac moderno)
- *  - keyboard: NewKeyboard_Tile (64x64, teclado)
- *  - mouse: (sem equivalente direto no TinyHouse, fallback procedural)
- *  - books: Books_Pile (128x128, pilha de livros)
- *  - radio: (sem equivalente direto, fallback procedural)
+ * Cobertura por kind (sprite de repouso; spritesheets de animacao NAO entram):
+ *  - desk / chair / bookshelf / sofa / cabinet / plant: ver assets abaixo
+ *  - printer: Printer_Ani_1 (frame parado)
+ *  - water: Water_Dispenser_1
+ *  - coffee: Office_Kitchen_Table; copa TinyHouse (mesa, bancada, pia, fogao, microondas)
+ *  - board: Board_Full no chao; AC/relogio/poster/janela no lab como papel wall
+ *  - lamp: Lamp_8_B_Tile (projetor como variante)
+ *  - rug: Carpet_3_Tile (almofada Pillow_11 como variante)
+ *  - laptop / monitor / keyboard / books: Computer/ e Books/
+ *  - mouse: WacomTablet (pack nao tem mouse classico de mesa)
+ *  - radio: Telephone; calculadora / headset / porta-lapis como variantes
+ *    de comunicacao de mesa. Pack nao tem Fax PNG.
+ *  - meter: Fire_Extinguisher / Rumba (equipamento; solver nao coloca meter)
  *
- * Piso e paredes:
- *  - Floor tiles: Floor_128_WoodLight (128x72 diamante isometrico)
- *  - Wall tiles: Wall_L_128_WoodLight + Wall_R_128_WoodLight (72x115 cada)
+ * OBRIGATORIOS no space program: desk + chair (1 por agente).
+ * OPCIONAIS: plant, cabinet/bookshelf, sofa, water, coffee, rug, board, lamp,
+ * printer. O solver so tenta se a celula estiver livre (nao encosta na
+ * circulacao da porta). Ver PROP_OBRIGATORIOS / PROP_OPCIONAIS.
  *
- * NOTA: `asset-atlas.ts` mapeia no maximo 1 asset por `kind` (ultimo vence).
- * Variedade deterministica por seed e trabalho futuro.
+ * Piso e paredes (medido 2026-08-16, scripts/iso-validation/medir-tinyhouse.js):
+ *  - Floor_128_WoodLight: canvas 128x128, bbox 128x72, ancora de face (64, 68)
+ *  - Wall_L / Wall_R: canvas 128x128, bbox 72x115, mesma ancora
+ *  - Office_Glass_Door_1: canvas 128x128, bbox 51x122 - blit como TILE, nao objeto
+ *  - Door_1_Beige: spritesheet 640x128 (5 frames) - nao blitar inteiro
+ *
+ * NOTA: o Construtor escolhe `Prop.assetId` por seed + `uso`. O atlas ainda
+ * mapeia 1 asset por `kind` (ultimo vence) so como fallback sem assetId.
  */
 export const INITIAL_CATALOG: AssetManifest = {
-  version: '2.0.0',
+  version: '2.4.0',
   packs: [TINYHOUSE_PACK],
   assets: [
-    // === MOBILIA ESTRUTURAL (Prop) ===
-    {
-      assetId: 'office-main-table',
-      kind: 'desk',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Desks/Office_Main_Table_Desk/Office_Main_Table_Base.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['furniture', 'desk', 'office'],
-    },
-    {
-      assetId: 'basic-office-chair',
-      kind: 'chair',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Chairs/Basic_Office_Chair_A.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['furniture', 'chair', 'office'],
-    },
-    {
-      assetId: 'office-rack',
-      kind: 'bookshelf',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Office/Rack.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['furniture', 'storage', 'office'],
-    },
-    {
-      assetId: 'sofa-3',
-      kind: 'sofa',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Sofa/Sofa_3_A_Tile.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['furniture', 'sofa'],
-    },
-    {
-      assetId: 'office-wood-closet',
-      kind: 'cabinet',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Office/Office_Wood_Closet.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['furniture', 'cabinet', 'office'],
-    },
-    {
-      assetId: 'plant-2',
-      kind: 'plant',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Plants/Plant_2.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['decoration', 'plant', 'office'],
-    },
-    // === DECOR DE SUPERFICIE (Decor) ===
-    {
-      assetId: 'macbook-open',
-      kind: 'laptop',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Computer/MacBook_Ani/Macbook_1_Open_Tile.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['decor', 'surface', 'computer'],
-    },
-    {
-      assetId: 'imac-new',
-      kind: 'monitor',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Computer/NewImac_B_Tile.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['decor', 'surface', 'computer'],
-    },
-    {
-      assetId: 'new-keyboard',
-      kind: 'keyboard',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Computer/NewKeyboard_Tile.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['decor', 'surface', 'computer'],
-    },
-    {
-      assetId: 'books-pile',
-      kind: 'books',
-      packId: 'tinyhouse-pixel-salvaje',
-      fileName: 'Books/Books_Pile.png',
-      footprint: { w: 1, h: 1 },
-      anchor: { x: 0, y: 0 },
-      license: 'commercial-paid',
-      sourceUrl: 'https://pixelsalvaje.itch.io/tinyhouse',
-      tags: ['decor', 'surface', 'books'],
-    },
+    // Variantes ANTES do canonico: o atlas ainda pega o ultimo de cada kind.
+    th('office-drawing-table', 'desk', 'Office/Drawing_Table.png', ['furniture', 'desk', 'variant']),
+    th('office-normal-table', 'desk', 'Desks/Office_Normal_Table_Ani/Office_Normal_Table_Base.png', [
+      'furniture', 'desk', 'variant',
+    ]),
+    th('office-main-table', 'desk', 'Desks/Office_Main_Table_Desk/Office_Main_Table_Base.png', [
+      'furniture', 'desk', 'office',
+    ]),
+    th('kitchen-stool', 'chair', 'Kitchen/Kitchen_Stool.png', ['furniture', 'chair', 'break', 'variant']),
+    th('basic-office-chair-b', 'chair', 'Chairs/Basic_Office_Chair_B.png', ['furniture', 'chair', 'variant']),
+    th('basic-office-chair', 'chair', 'Chairs/Basic_Office_Chair_A.png', ['furniture', 'chair', 'office']),
+    th('office-long-rack', 'bookshelf', 'Office/Long_Rack.png', ['furniture', 'storage', 'variant']),
+    th('office-rack', 'bookshelf', 'Office/Rack.png', ['furniture', 'storage', 'office']),
+    th('sofa-3', 'sofa', 'Sofa/Sofa_3_A_Tile.png', ['furniture', 'sofa']),
+    th('kitchen-cabinet-wood-2', 'cabinet', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_2.png', [
+      'furniture', 'cabinet', 'break', 'variant',
+    ]),
+    th('kitchen-drawers-wood', 'cabinet', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_3.png', [
+      'furniture', 'cabinet', 'break', 'variant',
+    ]),
+    th('kitchen-drawer-low', 'cabinet', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_7.png', [
+      'furniture', 'cabinet', 'break', 'variant',
+    ]),
+    th('kitchen-drawers-a', 'cabinet', 'Kitchen/Kitchen_A_Tile.png', [
+      'furniture', 'cabinet', 'break', 'variant',
+    ]),
+    th('kitchen-fridge', 'cabinet', 'Kitchen/Fridge/Fridge_2_A_Tile.png', [
+      'furniture', 'cabinet', 'break', 'variant',
+    ]),
+    th('kitchen-cabinet-wood', 'cabinet', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_4.png', [
+      'furniture', 'cabinet', 'break', 'variant',
+    ]),
+    th('carton-box', 'cabinet', 'Office/Carton_Box.png', ['furniture', 'box', 'variant']),
+    th('white-box', 'cabinet', 'Office/White_Box.png', ['furniture', 'box', 'variant']),
+    th('kitchen-box', 'cabinet', 'Kitchen/Box_2.png', ['furniture', 'box', 'variant']),
+    th('trash-empty', 'cabinet', 'Office/Trash_Empty.png', ['furniture', 'trash', 'variant']),
+    th('trash-square', 'cabinet', 'Office/Trash_Square.png', ['furniture', 'trash', 'variant']),
+    th('trash-full', 'cabinet', 'Office/Trash_Full.png', ['furniture', 'trash', 'variant']),
+    th('office-metal-closet', 'cabinet', 'Office/Office_Metallic_Closet_Ani/Metallic_Closet_Base.png', [
+      'furniture', 'cabinet', 'variant',
+    ]),
+    th('office-wood-closet', 'cabinet', 'Office/Office_Wood_Closet_Ani/Office_Wood_Closet.png', [
+      'furniture', 'cabinet', 'office',
+    ]),
+    th('plant-1', 'plant', 'Plants/Plant_1.png', ['decoration', 'plant', 'variant']),
+    th('cactus-1', 'plant', 'Plants/Cactus_1.png', ['decoration', 'plant', 'variant']),
+    th('plant-2', 'plant', 'Plants/Plant_2.png', ['decoration', 'plant', 'office']),
+    th('copy-machine-dark', 'printer', 'Office/Copy_Machine_Dark_Ani/CopyMachine_0017_Frame-1.png', [
+      'equipment', 'printer', 'variant',
+    ]),
+    th('document-shredder', 'printer', 'Office/Document_Shredder_Ani/Document_Shredder_1.png', [
+      'equipment', 'printer', 'variant',
+    ]),
+    th('copy-machine', 'printer', 'Office/Copy_Machine_White_Ani/Copy_Machine_1.png', [
+      'equipment', 'printer', 'variant',
+    ]),
+    th('office-printer', 'printer', 'Office/Printer_Ani/Printer_Ani_1.png', ['equipment', 'printer', 'office']),
+    th('projector-stand', 'lamp', 'Office/Projector_Stand.png', ['equipment', 'lamp', 'meeting', 'variant']),
+    th('office-projector', 'lamp', 'Office/Projector_Ani/Projector_Ani_1.png', ['equipment', 'lamp', 'meeting', 'variant']),
+    th('fire-extinguisher', 'meter', 'Office/Fire_Extinguisher.png', ['equipment', 'meter', 'safety', 'variant']),
+    th('rumba-robot', 'meter', 'Office/Rumba_Robot.png', ['equipment', 'meter', 'variant']),
+    th('kitchen-rug', 'rug', 'Kitchen/Kitchen_Rug.png', ['decoration', 'rug', 'break', 'variant']),
+    th('floor-pillow', 'rug', 'Sofa/Pillow_11.png', ['decoration', 'rug', 'break', 'variant']),
+    th('water-dispenser', 'water', 'Office/Water_Dispenser_Ani/Water_Dispenser_1.png', [
+      'equipment', 'water', 'office',
+    ]),
+    th('kitchen-table', 'coffee', 'Kitchen/Kitchen_Table.png', ['furniture', 'coffee', 'break', 'variant']),
+    th('kitchen-counter-wood', 'coffee', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_1.png', [
+      'furniture', 'coffee', 'break', 'variant',
+    ]),
+    th('kitchen-sink', 'coffee', 'Kitchen/Sink.png', ['furniture', 'coffee', 'break', 'variant']),
+    th('kitchen-oven', 'coffee', 'Kitchen/Oven.png', ['furniture', 'coffee', 'break', 'variant']),
+    th('kitchen-stove', 'coffee', 'Kitchen/Stoves.png', ['furniture', 'coffee', 'break', 'variant']),
+    th('kitchen-microwave', 'coffee', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_6.png', [
+      'furniture', 'coffee', 'break', 'variant',
+    ]),
+    th('kitchen-dishwasher', 'coffee', 'Kitchen/DishWasher/Dishwasher_1.png', [
+      'furniture', 'coffee', 'break', 'variant',
+    ]),
+    th('office-kitchen-table', 'coffee', 'Office/Office_Kitchen_Table.png', ['furniture', 'coffee', 'break']),
+    th('kitchen-cabinet-glass', 'board', 'Kitchen/Kitchen Furnitures Colors/Kitchen_Furniture_Wood/Kitchen_Furniture_Wood_5.png', [
+      'furniture', 'board', 'wall', 'break', 'variant',
+    ]),
+    th('kitchen-shelf', 'board', 'Kitchen/Shelf.png', ['furniture', 'board', 'wall', 'break', 'variant']),
+    th('kitchen-window', 'board', 'Kitchen/Kitchen_Window.png', ['furniture', 'board', 'wall', 'break', 'variant']),
+    th('office-ac', 'board', 'Office/AC.png', ['furniture', 'board', 'wall', 'variant']),
+    th('clock-wall', 'board', 'Office/Clock_Ani/Clock_1.png', ['furniture', 'board', 'wall', 'variant']),
+    th('picture-frame', 'board', 'Office/Picture_Frame.png', ['furniture', 'board', 'wall', 'variant']),
+    th('office-diploma', 'board', 'Office/Diploma.png', ['furniture', 'board', 'wall', 'variant']),
+    th('office-photos', 'board', 'Office/Photos_1.png', ['furniture', 'board', 'wall', 'variant']),
+    th('poster-1', 'board', 'Poster/Poster_1.png', ['furniture', 'board', 'wall', 'variant']),
+    th('corkboard-2', 'board', 'Office/Corkboard_2.png', ['furniture', 'board', 'wall', 'variant']),
+    th('corkboard', 'board', 'Office/Corkboard_1.png', ['furniture', 'board', 'variant']),
+    th('projector-screen', 'board', 'Office/Projector_Screen_Ani/Projector_Screen_Ani_1.png', [
+      'furniture', 'board', 'wall', 'meeting', 'variant',
+    ]),
+    th('office-window', 'board', 'Windows/Window_7_A_Tile.png', ['furniture', 'board', 'wall', 'window', 'variant']),
+    th('office-partition', 'board', 'Office/Office_Partition.png', ['furniture', 'board', 'variant']),
+    th('board-full', 'board', 'Office/Board_Full.png', ['furniture', 'board', 'meeting']),
+    th('lamp-floor', 'lamp', 'Lamp/Lamp_8_B_Tile.png', ['furniture', 'lamp']),
+    th('carpet-tile', 'rug', 'Carpets/Carpet_3_Tile.png', ['decoration', 'rug']),
+    // Decor de superficie
+    th('macbook-closed', 'laptop', 'Computer/MacBook_Ani/Macbook_1_Closed_Tile.png', ['decor', 'surface', 'variant']),
+    th('macbook-open', 'laptop', 'Computer/MacBook_Ani/Macbook_1_Open_Tile.png', ['decor', 'surface', 'computer']),
+    th('imac-new', 'monitor', 'Computer/NewImac_B_Tile.png', ['decor', 'surface', 'computer']),
+    th('old-keyboard', 'keyboard', 'Computer/OldKeyboard_Tile.png', ['decor', 'surface', 'computer', 'variant']),
+    th('new-keyboard', 'keyboard', 'Computer/NewKeyboard_Tile.png', ['decor', 'surface', 'computer']),
+    th('wacom-tablet', 'mouse', 'Computer/WacomTablet.png', ['decor', 'surface', 'computer']),
+    th('books-pile', 'books', 'Books/Books_Pile.png', ['decor', 'surface', 'books']),
+    th('ring-binder', 'books', 'Books/Ring_Binder_Blue.png', ['decor', 'surface', 'variant']),
+    th('rolled-papers', 'books', 'Office/Rolled_Papers.png', ['decor', 'surface', 'variant']),
+    th('office-calculator', 'radio', 'Office/Calculator.png', ['decor', 'surface', 'variant']),
+    th('office-headset', 'radio', 'Office/Headset.png', ['decor', 'surface', 'variant']),
+    th('pencil-holder', 'radio', 'Office/Pencil_Holder.png', ['decor', 'surface', 'variant']),
+    th('office-phone', 'radio', 'Office/Telephone.png', ['decor', 'surface', 'phone']),
   ],
 };
 
@@ -375,7 +459,7 @@ const DIR_TILES = 'Floor_Wall_Tiles_128';
 const PORTA_VIDRO = 'Doors/Office_Glass_Door_Ani/Office_Glass_Door_1.png';
 
 /** Monta um tileset do TinyHouse a partir dos nomes de variante de piso e parede. */
-function tileSetTinyHouse(tileSetId: string, piso: string, parede: string): TileSet {
+export function montarTileSet(tileSetId: string, piso: string, parede: string): TileSet {
   return {
     tileSetId,
     packId: 'tinyhouse-pixel-salvaje',
@@ -386,6 +470,10 @@ function tileSetTinyHouse(tileSetId: string, piso: string, parede: string): Tile
       door: PORTA_VIDRO,
     },
   };
+}
+
+function tileSetTinyHouse(tileSetId: string, piso: string, parede: string): TileSet {
+  return montarTileSet(tileSetId, piso, parede);
 }
 
 /**

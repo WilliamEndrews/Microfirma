@@ -1,0 +1,959 @@
+{
+  "versao": "1.5",
+  "data": "2026-08-23",
+  "notas": "Cada zonaKind e um ProtoComodo completo (grade + tileset + palco + calibracao). Persistido automaticamente pelo lab em packages/world-engine/src/biblia/temas-arquiteto.json.",
+  "politicaTiles": {
+    "corridor": {
+      "modo": "unico",
+      "pisos": [
+        "Concrete"
+      ],
+      "paredes": []
+    },
+    "break": {
+      "modo": "default",
+      "pisos": [],
+      "paredes": []
+    },
+    "private": {
+      "modo": "default",
+      "pisos": [],
+      "paredes": []
+    },
+    "open": {
+      "modo": "default",
+      "pisos": [],
+      "paredes": []
+    },
+    "meeting": {
+      "modo": "default",
+      "pisos": [],
+      "paredes": []
+    },
+    "reception": {
+      "modo": "default",
+      "pisos": [],
+      "paredes": []
+    },
+    "war_room": {
+      "modo": "default",
+      "pisos": [],
+      "paredes": []
+    }
+  },
+  "temas": [
+    {
+      "id": "sala-simples1",
+      "nome": "sala simples1",
+      "tilesetAtivo": "nordic-calm",
+      "pisoLivre": null,
+      "paredeLivre": null,
+      "palco": [
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "water-dispenser",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "mesa-notebook",
+          "gx": 1,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "plant-1",
+          "gx": 2,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-metal-closet",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "copy-machine-dark",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "document-shredder",
+          "gx": 2,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "copy-machine",
+          "gx": 0,
+          "gy": 2
+        }
+      ],
+      "piso": "WoodLight",
+      "parede": "BrokenWhite",
+      "grade": {
+        "w": 3,
+        "h": 3
+      },
+      "andares": 1,
+      "subidaAndar": null,
+      "subdiv": true,
+      "prioridade": 5,
+      "unicoNaAgencia": false,
+      "calibracao": null,
+      "zonaKind": "private"
+    },
+    {
+      "id": "sala-simples2",
+      "nome": "sala simples2",
+      "tilesetAtivo": "nordic-calm",
+      "pisoLivre": null,
+      "paredeLivre": null,
+      "palco": [
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "water-dispenser",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "mesa-notebook",
+          "gx": 1,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "plant-1",
+          "gx": 2,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-metal-closet",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "copy-machine-dark",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "document-shredder",
+          "gx": 2,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "copy-machine",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "office-normal-table-combo",
+          "gx": 3,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "carpet-tile",
+          "gx": 3,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "books-pile",
+          "gx": 3,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "books-pile",
+          "gx": 3,
+          "gy": 2
+        }
+      ],
+      "grade": {
+        "w": 4,
+        "h": 3
+      },
+      "andares": 1,
+      "piso": "WoodLight",
+      "parede": "BrokenWhite",
+      "subidaAndar": null,
+      "subdiv": true,
+      "prioridade": 5,
+      "unicoNaAgencia": false,
+      "calibracao": null,
+      "zonaKind": "private"
+    },
+    {
+      "id": "sala-simples1-piso-azul",
+      "nome": "sala simples1 piso azul",
+      "tilesetAtivo": "nordic-calm",
+      "pisoLivre": "Blue",
+      "paredeLivre": null,
+      "palco": [
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "water-dispenser",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "mesa-notebook",
+          "gx": 1,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "plant-1",
+          "gx": 2,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-metal-closet",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "copy-machine-dark",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "document-shredder",
+          "gx": 2,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "copy-machine",
+          "gx": 0,
+          "gy": 2
+        }
+      ],
+      "grade": {
+        "w": 3,
+        "h": 3
+      },
+      "andares": 1,
+      "subidaAndar": null,
+      "subdiv": true,
+      "prioridade": 5,
+      "unicoNaAgencia": false,
+      "piso": "Blue",
+      "parede": "BrokenWhite",
+      "calibracao": {
+        "rodada": 5,
+        "plano": "B",
+        "ancoraPiso": {
+          "x": 64,
+          "y": 68
+        },
+        "peWallR": {
+          "x": 32,
+          "y": 83
+        },
+        "peWallL": {
+          "x": 95,
+          "y": 83
+        },
+        "pePorta": {
+          "x": 46,
+          "y": 101
+        },
+        "folgaPorta": {
+          "x": 11,
+          "y": 4
+        },
+        "objetos": {
+          "desk": {
+            "modo": "centro",
+            "ancora": {
+              "x": 64,
+              "y": 68
+            }
+          },
+          "water": {
+            "modo": "canto",
+            "pe": {
+              "x": 64,
+              "y": 63
+            }
+          }
+        }
+      },
+      "zonaKind": "private"
+    },
+    {
+      "id": "sala-simples2-piso-azul",
+      "nome": "sala simples2 piso azul",
+      "tilesetAtivo": "nordic-calm",
+      "pisoLivre": "Blue",
+      "paredeLivre": null,
+      "palco": [
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "water-dispenser",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "mesa-notebook",
+          "gx": 1,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "plant-1",
+          "gx": 2,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-metal-closet",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "copy-machine-dark",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "document-shredder",
+          "gx": 2,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "copy-machine",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "office-normal-table-combo",
+          "gx": 3,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "carpet-tile",
+          "gx": 3,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "books-pile",
+          "gx": 3,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "books-pile",
+          "gx": 3,
+          "gy": 2
+        }
+      ],
+      "grade": {
+        "w": 4,
+        "h": 3
+      },
+      "andares": 1,
+      "subidaAndar": null,
+      "subdiv": true,
+      "prioridade": 5,
+      "unicoNaAgencia": false,
+      "piso": "Blue",
+      "parede": "BrokenWhite",
+      "calibracao": {
+        "rodada": 5,
+        "plano": "B",
+        "ancoraPiso": {
+          "x": 64,
+          "y": 68
+        },
+        "peWallR": {
+          "x": 32,
+          "y": 83
+        },
+        "peWallL": {
+          "x": 95,
+          "y": 83
+        },
+        "pePorta": {
+          "x": 46,
+          "y": 101
+        },
+        "folgaPorta": {
+          "x": 11,
+          "y": 4
+        },
+        "objetos": {
+          "desk": {
+            "modo": "centro",
+            "ancora": {
+              "x": 64,
+              "y": 68
+            }
+          },
+          "water": {
+            "modo": "canto",
+            "pe": {
+              "x": 64,
+              "y": 63
+            }
+          }
+        }
+      },
+      "zonaKind": "private"
+    },
+    {
+      "id": "sala-completa-piso-cinza",
+      "nome": "Sala completa piso cinza",
+      "tilesetAtivo": "nordic-calm",
+      "pisoLivre": "DarkBlue",
+      "paredeLivre": null,
+      "palco": [
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "water-dispenser",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "mesa-notebook",
+          "gx": 1,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "plant-1",
+          "gx": 2,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-metal-closet",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "copy-machine-dark",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "document-shredder",
+          "gx": 2,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "copy-machine",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "office-normal-table-combo",
+          "gx": 3,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "carpet-tile",
+          "gx": 3,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "books-pile",
+          "gx": 3,
+          "gy": 2
+        },
+        {
+          "assetId": "clock-wall",
+          "papel": "wall",
+          "face": "L",
+          "gx": 0,
+          "gy": 2,
+          "dx": 425,
+          "dy": 43
+        },
+        {
+          "assetId": "office-ac",
+          "papel": "wall",
+          "face": "L",
+          "gx": 0,
+          "gy": 2,
+          "dx": 230,
+          "dy": -53
+        },
+        {
+          "assetId": "office-diploma",
+          "papel": "wall",
+          "face": "L",
+          "gx": 0,
+          "gy": 2,
+          "dx": 130,
+          "dy": -33
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "office-kitchen-table-combo",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "assetId": "corkboard",
+          "papel": "wall",
+          "face": "L",
+          "gx": 0,
+          "gy": 1,
+          "dx": -28,
+          "dy": -8
+        },
+        {
+          "assetId": "office-photos",
+          "papel": "wall",
+          "face": "L",
+          "gx": 0,
+          "gy": 1,
+          "dx": 34,
+          "dy": 34
+        }
+      ],
+      "grade": {
+        "w": 4,
+        "h": 3
+      },
+      "andares": 1,
+      "subidaAndar": null,
+      "subdiv": true,
+      "prioridade": 5,
+      "unicoNaAgencia": false,
+      "zonaKind": "private",
+      "piso": "DarkBlue",
+      "parede": "BrokenWhite",
+      "calibracao": {
+        "rodada": 5,
+        "plano": "B",
+        "ancoraPiso": {
+          "x": 64,
+          "y": 68
+        },
+        "peWallR": {
+          "x": 32,
+          "y": 83
+        },
+        "peWallL": {
+          "x": 95,
+          "y": 83
+        },
+        "pePorta": {
+          "x": 46,
+          "y": 101
+        },
+        "folgaPorta": {
+          "x": 11,
+          "y": 4
+        },
+        "objetos": {
+          "desk": {
+            "modo": "centro",
+            "ancora": {
+              "x": 64,
+              "y": 68
+            }
+          },
+          "water": {
+            "modo": "canto",
+            "pe": {
+              "x": 64,
+              "y": 63
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "copa-simples",
+      "nome": "Copa simples",
+      "tilesetAtivo": "nordic-calm",
+      "pisoLivre": "Traditional",
+      "paredeLivre": "WhiteCheck",
+      "palco": [
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "kitchen-drawers-a",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 1,
+          "assetId": "kitchen-drawers-a-combo",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-drawers-a",
+          "gx": 0,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-oven",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "kitchen-rug",
+          "gx": 0,
+          "gy": 1
+        },
+        {
+          "assetId": "office-long-rack",
+          "papel": "wall",
+          "face": "R",
+          "gx": 1,
+          "gy": 0,
+          "dx": -185,
+          "dy": 19
+        },
+        {
+          "qx": 1,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "rumba-robot",
+          "gx": 1,
+          "gy": 2
+        },
+        {
+          "assetId": "clock-wall",
+          "papel": "wall",
+          "face": "R",
+          "gx": 1,
+          "gy": 0,
+          "dx": 39,
+          "dy": 15
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-table",
+          "gx": 3,
+          "gy": 1
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-stool",
+          "gx": 3,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-stool",
+          "gx": 3,
+          "gy": 0
+        },
+        {
+          "qx": 1,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-stool",
+          "gx": 2,
+          "gy": 0
+        },
+        {
+          "qx": 0,
+          "qy": 0,
+          "passo": 0.5,
+          "assetId": "trash-square",
+          "gx": 0,
+          "gy": 2
+        },
+        {
+          "assetId": "kitchen-shelf",
+          "papel": "wall",
+          "face": "R",
+          "gx": 3,
+          "gy": 0,
+          "dx": 17,
+          "dy": 17
+        },
+        {
+          "assetId": "kitchen-shelf",
+          "papel": "wall",
+          "face": "R",
+          "gx": 0,
+          "gy": 0,
+          "dx": 241,
+          "dy": 128
+        },
+        {
+          "qx": 0,
+          "qy": 1,
+          "passo": 0.5,
+          "assetId": "kitchen-fridge",
+          "gx": 0,
+          "gy": 2
+        }
+      ],
+      "grade": {
+        "w": 5,
+        "h": 3
+      },
+      "andares": 1,
+      "subidaAndar": null,
+      "subdiv": true,
+      "prioridade": 5,
+      "unicoNaAgencia": true,
+      "zonaKind": "break",
+      "piso": "Concrete",
+      "parede": "WhiteCheck",
+      "calibracao": {
+        "rodada": 5,
+        "plano": "B",
+        "ancoraPiso": {
+          "x": 64,
+          "y": 68
+        },
+        "peWallR": {
+          "x": 32,
+          "y": 83
+        },
+        "peWallL": {
+          "x": 95,
+          "y": 83
+        },
+        "pePorta": {
+          "x": 46,
+          "y": 101
+        },
+        "folgaPorta": {
+          "x": 11,
+          "y": 4
+        },
+        "objetos": {
+          "desk": {
+            "modo": "centro",
+            "ancora": {
+              "x": 64,
+              "y": 68
+            }
+          },
+          "water": {
+            "modo": "canto",
+            "pe": {
+              "x": 64,
+              "y": 63
+            }
+          }
+        }
+      }
+    }
+  ]
+}

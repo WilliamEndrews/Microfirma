@@ -19,6 +19,7 @@ import type { AgentDescriptor, SpaceProgram, ZoneRequest } from '@microfirma/con
 import { ROOM_PREFERENCE } from '@microfirma/contracts';
 import { createRng, hashString } from './prng.js';
 import { TEMAS } from './themes.js';
+import { gradeDoZona } from './construtor-biblia.js';
 
 /** Aresta do grafo de colaboracao real, extraido da telemetria. */
 export interface CollaborationEdge {
@@ -126,17 +127,20 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
     });
   }
 
-  // Grid compacto, proporcional ao numero de zonas.
-  // Micro-firma de 1 agente (2 zonas): 7x9 = ~63 celulas, com salas ~4x4.
-  // Empresa de 7 agentes (9+ zonas): cresce proporcionalmente.
-  //
-  // A largura e baseada no MAXIMO de zonas por faixa (norte/sul), nao no total,
-  // porque as zonas sao distribuidas em duas faixas. Usar o total produzia
-  // predios largos demais para poucas zonas, resultando em salas longas e
-  // retangulares. Com maxPorFaixa, cada faixa tem largura justa para suas salas.
+  // Grid: cada sala usa a grade do proto da biblia (default 3x3).
+  // Largura = 2 (bordas) + maxPorFaixa * ladoSala. Altura = 2 bordas +
+  // alturaSala + corredor + alturaSala.
+  const ladoSala = Math.max(
+    3,
+    ...zones.map((z) => gradeDoZona(z.kind).w),
+  );
+  const alturaSala = Math.max(
+    3,
+    ...zones.map((z) => gradeDoZona(z.kind).h),
+  );
   const maxPorFaixa = Math.max(1, Math.ceil(zones.length / 2));
-  const largura = clamp(maxPorFaixa * 5 + 2, 7, 56);
-  const altura = clamp(9 + Math.ceil(zones.length / 4), 9, 40);
+  const largura = clamp(maxPorFaixa * ladoSala + 2, 5, 56);
+  const altura = clamp(2 + alturaSala + 1 + alturaSala, 9, 56);
 
   return {
     officeId: opts.officeId,

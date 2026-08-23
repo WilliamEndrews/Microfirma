@@ -15,6 +15,7 @@ export {
   type PlanOptions,
 } from './space-program.js';
 export { solveLayout } from './layout-solver.js';
+export { faceTocaCorredor } from './face-corredor.js';
 export { validarLayout, assertLayoutValido, type Violacao } from './layout-validation.js';
 export {
   buildNavGrid,
@@ -33,6 +34,24 @@ export {
   type Chatter,
 } from './narrative-scheduler.js';
 export { WorldEngine, type WorldEngineOptions } from './world-engine.js';
+export {
+  BIBLIA_TEMAS,
+  CALIBRACAO_PADRAO,
+  escolherAssetId,
+  escolherTema,
+  listarProtos,
+  colarProto,
+  visualDoProto,
+  gradeDoProto,
+  gradeDoZona,
+  resolverTilesetZona,
+  tileSetDoVisual,
+  tileSetsDoLayout,
+  kindChaoAtivo,
+  type TemaArquiteto,
+  type TileVisual,
+} from './construtor-biblia.js';
+export { emitirParedes } from './emitir-paredes.js';
 export { OtlpIngestor, type OtlpIngestorOptions, type IngestStats } from './otlp-ingestor.js';
 export {
   TEMAS,

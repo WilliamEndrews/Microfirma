@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { AgentDescriptor, AgentRole, OfficeLayout } from '@microfirma/contracts';
+import { INITIAL_CATALOG } from '@microfirma/contracts';
 import { planSpaceProgram } from './space-program.js';
 import { solveLayout } from './layout-solver.js';
 import { validarLayout } from './layout-validation.js';
@@ -69,24 +70,13 @@ describe('geracao de escritorio - invariantes geometricas', () => {
 });
 
 describe('footprint multi-celula', () => {
-  it('sofa 2x1 da copa bloqueia as duas celulas no navgrid, nao so a ancora', () => {
-    // Elenco pequeno gera copa apertada (tapete e sofa disputam o mesmo
-    // centro da sala), entao o footprint 2x1 so aparece com folga de espaco -
-    // elenco grande garante isso de forma deterministica.
-    let encontrado = false;
-    for (let seed = 0; seed < 20 && !encontrado; seed++) {
-      const layout = gerarLayout(seed, 20);
-      const sofaGrande = layout.props.find((p) => p.kind === 'sofa' && p.footprint.w > 1);
-      if (!sofaGrande) continue;
-      encontrado = true;
-      const nav = buildNavGrid(layout);
-      const celulas = footprintCells(sofaGrande);
-      expect(celulas.length).toBe(2);
-      for (const c of celulas) expect(isWalkable(nav, c)).toBe(false);
-    }
-    // Se nunca aconteceu em 20 seeds, o refinamento do sofa 2x1 nunca coube -
-    // sinal de regressao no solver, nao apenas ma sorte de seed.
-    expect(encontrado).toBe(true);
+  it('props do palco bloqueiam celulas no navgrid', () => {
+    const layout = gerarLayout(999, 1);
+    const propComFootprint = layout.props.find((p) => p.footprint.w >= 1 && p.footprint.h >= 1);
+    if (!propComFootprint) return;
+    const nav = buildNavGrid(layout);
+    const celulas = footprintCells(propComFootprint);
+    for (const c of celulas) expect(isWalkable(nav, c)).toBe(false);
   });
 
   it('valida que um footprint que estoura a parede da sala e rejeitado', () => {
@@ -124,35 +114,75 @@ describe('footprint multi-celula', () => {
   });
 });
 
-describe('decor de superficie', () => {
-  it('gera laptop/desktop em pelo menos algumas mesas, e livros em pelo menos alguma estante', () => {
-    const kindsVistos = new Set<string>();
-    for (let seed = 0; seed < 30; seed++) {
-      const layout = gerarLayout(seed, 7);
-      for (const d of layout.decor) kindsVistos.add(d.kind);
+describe('catalogo TinyHouse e solver (passo 7)', () => {
+  it('todo Prop.kind colocado pelo solver tem asset no catalogo', () => {
+    const catalogados = new Set<string>(INITIAL_CATALOG.assets.map((a) => a.kind));
+    const kinds = new Set<string>();
+    for (let seed = 0; seed < 20; seed++) {
+      for (const p of gerarLayout(seed, 7).props) kinds.add(p.kind);
     }
-    // Nem toda mesa ganha decor (90% de chance, ver decorar() em layout-solver.ts),
-    // mas em 30 seeds todo kind de decor definido deve aparecer pelo menos uma vez.
-    expect(kindsVistos).toEqual(new Set(['laptop', 'monitor', 'keyboard', 'mouse', 'books']));
-  });
-
-  it('todo decor aponta para um Prop existente e fica dentro da sala dele', () => {
-    const layout = gerarLayout(999, 12);
-    expect(layout.decor.length).toBeGreaterThan(0);
-    const propsPorId = new Map(layout.props.map((p) => [p.propId, p]));
-    for (const d of layout.decor) {
-      expect(d.onPropId).toBeDefined();
-      const prop = propsPorId.get(d.onPropId as string);
-      expect(prop).toBeDefined();
-      expect(d.cell).toEqual(prop!.cell);
-      expect(d.roomId).toBe(prop!.roomId);
+    for (const k of kinds) {
+      expect(catalogados.has(k)).toBe(true);
     }
   });
 
-  it('decor e deterministico pela seed, como o resto do layout', () => {
-    const a = gerarLayout(42, 6);
-    const b = gerarLayout(42, 6);
-    expect(b.decor).toEqual(a.decor);
+  it('elenco de 7 agentes recebe pelo menos um opcional de copa/reuniao/recepcao', () => {
+    const kinds = new Set<string>();
+    const layout = gerarLayout(999, 7);
+    expect(validarLayout(layout)).toEqual([]);
+    for (const p of layout.props) kinds.add(p.kind);
+    expect(kinds.has('desk')).toBe(true);
+    expect(kinds.has('chair')).toBe(true);
+    // Copa, reuniao e recepcao existem com 7 agentes; pelo menos um extra.
+    const extras = ['sofa', 'water', 'coffee', 'board', 'lamp', 'printer', 'rug'];
+    expect(extras.some((k) => kinds.has(k))).toBe(true);
+  });
+
+  it('Construtor cola proto: assetId, tileSetId, temaId; walls vazio', () => {
+    const layout = gerarLayout(999, 7);
+    expect(layout.walls).toEqual([]);
+    expect(layout.rooms.filter((s) => s.kind === 'private').every((s) => s.temaId === 'nordic-privativo')).toBe(true);
+    expect(layout.rooms.every((s) => Boolean(s.tileSetId))).toBe(true);
+    expect(layout.corridorTileSetId).toBe('cool-lab');
+    const mesas = layout.props.filter((p) => p.kind === 'desk');
+    expect(mesas.length).toBeGreaterThan(0);
+    expect(mesas.every((p) => p.assetId)).toBe(true);
+  });
+});
+
+describe('micro-escritorio de 1 agente', () => {
+  it('salas 3x3, porta no centro da aresta, zero leftover, mesa para o agente', () => {
+    const layout = gerarLayout(999, 1);
+    expect(validarLayout(layout)).toEqual([]);
+    expect(layout.rooms).toHaveLength(2);
+    expect(layout.grid.width).toBe(5);
+    expect(layout.grid.height).toBe(9);
+
+    for (const sala of layout.rooms) {
+      expect(sala.rect.x1 - sala.rect.x0).toBe(3);
+      expect(sala.rect.y1 - sala.rect.y0).toBe(3);
+      const largura = sala.rect.x1 - sala.rect.x0;
+      expect(sala.door.x).toBe(sala.rect.x0 + Math.floor((largura - 1) / 2));
+    }
+
+    const spineY = Math.floor(layout.grid.height / 2);
+    expect(layout.corridors.every((c) => c.y === spineY)).toBe(true);
+    expect(layout.corridors).toHaveLength(layout.grid.width - 2);
+
+    const priv = layout.rooms.find((s) => s.kind === 'private')!;
+    expect(priv.temaId).toBe('nordic-privativo');
+    const mesas = layout.props.filter((p) => p.kind === 'desk' && p.ownerAgentId);
+    expect(mesas).toHaveLength(1);
+    expect(mesas[0]!.footprint).toEqual({ w: 1, h: 1 });
+    expect(mesas[0]!.assetId).toBe('office-main-table');
+    expect(layout.corridorTileSetId).toBe('cool-lab');
+  });
+});
+
+describe('decor de superficie (removido — mobilia vem do palco)', () => {
+  it('decor vazio apos remocao de mobiliar/decorar', () => {
+    const layout = gerarLayout(999, 7);
+    expect(layout.decor).toEqual([]);
   });
 
   it('decor com onPropId inexistente e rejeitado pela validacao', () => {

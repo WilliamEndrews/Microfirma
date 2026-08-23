@@ -89,6 +89,29 @@ export const Footprint = z.object({
 });
 export type Footprint = z.infer<typeof Footprint>;
 
+/** Calibracao de blit copiada do proto do laboratorio (pe de parede, ancora de piso). */
+export const PontoPx = z.object({ x: z.number(), y: z.number() });
+export type PontoPx = z.infer<typeof PontoPx>;
+
+export const CalibracaoSala = z.object({
+  ancoraPiso: PontoPx,
+  peWallR: PontoPx,
+  peWallL: PontoPx,
+  pePorta: PontoPx,
+  folgaPorta: PontoPx.optional(),
+  portaComoFolha: z.boolean().optional(),
+  objetos: z
+    .record(
+      z.object({
+        modo: z.enum(['centro', 'canto']),
+        ancora: PontoPx.optional(),
+        pe: PontoPx.optional(),
+      }),
+    )
+    .optional(),
+});
+export type CalibracaoSala = z.infer<typeof CalibracaoSala>;
+
 export const Room = z.object({
   roomId: z.string(),
   zoneId: z.string(),
@@ -97,8 +120,46 @@ export const Room = z.object({
   rect: Rect,
   /** Celula da porta. Garantidamente adjacente a um corredor (invariante testada). */
   door: Cell,
+  /** Tileset visual desta sala (Construtor). Renderer nao escolhe. */
+  tileSetId: z.string().optional(),
+  /** Variante de piso quando a politica e mix livre (nao um TILESETS nomeado). */
+  piso: z.string().optional(),
+  /** Variante de parede quando a politica e mix livre. */
+  parede: z.string().optional(),
+  /** Proto da biblia do lab que foi colado nesta sala. */
+  temaId: z.string().optional(),
+  /** Ancoras do proto. Renderer usa isto em vez da calibracao global. */
+  calibracao: CalibracaoSala.optional(),
 });
 export type Room = z.infer<typeof Room>;
+
+/**
+ * Face de parede emitida pelo Construtor. O renderer so blita; nao recalcula
+ * NW/vidro. `glass` nao e TileKind — e material de divisoria.
+ * `cell` e a celula de blit (norte/oeste da sala, ou y1 na face sul-corredor).
+ */
+export const WallFace = z.object({
+  cell: Cell,
+  papel: z.enum(['wall_l', 'wall_r', 'glass']),
+  roomId: z.string(),
+  temPorta: z.boolean().default(false),
+});
+export type WallFace = z.infer<typeof WallFace>;
+
+/**
+ * Anexo de parede (AC, janela, poster). Mesmo payload do lab
+ * `{ face, gx, gy, dx, dy }`. Nao-colidivel: navgrid nunca consome.
+ */
+export const WallMount = z.object({
+  assetId: z.string().min(1),
+  roomId: z.string(),
+  face: z.enum(['R', 'L']),
+  gx: z.number().int(),
+  gy: z.number().int(),
+  dx: z.number().default(0),
+  dy: z.number().default(0),
+});
+export type WallMount = z.infer<typeof WallMount>;
 
 /** Mobiliario e equipamento. `ownerAgentId` liga o objeto ao dono. */
 export const Prop = z.object({
@@ -111,6 +172,8 @@ export const Prop = z.object({
   facing: z.number().int().min(0).max(3).default(0),
   /** Quantas celulas o objeto ocupa a partir de `cell` (canto sup.-esq.). Maioria e 1x1. */
   footprint: Footprint.default({ w: 1, h: 1 }),
+  /** Variante visual (ADR-0012). Sem isto o atlas cai no last-wins do kind. */
+  assetId: z.string().optional(),
 });
 export type Prop = z.infer<typeof Prop>;
 
@@ -146,6 +209,15 @@ export const OfficeLayout = z.object({
   /** Celulas de circulacao (corredores). Base do pathfinding entre salas. */
   corridors: z.array(Cell),
   theme: SpaceProgram.shape.theme,
+  /**
+   * Faces de parede/vidro. Layouts novos deixam vazio: o preview blita a
+   * estrutura do proto (calibracao + tileset), como o laboratorio.
+   */
+  walls: z.array(WallFace).default([]),
+  /** Anexos de parede. Navgrid nao consome. */
+  wallMounts: z.array(WallMount).default([]),
+  /** Tileset do corredor-espinha (politicaTiles.corridor). */
+  corridorTileSetId: z.string().optional(),
 });
 export type OfficeLayout = z.infer<typeof OfficeLayout>;
 
