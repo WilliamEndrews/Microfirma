@@ -1,6 +1,500 @@
 {
   "versao": "1.0",
-  "data": "2026-08-17",
-  "notas": "Combinacoes criadas no laboratorio (drag-drop). Camadas: ordem de desenho atras -> frente, dx/dy em px. Cole de volta neste arquivo. Ainda nao entra no solver.",
-  "combinacoes": []
+  "data": "2026-09-05",
+  "notas": "Combinacoes do laboratorio. Ordem das camadas = atras para frente. Cole em combinacoes-laboratorio.json. Ainda nao entra no solver.",
+  "combinacoes": [
+    {
+      "assetId": "mesa-notebook",
+      "nome": "mesa + telão",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "kitchen-rug",
+          "dx": -9,
+          "dy": 5
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": -2,
+          "dy": 28
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": -2,
+          "dy": 3
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 9,
+          "dy": 14
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": -28,
+          "dy": 14
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 21,
+          "dy": 14
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 12,
+          "dy": 36
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 36,
+          "dy": 23
+        },
+        {
+          "assetId": "pc-tower",
+          "dx": 36,
+          "dy": 12
+        },
+        {
+          "assetId": "office-main-table",
+          "dx": 29,
+          "dy": -29
+        },
+        {
+          "assetId": "gaming-chair-a",
+          "dx": -26,
+          "dy": 18
+        },
+        {
+          "assetId": "big-tv-off",
+          "dx": 42,
+          "dy": -37
+        },
+        {
+          "assetId": "vertical-screen",
+          "dx": -5,
+          "dy": -70
+        },
+        {
+          "assetId": "vertical-screen",
+          "dx": 87,
+          "dy": -42
+        },
+        {
+          "assetId": "wacom-tablet",
+          "dx": 30,
+          "dy": -30
+        },
+        {
+          "assetId": "new-keyboard",
+          "dx": 20,
+          "dy": -35
+        },
+        {
+          "assetId": "wacom-tablet",
+          "dx": 0,
+          "dy": -46
+        },
+        {
+          "assetId": "kitchen-mug-green",
+          "dx": 54,
+          "dy": -29
+        }
+      ]
+    },
+    {
+      "assetId": "office-normal-table-combo",
+      "nome": "Mesa normal",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "office-normal-table",
+          "dx": 8,
+          "dy": -23
+        },
+        {
+          "assetId": "lamp-floor",
+          "dx": 37,
+          "dy": -30
+        },
+        {
+          "assetId": "trash-full",
+          "dx": 2,
+          "dy": 29
+        },
+        {
+          "assetId": "imac-new",
+          "dx": 10,
+          "dy": -42
+        },
+        {
+          "assetId": "new-keyboard",
+          "dx": -8,
+          "dy": -28
+        }
+      ]
+    },
+    {
+      "assetId": "office-kitchen-table-combo",
+      "nome": "Bancada copa",
+      "kind": "coffee",
+      "papel": "prop",
+      "uso": "obrigatorio",
+      "camadas": [
+        {
+          "assetId": "office-kitchen-table",
+          "dx": 8,
+          "dy": 3
+        },
+        {
+          "assetId": "office-kitchen-table",
+          "dx": 34,
+          "dy": 13
+        },
+        {
+          "assetId": "carpet-red",
+          "dx": 19,
+          "dy": -7
+        },
+        {
+          "assetId": "gaming-chair-a",
+          "dx": -36,
+          "dy": 14
+        },
+        {
+          "assetId": "office-main-chair",
+          "dx": -1,
+          "dy": 30
+        },
+        {
+          "assetId": "macbook-closed",
+          "dx": -14,
+          "dy": -30
+        },
+        {
+          "assetId": "notebooks",
+          "dx": 14,
+          "dy": -41
+        },
+        {
+          "assetId": "macbook-open",
+          "dx": 17,
+          "dy": -19
+        }
+      ]
+    },
+    {
+      "assetId": "kitchen-drawers-a-combo",
+      "nome": "Pia integrada",
+      "kind": "cabinet",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "kitchen-drawers-a",
+          "dx": 0,
+          "dy": -1
+        },
+        {
+          "assetId": "kitchen-drawers-a",
+          "dx": 26,
+          "dy": 11
+        },
+        {
+          "assetId": "kitchen-sink",
+          "dx": 12,
+          "dy": -40
+        }
+      ]
+    },
+    {
+      "assetId": "plant-1-combo",
+      "nome": "Planta3 + banco",
+      "kind": "plant",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "kitchen-stool",
+          "dx": 1,
+          "dy": 26
+        },
+        {
+          "assetId": "plant-2",
+          "dx": -1,
+          "dy": -1
+        }
+      ]
+    },
+    {
+      "assetId": "projector-stand-combo",
+      "nome": "Suporte + projetor",
+      "kind": "lamp",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "projector-stand",
+          "dx": -1,
+          "dy": 30
+        },
+        {
+          "assetId": "office-projector",
+          "dx": -1,
+          "dy": -7
+        }
+      ]
+    },
+    {
+      "assetId": "cadeira-planta",
+      "nome": "Cacto + Cadeira",
+      "kind": "plant",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "projector-stand",
+          "dx": 1,
+          "dy": 26
+        },
+        {
+          "assetId": "cactus-1",
+          "dx": 1,
+          "dy": -22
+        }
+      ]
+    },
+    {
+      "assetId": "office-drawing-table-combo",
+      "nome": "Mesa de desenho",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "office-drawing-table",
+          "dx": 18,
+          "dy": -21
+        },
+        {
+          "assetId": "basic-office-chair-b",
+          "dx": -9,
+          "dy": 21
+        },
+        {
+          "assetId": "office-blueprint",
+          "dx": 11,
+          "dy": -16
+        },
+        {
+          "assetId": "rolled-papers",
+          "dx": 10,
+          "dy": 19
+        },
+        {
+          "assetId": "office-paper-1",
+          "dx": -43,
+          "dy": 4
+        },
+        {
+          "assetId": "office-paper-1",
+          "dx": -38,
+          "dy": 3
+        }
+      ]
+    },
+    {
+      "assetId": "office-main-table-combo",
+      "nome": "Mesa principal",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "carpet-14",
+          "dx": -12,
+          "dy": 13
+        },
+        {
+          "assetId": "pc-tower",
+          "dx": 20,
+          "dy": 18
+        },
+        {
+          "assetId": "office-main-table",
+          "dx": 7,
+          "dy": -22
+        },
+        {
+          "assetId": "office-main-chair",
+          "dx": -35,
+          "dy": 17
+        },
+        {
+          "assetId": "lamp-floor",
+          "dx": 45,
+          "dy": -31
+        },
+        {
+          "assetId": "bended-screen",
+          "dx": 12,
+          "dy": -35
+        },
+        {
+          "assetId": "new-keyboard",
+          "dx": 3,
+          "dy": -28
+        },
+        {
+          "assetId": "office-headset",
+          "dx": 28,
+          "dy": -47
+        },
+        {
+          "assetId": "vertical-screen",
+          "dx": -22,
+          "dy": -46
+        },
+        {
+          "assetId": "pencil-holder",
+          "dx": 28,
+          "dy": -23
+        }
+      ]
+    },
+    {
+      "assetId": "mesa-owner",
+      "nome": "Mesa owner",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "office-kitchen-table",
+          "dx": 8,
+          "dy": 3
+        },
+        {
+          "assetId": "office-kitchen-table",
+          "dx": 34,
+          "dy": 13
+        },
+        {
+          "assetId": "carpet-red",
+          "dx": 19,
+          "dy": -7
+        },
+        {
+          "assetId": "office-main-chair",
+          "dx": -28,
+          "dy": 14
+        },
+        {
+          "assetId": "office-main-chair",
+          "dx": -1,
+          "dy": 30
+        }
+      ]
+    },
+    {
+      "assetId": "mesa-notebooks",
+      "nome": "Mesa + notebooks",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "office-kitchen-table",
+          "dx": 8,
+          "dy": 3
+        },
+        {
+          "assetId": "office-kitchen-table",
+          "dx": 34,
+          "dy": 15
+        },
+        {
+          "assetId": "carpet-red",
+          "dx": 19,
+          "dy": -7
+        },
+        {
+          "assetId": "gaming-chair-a",
+          "dx": -39,
+          "dy": 20
+        },
+        {
+          "assetId": "office-main-chair",
+          "dx": -3,
+          "dy": 33
+        },
+        {
+          "assetId": "macbook-closed",
+          "dx": -10,
+          "dy": -31
+        },
+        {
+          "assetId": "macbook-open",
+          "dx": 15,
+          "dy": -15
+        },
+        {
+          "assetId": "kitchen-mug-green",
+          "dx": 14,
+          "dy": -50
+        }
+      ]
+    },
+    {
+      "assetId": "carpet-tile-combo",
+      "nome": "Tapetão",
+      "kind": "rug",
+      "papel": "prop",
+      "uso": "off",
+      "camadas": [
+        {
+          "assetId": "kitchen-rug",
+          "dx": -9,
+          "dy": 5
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": -2,
+          "dy": 28
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": -2,
+          "dy": 3
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 9,
+          "dy": 14
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": -28,
+          "dy": 14
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 21,
+          "dy": 14
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 12,
+          "dy": 36
+        },
+        {
+          "assetId": "kitchen-rug",
+          "dx": 36,
+          "dy": 23
+        }
+      ]
+    }
+  ]
 }

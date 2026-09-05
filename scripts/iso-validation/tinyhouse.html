@@ -1,322 +1,591 @@
 <!DOCTYPE html>
 <!--
-  Laboratorio TinyHouse — calibracao + biblia do arquiteto.
+  Laboratorio TinyHouse — construtor gamificado de escritorio.
 
-  Servidor: pnpm lab:iso   (python -m http.server 3333 na raiz do repo)
+  Servidor: pnpm lab:iso
   URL: http://127.0.0.1:3333/scripts/iso-validation/tinyhouse.html
 
-  Catalogo: catalogo-laboratorio.json (espelha INITIAL_CATALOG).
-  Temas do arquiteto / Construtor: packages/world-engine/src/biblia/temas-arquiteto.json.
-  Calibracao de pe: apps/demo/src/calibracao-tinyhouse.json.
+  Catalogo: catalogo-laboratorio.json
+  Temas: packages/world-engine/src/biblia/temas-arquiteto.json
+  Calibracao: apps/demo/src/calibracao-tinyhouse.json
 -->
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
-<title>Laboratorio TinyHouse - catalogo do arquiteto</title>
+<title>TinyHouse Lab — montar escritorio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #1a1a1a;
-    --panel: #161616;
-    --line: #3a3a3a;
-    --text: #eee;
-    --mute: #9aa;
-    --gold: #f5d76e;
-    --cyan: #9ad;
+    --bg: #0c1210;
+    --bg-deep: #070b09;
+    --panel: #121a17;
+    --panel-2: #18221e;
+    --line: #2a3a34;
+    --text: #e8f0eb;
+    --mute: #8aa094;
+    --accent: #c4a35a;
+    --accent-dim: #8a7340;
+    --teal: #5eb8a0;
+    --danger: #d47868;
+    --ok: #7dba7a;
+    --book-w: min(420px, 92vw);
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: sans-serif;
     margin: 0;
-    padding: 16px 20px 40px;
+    background:
+      radial-gradient(1200px 600px at 20% -10%, #1a2822 0%, transparent 55%),
+      radial-gradient(900px 500px at 100% 0%, #152018 0%, transparent 50%),
+      var(--bg);
+    color: var(--text);
+    font-family: "DM Sans", system-ui, sans-serif;
+    overflow: hidden;
   }
-  h1 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
-  h2 { font-size: 12px; font-weight: 600; margin: 0 0 8px; letter-spacing: 0.04em; text-transform: uppercase; color: #ccc; }
-  p, li { font-size: 12px; color: #bbb; line-height: 1.45; }
-  code { color: var(--cyan); }
-  canvas.palco { image-rendering: pixelated; background: #2a2a2a; border: 1px solid #444; cursor: crosshair; display: block; max-width: 100%; height: auto; }
-  canvas#palco-compose { cursor: grab; }
-  canvas#palco-compose.arrastando, canvas#palco.arrastando { cursor: grabbing; }
-  .layout {
-    display: grid;
-    grid-template-columns: max-content minmax(360px, 1fr);
-    gap: 12px;
-    align-items: start;
+  h1, h2 { margin: 0; }
+  h2 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mute);
   }
-  .coluna-palco { width: 720px; max-width: 100%; }
-  .coluna-lado { min-width: 0; }
-  @media (max-width: 1100px) {
-    .layout { grid-template-columns: 1fr; }
-    .coluna-palco { width: 100%; }
-  }
-  .proto {
-    font-size: 12px;
-    color: #ccc;
-    border: 1px solid #444;
-    padding: 10px 12px;
-    margin: 0 0 14px;
-    background: var(--panel);
-  }
-  .proto strong { color: var(--gold); }
-  .toolbar, .paletas, .meta, .exportar, .celula, .catalogo {
+  p, li { font-size: 13px; color: var(--mute); line-height: 1.45; }
+  code { color: var(--teal); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; }
+  button {
+    font-family: inherit;
+    background: var(--panel-2);
+    color: var(--text);
     border: 1px solid var(--line);
-    background: var(--panel);
-    padding: 10px 12px;
-    margin-bottom: 12px;
-  }
-  details.paletas, details.exportar {
-    padding: 0;
-  }
-  details.paletas > summary, details.exportar > summary {
-    list-style: none;
+    padding: 7px 12px;
+    font-size: 12px;
     cursor: pointer;
-    padding: 10px 12px;
+    border-radius: 6px;
+    transition: border-color 0.15s, color 0.15s, transform 0.15s var(--ease);
+  }
+  button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+  button.ativo {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: inset 0 0 0 1px rgba(196, 163, 90, 0.25);
+  }
+  button:active { transform: scale(0.98); }
+  select, input[type="text"], input[type="search"] {
+    font-family: inherit;
+    background: var(--bg-deep);
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .sr { position: absolute; left: -9999px; }
+
+  /* —— Shell —— */
+  .app {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    max-height: 100dvh;
+  }
+  .topbar {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(7, 11, 9, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 20;
   }
-  details.paletas > summary::-webkit-details-marker,
-  details.exportar > summary::-webkit-details-marker { display: none; }
-  details.paletas > summary::marker, details.exportar > summary::marker { content: ''; }
-  details.paletas > summary h2, details.exportar > summary h2 {
-    margin: 0;
-    flex: 1;
-  }
-  details.paletas > summary::after, details.exportar > summary::after {
-    content: 'abrir';
-    font-size: 11px;
-    color: var(--gold);
-    text-transform: lowercase;
-    letter-spacing: 0.04em;
-    flex-shrink: 0;
-  }
-  details.paletas[open] > summary::after, details.exportar[open] > summary::after {
-    content: 'fechar';
-  }
-  details.paletas > .painel-corpo, details.exportar > .painel-corpo {
-    padding: 0 12px 10px;
-  }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .toolbar label { font-size: 12px; color: #ccc; cursor: pointer; }
-  button {
-    background: #2a2a2a;
+  .brand {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--text);
-    border: 1px solid #555;
-    padding: 5px 10px;
-    font-size: 12px;
-    cursor: pointer;
+    margin-right: 8px;
   }
-  button:hover, button:focus { border-color: var(--gold); outline: none; }
-  button.ativo { border-color: var(--gold); color: var(--gold); }
+  .brand span { color: var(--accent); }
+  .modos { display: flex; gap: 6px; }
+  .modos button { min-width: 132px; font-weight: 600; }
+  .topbar-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  .stage-wrap {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 16px 24px 24px;
+    overflow: auto;
+    min-height: 0;
+  }
+  .stage-canvas-slot {
+    position: relative;
+    width: min(920px, 100%);
+  }
+  canvas.palco {
+    image-rendering: pixelated;
+    background: #101814;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    display: block;
+    width: 100%;
+    height: auto;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    cursor: grab;
+  }
+  canvas.palco.arrastando { cursor: grabbing; }
+  canvas#palco-compose { cursor: grab; }
+  .stage-canvas-slot canvas[hidden] { display: none !important; }
+
+  .dock {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: min(920px, 100%);
+  }
+  .dock .sep {
+    width: 1px;
+    height: 22px;
+    background: var(--line);
+    margin: 0 4px;
+  }
+  .dock strong {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 500;
+    min-width: 3.5rem;
+    text-align: center;
+  }
+  .dock-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mute);
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: min(920px, 100%);
+    min-height: 0;
+  }
+  .chip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 10px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  .chip.sel { border-color: var(--accent); }
+  .chip button { padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .chip .meta-chip { color: var(--mute); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+
+  .toolbar-mini {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: center;
+    width: min(920px, 100%);
+  }
+  .toolbar-mini kbd, .help-card kbd {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+  .atalho-hint { font-size: 12px; color: var(--mute); margin-left: 4px; }
+  .toolbar-mini label { font-size: 12px; color: var(--mute); cursor: pointer; display: flex; gap: 6px; align-items: center; }
+
+  .compose-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    width: min(920px, 100%);
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .compose-form[hidden] { display: none !important; }
+  .compose-form label { font-size: 12px; color: var(--mute); display: flex; gap: 4px; align-items: center; }
+
+  .camadas-locais {
+    width: min(920px, 100%);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .camadas-locais[hidden] { display: none !important; }
+  .camadas-locais .titulo { font-size: 11px; color: var(--mute); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+
+  /* —— Caderninho —— */
+  .book-toggle {
+    position: fixed;
+    right: 16px;
+    top: 58px;
+    z-index: 40;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    padding: 14px 8px;
+    border-radius: 10px 0 0 10px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-right: none;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: var(--accent);
+    box-shadow: -8px 0 24px rgba(0,0,0,0.35);
+    transition: right 0.35s var(--ease);
+  }
+  body.book-open .book-toggle { right: var(--book-w); }
+
+  .book {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: var(--book-w);
+    height: 100%;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.2), transparent 12px),
+      var(--panel);
+    border-left: 1px solid var(--line);
+    z-index: 35;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(105%);
+    transition: transform 0.4s var(--ease);
+    box-shadow: -20px 0 50px rgba(0,0,0,0.5);
+  }
+  body.book-open .book { transform: translateX(0); }
+  .book-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 10px 0;
+    background: var(--bg-deep);
+  }
+  .book-tabs button {
+    flex: 1;
+    border-radius: 8px 8px 0 0;
+    border-bottom: none;
+    padding: 10px 8px;
+    background: transparent;
+    color: var(--mute);
+  }
+  .book-tabs button.ativo {
+    background: var(--panel);
+    color: var(--accent);
+    border-color: var(--line);
+  }
+  .book-body {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+    min-height: 0;
+  }
+  .book-pane[hidden] { display: none !important; }
+  .book-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .book-filters .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .book-filters .chip-filter {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+  }
+  .filtro { width: 100%; margin: 0; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+  }
+  .card {
+    border: 1px solid var(--line);
+    background: var(--bg-deep);
+    padding: 8px;
+    cursor: grab;
+    text-align: left;
+    width: 100%;
+    border-radius: 10px;
+    position: relative;
+    user-select: none;
+    transition: border-color 0.15s, transform 0.15s var(--ease);
+  }
+  .card:hover, .card:focus-visible { border-color: var(--teal); outline: none; transform: translateY(-1px); }
+  .card.uso-off { opacity: 0.4; }
+  .card.combo { border-color: #3d7a55; }
+  .card.card-wall { border-color: #8a6540; }
+  .card.dragging { opacity: 0.55; cursor: grabbing; }
+  .card canvas {
+    image-rendering: pixelated;
+    width: 100%;
+    height: 68px;
+    background: #0a100e;
+    display: block;
+    margin-bottom: 6px;
+    border-radius: 6px;
+  }
+  .card .nome { font-size: 12px; color: var(--text); display: block; font-weight: 600; }
+  .card .kind { font-size: 10px; color: var(--mute); font-family: "IBM Plex Mono", monospace; }
+  .card .badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background: rgba(196, 163, 90, 0.2);
+    color: var(--accent);
+    border: 1px solid rgba(196, 163, 90, 0.35);
+  }
+  .card .usos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 10px; color: var(--mute); }
+  .card .usos label { cursor: pointer; }
+
   .swatches, .swatches-zona {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
     margin: 8px 0;
-    max-height: 120px;
+    max-height: 140px;
     overflow: auto;
   }
   .swatch {
     width: 36px;
     height: 26px;
-    border: 1px solid #555;
+    border: 1px solid var(--line);
     padding: 0;
-    background: #222;
+    background: #111;
     image-rendering: pixelated;
     flex-shrink: 0;
+    border-radius: 4px;
   }
-  .swatch.ativo { outline: 2px solid var(--gold); }
+  .swatch.ativo { outline: 2px solid var(--accent); }
   .swatch canvas { display: block; width: 34px; height: 24px; image-rendering: pixelated; }
-  select { background: #111; color: var(--text); border: 1px solid #555; font-size: 12px; padding: 4px; }
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-    gap: 8px;
-    max-height: 70vh;
-    overflow: auto;
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: transparent;
-  }
-  .card {
-    border: 1px solid #444;
-    background: #121212;
-    padding: 8px;
-    cursor: pointer;
-    text-align: left;
-    width: 100%;
-  }
-  .card:hover, .card:focus { border-color: var(--cyan); }
-  .card.uso-off { opacity: 0.45; }
-  .card.combo { border-color: #5a7; }
-  .card.card-wall { border-color: #a84; }
-  .card canvas {
-    image-rendering: pixelated;
-    width: 100%;
-    height: 72px;
-    background: #222;
-    display: block;
-    margin-bottom: 6px;
-  }
-  .card .nome { font-size: 12px; color: var(--text); display: block; }
-  .card .kind { font-size: 10px; color: var(--mute); font-family: ui-monospace, Consolas, monospace; }
-  .card .usos { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 10px; color: #bbb; }
-  .card .usos label { cursor: pointer; }
-  .filtro { width: 100%; background: #111; color: var(--text); border: 1px solid #555; padding: 6px 8px; margin-bottom: 8px; font-size: 12px; }
-  .meta, .exportar {
-    font-family: ui-monospace, Consolas, monospace;
-    font-size: 11px;
-    white-space: pre-wrap;
-    color: #d0d0d0;
-  }
-  textarea {
-    width: 100%;
-    min-height: 120px;
-    background: #111;
-    color: #d0d0d0;
-    border: 1px solid #333;
-    font-family: ui-monospace, Consolas, monospace;
-    font-size: 11px;
-  }
-  .sr { position: absolute; left: -9999px; }
-  .tema-grupo {
-    font-size: 11px; text-transform: uppercase; color: #888; margin: 10px 0 4px;
-    letter-spacing: 0.04em;
-  }
+
   .lista-temas {
     margin-top: 10px;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    max-height: 220px;
+    max-height: 280px;
     overflow: auto;
   }
   .tema-row {
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-    border: 1px solid #333; padding: 6px 8px; font-size: 12px;
+    border: 1px solid var(--line); padding: 8px; font-size: 12px; border-radius: 8px;
+    background: var(--bg-deep);
   }
-  .tema-row span { flex: 1; min-width: 120px; color: #ddd; }
-  .tema-persist-status {
-    display: inline-block;
-    margin-left: 8px;
+  .tema-row span { flex: 1; min-width: 100px; }
+  .tema-persist-status { font-size: 11px; color: var(--mute); }
+  .tema-persist-status[data-ok="1"] { color: var(--ok); }
+  .tema-persist-status[data-ok="0"] { color: var(--danger); }
+  .palco-aviso {
+    margin: 8px 0;
+    padding: 8px;
+    font-size: 12px;
+    border-radius: 8px;
+    background: rgba(212, 120, 104, 0.12);
+    color: #f0a89c;
+    border: 1px solid rgba(212, 120, 104, 0.35);
+  }
+  .palco-aviso[data-ok="1"] { display: none; }
+  .hint-combo { font-size: 12px; color: var(--mute); margin: 4px 0 10px; }
+  .painel-bloco { margin-bottom: 18px; }
+  .painel-bloco h2 { margin-bottom: 8px; }
+
+  .meta {
+    font-family: "IBM Plex Mono", monospace;
     font-size: 11px;
-    color: #888;
+    white-space: pre-wrap;
+    color: #c5d0c9;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    margin-top: 8px;
   }
-  .tema-persist-status[data-ok="1"] { color: #8f8; }
-  .tema-persist-status[data-ok="0"] { color: #f88; }
-  .combinar { margin-top: 12px; }
-  .combinar[hidden] { display: none; }
-  .combinar label { font-size: 12px; color: #ccc; }
-  .combinar input[type="text"] {
-    background: #111; color: #eee; border: 1px solid #555; padding: 4px 6px; margin: 0 8px 0 4px;
+  .meta[hidden] { display: none !important; }
+  textarea {
+    width: 100%;
+    min-height: 100px;
+    background: var(--bg-deep);
+    color: #c5d0c9;
+    border: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    border-radius: 8px;
+    padding: 8px;
   }
-  .hint-combo { font-size: 11px; color: #888; margin: 4px 0 8px; }
+
+  .ghost-drag {
+    position: fixed;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.85;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.5));
+  }
+
+  .help-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s var(--ease);
+  }
+  .help-drawer.open { opacity: 1; pointer-events: auto; }
+  .help-card {
+    max-width: 560px;
+    max-height: 80vh;
+    overflow: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px 22px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+  }
+  .help-card h2 { color: var(--accent); margin-bottom: 10px; font-size: 13px; }
+  .help-card ul { padding-left: 18px; margin: 0; }
+  .celula { display: none; }
   .lista-camadas { margin: 8px 0; display: flex; flex-direction: column; gap: 4px; padding: 0; list-style: none; }
   .camada-row {
     display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
-    border: 1px solid #333; padding: 4px 8px; font-size: 12px; background: #121212;
+    border: 1px solid var(--line); padding: 6px 8px; font-size: 12px;
+    background: var(--bg-deep); border-radius: 8px;
   }
-  .camada-row.sel { border-color: var(--gold); }
-  .camada-row .zlab { color: #888; font-size: 10px; min-width: 48px; text-transform: uppercase; }
+  .camada-row.sel { border-color: var(--accent); }
+  .camada-row .zlab { color: var(--mute); font-size: 10px; min-width: 48px; text-transform: uppercase; }
   .camada-row .nome-cam {
-    flex: 1; min-width: 100px; color: #ddd; text-align: left;
+    flex: 1; min-width: 80px; color: var(--text); text-align: left;
     border: none; background: transparent; padding: 2px 0;
   }
   .camada-row .acoes { display: flex; gap: 4px; }
+
+  @media (max-width: 720px) {
+    .brand { display: none; }
+    .modos button { min-width: 0; padding: 7px 10px; }
+  }
 </style>
 </head>
 <body>
-<h1>Laboratorio TinyHouse — palco 3x3 + catalogo do arquiteto</h1>
-<p>
-  Clique um losango (ou um quarto azul), depois um asset para plantar no piso.
-  Modo <strong>parede</strong>: clique a face NW, um card, arraste no palco.
-  <strong>Salvar tema</strong> grava tileset + mobilia + zona como referencia do Construtor.
-  Subdivisao em 4 (azul) e experimento do laboratorio: o solver da demo ainda
-  e 1 item por celula.
-</p>
-
-<div class="proto">
-  <strong>O que isto e (e o que ainda nao e)</strong>
-  <ul>
-    <li>E a biblia visual: ver o sprite, o nome e o kind catalogado, brincar no mesmo palco da calibracao.</li>
-    <li>O Construtor (<code>solveLayout</code>) le <code>uso</code>/<code>papel</code> do catalogo e os temas em
-      <code>packages/world-engine/src/biblia/temas-arquiteto.json</code>. Ele emite paredes, vidro, tileset e assetId.
-      O renderer so blita. Pixel (pe/ancora) continua neste laboratorio + <code>calibracao-tinyhouse.json</code>.</li>
-    <li>Diagnostico amarelo/magenta continua o protocolo de parede/porta. Edite
-      <code>apps/demo/src/calibracao-tinyhouse.json</code> e F5.</li>
-    <li>Temas salvos gravam no <code>localStorage</code> e, com <code>pnpm lab:iso</code> (lab-server),
-      automaticamente em <code>packages/world-engine/src/biblia/temas-arquiteto.json</code>
-      (+ espelho em <code>scripts/iso-validation/temas-arquiteto.json</code>).
-      A malha 2x2 azul e os andares nao entram no world-engine.</li>
-    <li>Combinar assets monta um sprite composto (ex.: notebook no tampo). Salvo, vira card do catalogo. Ainda nao entra no solver da demo.</li>
-    <li>A barra sob o canvas cresce o palco (+gx / +gy). Paredes NW e porta no centro da aresta norte acompanham. Andares empilham com subida medida no PNG da parede (pe.y − bbox.y). Ainda e so laboratorio.</li>
-    <li>Pisos/paredes por zona: default herda o tema; unico ou opcoes fecham a paleta. O Construtor ja consome <code>politicaTiles</code>.</li>
-    <li>Decoracao de parede: radio plantar piso/parede. Face + card + drag (dx/dy no pe da parede). Temas com pecas <code>papel: wall</code> viram <code>WallMount</code> no layout.</li>
-  </ul>
-</div>
-
-<div class="layout">
-  <div class="coluna-palco">
-    <div class="toolbar">
-      <label><input type="checkbox" id="chk-diag" /> diagnostico (bbox / pe)</label>
-      <label><input type="checkbox" id="chk-subdiv" checked /> subdividir celula (4 azuis)</label>
-      <span>plantar</span>
-      <label><input type="radio" name="modo-plantar" id="radio-piso" value="piso" checked /> piso</label>
-      <label><input type="radio" name="modo-plantar" id="radio-parede" value="parede" /> parede</label>
-      <button type="button" id="btn-padrao">cenario mesa+cadeira</button>
-      <button type="button" id="btn-limpar">limpar palco</button>
-      <button type="button" id="btn-reset">resetar JSON do repo</button>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">TinyHouse <span>Lab</span></div>
+    <div class="modos" role="tablist" aria-label="Modo do laboratorio">
+      <button type="button" id="btn-modo-palco" class="ativo" role="tab" aria-selected="true">Palco Principal</button>
+      <button type="button" id="btn-modo-combinar" role="tab" aria-selected="false">Combinar assets</button>
     </div>
-
-    <canvas id="palco" class="palco" width="720" height="520"
-      role="img"
-      aria-label="Palco isometrico. Clique uma celula ou um quarto azul, depois um asset do catalogo."
-      tabindex="0"></canvas>
-    <div class="toolbar" id="barra-grade">
-      <span>palco</span>
-      <button type="button" id="btn-gx-minus" title="Remove a coluna de maior gx">−gx</button>
-      <strong id="txt-grade">3 × 3</strong>
-      <button type="button" id="btn-gx-plus">+gx</button>
-      <button type="button" id="btn-gy-minus" title="Remove a fileira de maior gy">−gy</button>
-      <button type="button" id="btn-gy-plus">+gy</button>
-      <span>andares</span>
-      <button type="button" id="btn-andar-minus">−</button>
-      <strong id="txt-andares">1</strong>
-      <button type="button" id="btn-andar-plus">+</button>
-      <span id="wrap-subida" hidden>
-        <span>subida</span>
-        <button type="button" id="btn-subida-minus">−</button>
-        <strong id="txt-subida">—</strong>
-        <button type="button" id="btn-subida-plus">+</button>
-      </span>
+    <div class="topbar-actions">
+      <button type="button" id="btn-help" title="Como funciona">?</button>
+      <button type="button" id="btn-info-tec" title="Informacoes tecnicas" aria-pressed="false">i</button>
+      <button type="button" id="btn-toggle-book" class="ativo" title="Abrir caderninho">Caderninho</button>
     </div>
-    <p id="grade-hint" class="hint-combo">+gx adiciona a coluna 3,0  3,1  3,2. Paredes NW acompanham. Andar extra empilha a mesma malha.</p>
-    <p id="celula-txt" class="celula">celula selecionada: 1,1 — clique o palco ou um card.</p>
-    <div id="lista-parede" class="lista-camadas" hidden></div>
-    <div class="meta" id="meta">carregando...</div>
+  </header>
 
-    <section id="painel-combinar" class="combinar" hidden>
-      <h2>Combinar assets (olho-metro de superficie)</h2>
-      <p>
-        Clique um card para adicionar. Arraste para alinhar. Clique a peca (ou a
-        lista) e use <strong>remover</strong> / Delete. A lista e a ordem de
-        desenho: primeiro = atras (cadeira sob a mesa), ultimo = frente
-        (notebook no tampo). Cadeira entra atras sozinha; decor entra na frente.
-      </p>
-      <canvas id="palco-compose" class="palco" width="720" height="300"
-        role="img"
-        aria-label="Preview de combinacao. Arraste os sprites para alinhar. Clique para selecionar."
-        tabindex="0"></canvas>
-      <div class="toolbar">
+  <div class="stage-wrap">
+    <main class="stage">
+      <div class="toolbar-mini" id="toolbar-palco">
+        <label><input type="checkbox" id="chk-diag" /> diagnostico (grade / ancoras)</label>
+        <label hidden><input type="checkbox" id="chk-subdiv" checked /> subdividir</label>
+        <span hidden>
+          <label><input type="radio" name="modo-plantar" id="radio-piso" value="piso" checked /> piso</label>
+          <label><input type="radio" name="modo-plantar" id="radio-parede" value="parede" /> parede</label>
+        </span>
+        <button type="button" id="btn-padrao">cenario mesa+cadeira</button>
+        <button type="button" id="btn-limpar">limpar palco</button>
+        <button type="button" id="btn-reset">resetar JSON</button>
+        <span class="atalho-hint" title="Desfazer a ultima acao do canvas"><kbd>Ctrl+Z</kbd> desfaz</span>
+      </div>
+
+      <div class="stage-canvas-slot">
+        <canvas id="palco" class="palco" width="880" height="620"
+          role="img"
+          aria-label="Palco isometrico. Arraste assets do caderninho para plantar."
+          tabindex="0"></canvas>
+        <canvas id="palco-compose" class="palco" width="880" height="420" hidden
+          role="img"
+          aria-label="Preview de combinacao. Arraste sprites para alinhar."
+          tabindex="0"></canvas>
+      </div>
+
+      <div class="dock" id="barra-grade">
+        <span class="dock-label">palco</span>
+        <button type="button" id="btn-gx-minus" title="Remove coluna">−gx</button>
+        <strong id="txt-grade">3 × 3</strong>
+        <button type="button" id="btn-gx-plus">+gx</button>
+        <div class="sep"></div>
+        <button type="button" id="btn-gy-minus">−gy</button>
+        <button type="button" id="btn-gy-plus">+gy</button>
+        <div class="sep"></div>
+        <span class="dock-label">andares</span>
+        <button type="button" id="btn-andar-minus">−</button>
+        <strong id="txt-andares">1</strong>
+        <button type="button" id="btn-andar-plus">+</button>
+        <span id="wrap-subida" hidden>
+          <span class="dock-label">subida</span>
+          <button type="button" id="btn-subida-minus">−</button>
+          <strong id="txt-subida">—</strong>
+          <button type="button" id="btn-subida-plus">+</button>
+        </span>
+      </div>
+      <p id="grade-hint" class="hint-combo" hidden></p>
+      <p id="celula-txt" class="celula">celula selecionada</p>
+
+      <div class="chips" id="lista-parede" hidden></div>
+      <div class="camadas-locais" id="camadas-locais" hidden>
+        <span class="titulo">camadas proximas</span>
+        <div id="lista-camadas-locais" class="chips"></div>
+      </div>
+
+      <div class="compose-form" id="painel-combinar" hidden>
         <button type="button" id="btn-compose-atras">atras</button>
         <button type="button" id="btn-compose-frente">frente</button>
-        <button type="button" id="btn-compose-remover">remover peca</button>
-        <button type="button" id="btn-compose-limpar">limpar combinacao</button>
-      </div>
-      <ol id="lista-camadas" class="lista-camadas" aria-label="Camadas da combinacao, de atras para frente"></ol>
-      <div class="toolbar">
+        <button type="button" id="btn-compose-remover">remover</button>
+        <button type="button" id="btn-compose-limpar">limpar</button>
         <label>Nome <input id="combo-nome" type="text" maxlength="48" placeholder="Mesa + notebook" /></label>
         <label>kind <input id="combo-kind" type="text" maxlength="24" placeholder="desk" value="desk" /></label>
         <label>papel
@@ -326,117 +595,156 @@
           </select>
         </label>
         <label>id <input id="combo-id" type="text" maxlength="40" placeholder="mesa-notebook" /></label>
-        <button type="button" id="btn-compose-salvar">salvar combinacao no catalogo</button>
-        <button type="button" id="btn-copiar-combos">copiar combinacoes JSON</button>
+        <button type="button" id="btn-compose-salvar">salvar combinacao</button>
+        <button type="button" id="btn-copiar-combos">copiar combos JSON</button>
       </div>
-    </section>
-  </div>
+      <ol id="lista-camadas" class="lista-camadas" aria-label="Camadas da combinacao" hidden></ol>
 
-  <div class="coluna-lado">
-    <section class="catalogo" aria-labelledby="tit-catalogo">
-      <h2 id="tit-catalogo">Assets catalogados</h2>
-      <button type="button" id="btn-combinar" aria-pressed="false">combinar assets</button>
-      <p class="hint-combo">Com o combinador aberto, o clique no card adiciona a peca ao preview de baixo, nao ao palco.</p>
-      <label class="sr" for="filtro">Filtrar catalogo</label>
-      <input class="filtro" id="filtro" type="search" placeholder="filtrar por nome, kind ou id" />
-      <div class="cards" id="cards" role="list"></div>
-    </section>
+      <div class="meta" id="meta" hidden>carregando...</div>
+    </main>
 
-    <details class="paletas" data-painel="tilesets" aria-labelledby="tit-tema">
-      <summary><h2 id="tit-tema">Temas oficiais (TILESETS)</h2></summary>
-      <div class="painel-corpo">
-        <div class="swatches" id="swatches-tema"></div>
+    <button type="button" class="book-toggle" id="btn-book-edge" aria-controls="caderninho">Assets</button>
+
+    <aside class="book" id="caderninho" aria-label="Caderninho do laboratorio">
+      <div class="book-tabs" role="tablist">
+        <button type="button" class="ativo" data-book-tab="assets" id="tab-assets">Assets</button>
+        <button type="button" data-book-tab="ambiente" id="tab-ambiente">Ambiente</button>
+        <button type="button" data-book-tab="temas" id="tab-temas">Temas</button>
       </div>
-    </details>
-
-    <details class="paletas" data-painel="piso">
-      <summary><h2>Piso (mix livre)</h2></summary>
-      <div class="painel-corpo">
-        <label class="sr" for="sel-piso">Cor do piso</label>
-        <select id="sel-piso"></select>
-        <div class="swatches" id="swatches-piso"></div>
-      </div>
-    </details>
-
-    <details class="paletas" data-painel="parede">
-      <summary><h2>Parede (mix livre)</h2></summary>
-      <div class="painel-corpo">
-        <label class="sr" for="sel-parede">Cor da parede</label>
-        <select id="sel-parede"></select>
-        <div class="swatches" id="swatches-parede"></div>
-      </div>
-    </details>
-
-    <details class="paletas" data-painel="zona" aria-labelledby="tit-zona-tiles">
-      <summary><h2 id="tit-zona-tiles">Pisos e paredes por zona</h2></summary>
-      <div class="painel-corpo">
-        <p class="hint-combo">default herda o tema. unico = uma cor. opcoes = lista com a seed. Ainda nao liga na demo.</p>
-        <div class="toolbar">
-          <label>zona
-            <select id="sel-zona-politica"></select>
-          </label>
-          <label>modo
-            <select id="sel-modo-zona">
-              <option value="default">default (tema)</option>
-              <option value="unico">unico</option>
-              <option value="opcoes">opcoes</option>
-            </select>
-          </label>
-          <label><input type="checkbox" id="chk-preview-zona" checked /> ver no palco</label>
+      <div class="book-body">
+        <div class="book-pane" id="pane-assets">
+          <section class="catalogo" aria-labelledby="tit-catalogo">
+            <h2 id="tit-catalogo">Catalogo</h2>
+            <p class="hint-combo">Arraste um card para o palco. Clique e arraste pecas ja plantadas. Grade/ancoras so aparecem com diagnostico ligado.</p>
+            <button type="button" id="btn-combinar" hidden aria-pressed="false">combinar assets</button>
+            <div class="book-filters">
+              <label class="sr" for="filtro">Filtrar catalogo</label>
+              <input class="filtro" id="filtro" type="search" placeholder="buscar nome, kind ou id" />
+              <div class="row" id="filtros-papel">
+                <button type="button" class="chip-filter ativo" data-papel="">todos</button>
+                <button type="button" class="chip-filter" data-papel="prop">piso</button>
+                <button type="button" class="chip-filter" data-papel="wall">parede</button>
+                <button type="button" class="chip-filter" data-papel="decor">decor</button>
+              </div>
+              <div class="row">
+                <label class="sr" for="filtro-kind">Categoria</label>
+                <select id="filtro-kind"><option value="">categoria</option></select>
+                <label class="sr" for="filtro-uso">Estado</label>
+                <select id="filtro-uso">
+                  <option value="">estado</option>
+                  <option value="obrigatorio">obrigatorio</option>
+                  <option value="aleatorio">aleatorio</option>
+                  <option value="off">off</option>
+                </select>
+                <label><input type="checkbox" id="filtro-espelhavel" /> so espelháveis</label>
+              </div>
+            </div>
+            <div class="cards" id="cards" role="list"></div>
+          </section>
         </div>
-        <p id="hint-zona" class="hint-combo"></p>
-        <div id="bloco-tiles-zona">
-          <h2>Piso desta zona</h2>
-          <div class="swatches swatches-zona" id="swatches-zona-piso"></div>
-          <h2>Parede desta zona (vazio = herda do tema)</h2>
-          <div class="swatches swatches-zona" id="swatches-zona-parede"></div>
+
+        <div class="book-pane" id="pane-ambiente" hidden>
+          <div class="painel-bloco" data-painel="tilesets">
+            <h2>Temas oficiais (TILESETS)</h2>
+            <div class="swatches" id="swatches-tema"></div>
+          </div>
+          <div class="painel-bloco" data-painel="piso">
+            <h2>Piso (mix livre)</h2>
+            <label class="sr" for="sel-piso">Cor do piso</label>
+            <select id="sel-piso"></select>
+            <div class="swatches" id="swatches-piso"></div>
+          </div>
+          <div class="painel-bloco" data-painel="parede">
+            <h2>Parede (mix livre)</h2>
+            <label class="sr" for="sel-parede">Cor da parede</label>
+            <select id="sel-parede"></select>
+            <div class="swatches" id="swatches-parede"></div>
+          </div>
+          <div class="painel-bloco" data-painel="zona">
+            <h2>Pisos e paredes por zona</h2>
+            <p class="hint-combo">default herda o tema. unico = uma cor. opcoes = lista com a seed.</p>
+            <div class="toolbar-mini" style="justify-content:flex-start;width:100%">
+              <label>zona <select id="sel-zona-politica"></select></label>
+              <label>modo
+                <select id="sel-modo-zona">
+                  <option value="default">default (tema)</option>
+                  <option value="unico">unico</option>
+                  <option value="opcoes">opcoes</option>
+                </select>
+              </label>
+              <label><input type="checkbox" id="chk-preview-zona" checked /> ver no palco</label>
+            </div>
+            <p id="hint-zona" class="hint-combo"></p>
+            <div id="bloco-tiles-zona">
+              <h2>Piso desta zona</h2>
+              <div class="swatches swatches-zona" id="swatches-zona-piso"></div>
+              <h2>Parede desta zona</h2>
+              <div class="swatches swatches-zona" id="swatches-zona-parede"></div>
+            </div>
+          </div>
+          <div class="painel-bloco" data-painel="json">
+            <h2>Intencao atual (JSON)</h2>
+            <button type="button" id="btn-copiar">copiar JSON</button>
+            <textarea id="json-out" readonly spellcheck="false"></textarea>
+          </div>
+        </div>
+
+        <div class="book-pane" id="pane-temas" hidden>
+          <div class="painel-bloco" data-painel="temas">
+            <h2>Temas do arquiteto</h2>
+            <p class="hint-combo">Salva tileset + mobilia + palco para o Construtor.</p>
+            <label class="sr" for="nome-tema">Nome do tema</label>
+            <input id="nome-tema" class="filtro" type="text" maxlength="48" placeholder="ex.: nordic privativo" />
+            <div class="toolbar-mini" style="justify-content:flex-start;width:100%;margin-top:8px">
+              <label>zona <select id="tema-zona"></select></label>
+              <label>prioridade
+                <select id="tema-prioridade">
+                  <option value="1">1 baixa</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5" selected>5 media</option>
+                  <option value="6">6</option>
+                  <option value="7">7</option>
+                  <option value="8">8</option>
+                  <option value="9">9 alta</option>
+                </select>
+              </label>
+              <label><input type="checkbox" id="tema-unico" /> unico na agencia</label>
+            </div>
+            <div class="toolbar-mini" style="justify-content:flex-start;width:100%;margin-top:8px">
+              <button type="button" id="btn-salvar-tema">salvar tema</button>
+              <button type="button" id="btn-copiar-temas">copiar temas JSON</button>
+              <button type="button" id="btn-recarregar-disco">recarregar do disco</button>
+              <button type="button" id="btn-marcar-assento">marcar assento</button>
+              <span id="tema-persist-status" class="tema-persist-status" aria-live="polite"></span>
+            </div>
+            <p id="palco-aviso" class="palco-aviso" data-ok="1" aria-live="polite"></p>
+            <div id="lista-temas" class="lista-temas" role="list"></div>
+          </div>
         </div>
       </div>
-    </details>
-
-    <details class="paletas" data-painel="temas" aria-labelledby="tit-tema-arq">
-      <summary><h2 id="tit-tema-arq">Temas do arquiteto (tileset + mobilia + palco)</h2></summary>
-      <div class="painel-corpo">
-        <p class="hint-combo">Zona, prioridade e unico-na-agencia sao dicas para o Construtor. Ainda nao liga na demo.</p>
-        <label class="sr" for="nome-tema">Nome do tema</label>
-        <input id="nome-tema" class="filtro" type="text" maxlength="48" placeholder="ex.: nordic privativo" />
-        <div class="toolbar">
-          <label>zona
-            <select id="tema-zona" title="Sala modelo deste tema (ZoneRequest.kind + corredor).">
-            </select>
-          </label>
-          <label>prioridade
-            <select id="tema-prioridade" title="Maior = Construtor tenta primeiro. 9 e o teto.">
-              <option value="1">1 baixa</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="4">4</option>
-              <option value="5" selected>5 media</option>
-              <option value="6">6</option>
-              <option value="7">7</option>
-              <option value="8">8</option>
-              <option value="9">9 alta</option>
-            </select>
-          </label>
-          <label><input type="checkbox" id="tema-unico" /> unico na agencia</label>
-          <button type="button" id="btn-salvar-tema">salvar tema</button>
-          <button type="button" id="btn-copiar-temas">copiar temas JSON</button>
-          <span id="tema-persist-status" class="tema-persist-status" aria-live="polite"></span>
-        </div>
-        <div id="lista-temas" class="lista-temas" role="list"></div>
-      </div>
-    </details>
-
-    <details class="exportar" data-painel="json" aria-labelledby="tit-json">
-      <summary><h2 id="tit-json">Intencao atual (cole em catalogo-laboratorio.json)</h2></summary>
-      <div class="painel-corpo">
-        <button type="button" id="btn-copiar">copiar JSON</button>
-        <textarea id="json-out" readonly spellcheck="false"></textarea>
-      </div>
-    </details>
+    </aside>
   </div>
 </div>
 
-<script src="tinyhouse-lab.js"></script>
+<div class="help-drawer" id="help-drawer" role="dialog" aria-modal="true" aria-labelledby="help-title">
+  <div class="help-card">
+    <h2 id="help-title">Como funciona</h2>
+    <ul>
+      <li><strong>Palco Principal</strong> — arraste assets do caderninho para montar o escritorio. Perto da parede NW o Lab ancora como anexo; no centro ancora no piso (quarteis internos, sem UI de subdivisao). Clique no chao vazio nao seleciona grade — so pecas sao selecionaveis/arrastaveis. Piso, parede e decor empilham: um asset novo nao substitui o anterior.</li>
+      <li><strong>Desfazer</strong> — <kbd>Ctrl+Z</kbd> volta a ultima acao do canvas (plantar, mover, remover, limpar). <kbd>Ctrl+Y</kbd> ou <kbd>Ctrl+Shift+Z</kbd> refaz.</li>
+      <li><strong>Combinar assets</strong> — monte sprites compostos (ex.: notebook no tampo). Salvo, vira card do catalogo.</li>
+      <li><strong>Caderninho</strong> — Assets, Ambiente (tiles/pisos/paredes/zonas) e Temas do arquiteto.</li>
+      <li><strong>Camadas</strong> — com uma peca selecionada, ajuste frente/atras so entre vizinhos proximos.</li>
+      <li><strong>Espelho</strong> — em anexos elegiveis, botao no chip troca face L↔R.</li>
+      <li><strong>Diagnostico</strong> — mostra quartos azuis, ancoras e pe. Desligado por padrao para nao atrapalhar o DnD.</li>
+      <li>Temas gravados alimentam <code>temas-arquiteto.json</code> via <code>pnpm lab:iso</code>. O botao <strong>i</strong> mostra pe/ancora e diagnostico tecnico.</li>
+    </ul>
+    <p style="margin-top:14px"><button type="button" id="btn-help-close">fechar</button></p>
+  </div>
+</div>
+
+<script type="module" src="tinyhouse-lab.js"></script>
 </body>
 </html>

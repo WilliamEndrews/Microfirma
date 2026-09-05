@@ -17,8 +17,13 @@ Depois abra http://127.0.0.1:3333/scripts/iso-validation/tinyhouse.html
 (F5 se o cache grudar).
 
 `lab:iso` sobe o **lab-server** (Node), nao mais o `python -m http.server`.
-Alem de servir arquivos da raiz do repo, expoe `POST /api/temas-arquiteto`
-para gravar a biblia no disco quando voce salva/apaga um tema.
+Alem de servir arquivos da raiz do repo, expoe:
+
+- `POST /api/temas-arquiteto` — grava a biblia no disco ao salvar/apagar tema
+- `POST /api/combinacoes-laboratorio` — grava combos no disco ao salvar tema ou combinacao
+
+O **Debugpreview** le `catalogo-laboratorio.json` **e** `combinacoes-laboratorio.json`
+(mesma regra do lab: `specPorId` = assets + combos).
 
 O servidor precisa ser a raiz do repo: o HTML busca os PNGs em
 `assets-source/`, a calibracao em `apps/demo/src/calibracao-tinyhouse.json`
@@ -51,7 +56,9 @@ abre um segundo preview (abaixo das medidas do palco 3x3):
    **atras** / **frente** (ou [ / ]) ajustam se o automatico errar.
 5. Preencha nome / kind / papel / id (mesmo formato dos cards) e
    **salvar combinacao no catalogo**. O combo vira card (borda verde).
-6. **copiar combinacoes JSON** cola em `combinacoes-laboratorio.json`.
+   Com `lab-server` rodando, combos gravam automaticamente em
+   `combinacoes-laboratorio.json` (tambem ao salvar/apagar tema).
+6. **copiar combinacoes JSON** ainda exporta para colar manualmente, se precisar.
    Combos ficam no laboratorio e no palco 3x3; ainda nao entram no solver.
 
 Clique de novo **combinar assets** para fechar. Combos existentes podem
@@ -75,39 +82,38 @@ cresce a sala inteira:
 - O canvas recentra sozinho. Maximo 8x8 e 3 andares. Ainda NAO alimenta
   o world-engine.
 
-## Palco + catalogo (2026-08-17)
+## Palco gamificado (caderninho + DnD)
 
-1. Clique um losango da malha (celula amarela). Radio **plantar: piso**.
-2. Clique um card da tabela (miniatura + nome + kind) para plantar o sprite.
-   Clique de novo o mesmo asset na mesma celula para remover. Um `prop` por
-   celula; `decor` empilha. Cards de **parede** (borda ocre) nao plantam no
-   losango — mude o radio para parede.
-3. Radio **obrigatorio** / **aleatorio** / **off** marca a intencao do
-   Construtor. Ainda NAO alimenta o solver (`PROP_OBRIGATORIOS` /
-   `PROP_OPCIONAIS` em `asset-catalog.ts`). Copie o JSON da pagina para
-   `catalogo-laboratorio.json` quando quiser gravar no repo.
-4. Catalogo fica ao lado do palco. Paletas (tileset, mix livre, zona, temas)
-   e o JSON abrem/fecham no cabecalho **abrir/fechar**; o estado fica no
-   navegador. Mix livre de piso/parede nas amostras (rolar; o proto do topo
-   explica o produto).
-5. Persistencia de brincadeira: `localStorage`. "resetar JSON do repo" volta
-   ao arquivo. "diagnostico" religa bbox magenta e pe (o esquadro amarelo
-   do palco fica sempre visivel).
+UI atual do laboratorio (2026-09):
+
+1. Modos **Palco Principal** | **Combinar assets** (um canvas por vez).
+2. **Caderninho** lateral: abas Assets / Ambiente / Temas. Filtros
+   `todos` | `piso` | `parede` | `decor`. Arraste um card para o palco
+   (ou clique para plantar na celula/face atual).
+3. Hit-test automatico: perto da parede NW ancora como anexo; no centro
+   ancora no piso (quarteis internos, sem UI de subdivisao). Clique no
+   chao vazio **nao** captura grade — so pecas sao selecionaveis.
+4. **Piso, parede e decor empilham** no mesmo slot (um asset novo nao
+   substitui o anterior). Arraste a peca selecionada para reposicionar.
+5. **Ctrl+Z** / **Ctrl+Y** (ou Ctrl+Shift+Z) desfaz/refaz acoes do
+   canvas. **Delete** remove a peca selecionada.
+6. Diagnostico (grade azul / ancoras) fica **desligado** por padrao;
+   ligue so quando precisar medir.
+7. Persistencia: `localStorage` + `lab-server` (temas/combos no disco).
+   **resetar JSON do repo** volta ao arquivo.
 
 ## Plantar na parede (face + drag)
 
 As paredes NW ja existem: `Wall_R` em `gy=0` (todo `gx`), `Wall_L` em `gx=0`
-(todo `gy`). Nao ha ancora extra em `calibracao-tinyhouse.json`: o pe da
-parede e o mesmo da calibracao (32,83) / (95,83). O offset da peca e
-olho-metro, como as `camadas` do combinador.
+(todo `gy`). O pe da parede e o da calibracao (32,83) / (95,83). O offset
+da peca e olho-metro, como as `camadas` do combinador.
 
-1. Radio **plantar: parede**.
-2. Clique a face (bbox da parede, nao o losango do piso). Highlight dourado.
-3. Clique um card (`papel: wall` ou qualquer um neste modo). Nasce com
-   `dx: 0` e `dy` numa fracao da subida medida (`pe.y − bbox.y`).
-4. Arraste no palco. O que vale e `{ face, gx, gy, dx, dy }` no item.
-5. **remover** na lista da face, ou Delete, tira a peca. Clique de novo o
-   mesmo card na mesma face tambem remove.
+1. Arraste um card `papel: wall` perto da aresta NW, ou clique a peca
+   depois de selecionar a face.
+2. Nasce com `dx: 0` e `dy` numa fracao da subida medida (`pe.y − bbox.y`).
+3. Arraste no palco. O que vale e `{ face, gx, gy, dx, dy }` no item.
+4. Chips da lista: **remover**, **espelhar** (L↔R quando elegivel).
+   Delete tambem remove.
 
 Persistido no palco (e portanto no tema):
 
@@ -124,18 +130,20 @@ relativos permanecem. No Construtor, pecas `papel: wall` do tema viram
 1. Escolha piso/parede, tamanho do palco, andares e plante a mobilia
    (piso e/ou parede).
 2. Nomeie. **zona** e o `ZoneRequest.kind` (+ `corridor`): private, break
-   (copa), open, meeting, reception, war_room, corridor. Default `private`.
+   (copa), boss_room (Boss Room / gerente), open, meeting, reception,
+   war_room, corridor. Default `private`.
    **prioridade** (1-9) e **unico na agencia** sao dicas para o Construtor:
    maior prioridade entra primeiro; unico = no maximo uma sala com aquele
    tema por cliente. O Construtor ja consome isso.
 3. **salvar tema** grava tileset + pecas (incluindo parede) + `zonaKind` +
-   `grade` + `andares` + `subidaAndar` + subdivisao + um recorte da
-   calibracao GRAVADA como referencia. Tambem persiste automaticamente
-   no disco (`packages/world-engine/src/biblia/temas-arquiteto.json` e
-   espelho em `scripts/iso-validation/temas-arquiteto.json`) via
-   `lab-server`. O blit do laboratorio continua lendo
-   `calibracao-tinyhouse.json` — o tema nao inventa ancora.
-4. A lista agrupa por zona (`copa · 3x3 · P5`). **carregar** devolve palco
+   `grade` + `andares` + `subidaAndar` + subdivisao + `postosTrabalho` (assentos
+   marcados no lab) + um recorte da calibracao GRAVADA como referencia. Tambem
+   persiste automaticamente no disco via `lab-server`. Use **recarregar do disco**
+   para descartar rascunho do localStorage e reler o JSON do repo.
+4. Combos usados no palco precisam existir em `combinacoes-laboratorio.json`
+   (mesclados no boot; disco vence conflitos). Pecas sem asset aparecem no banner
+   laranja abaixo do formulario de temas.
+5. A lista agrupa por zona (`copa · 3x3 · P5`). **carregar** devolve palco
    e o form. **copiar temas JSON** ainda copia para a area de transferencia
    e tambem dispara a mesma gravacao no disco.
 
@@ -147,7 +155,7 @@ Quando o Construtor consome isto: `room.kind === tema.zonaKind`, depois
 ## Pisos e paredes por zona
 
 Camada acima dos temas: o Construtor recebe uma **politica** por zona
-(`corridor`, `break`/copa, `private`, `open`, `meeting`, `reception`,
+(`corridor`, `break`/copa, `private`, `boss_room`, `open`, `meeting`, `reception`,
 `war_room` — os kinds do `ZoneRequest` mais o corredor-espinha).
 
 - **default** — usa o piso/parede do tema do arquiteto daquela sala.

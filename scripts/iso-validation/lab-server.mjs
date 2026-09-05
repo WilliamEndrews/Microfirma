@@ -28,6 +28,7 @@ const BIBLIA_PATH = path.join(
   'temas-arquiteto.json',
 );
 const MIRROR_PATH = path.join(__dirname, 'temas-arquiteto.json');
+const COMBOS_PATH = path.join(__dirname, 'combinacoes-laboratorio.json');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -86,6 +87,32 @@ function validarPayload(doc) {
     return 'politicaTiles invalida';
   }
   return null;
+}
+
+function validarPayloadCombos(doc) {
+  if (!doc || typeof doc !== 'object' || Array.isArray(doc)) {
+    return 'JSON raiz invalido';
+  }
+  if (!Array.isArray(doc.combinacoes)) {
+    return 'campo combinacoes (array) obrigatorio';
+  }
+  return null;
+}
+
+function gravarCombos(doc) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const out = {
+    versao: typeof doc.versao === 'string' ? doc.versao : '1.0',
+    data: hoje,
+    notas:
+      typeof doc.notas === 'string' && doc.notas.trim()
+        ? doc.notas
+        : 'Combinacoes criadas no laboratorio (drag-drop). Camadas: ordem de desenho atras -> frente, dx/dy em px. Persistido automaticamente pelo lab.',
+    combinacoes: doc.combinacoes,
+  };
+  const txt = `${JSON.stringify(out, null, 2)}\n`;
+  fs.writeFileSync(COMBOS_PATH, txt, 'utf8');
+  return { bytes: Buffer.byteLength(txt, 'utf8'), combinacoes: out.combinacoes.length };
 }
 
 function gravarTemas(doc) {
@@ -152,6 +179,41 @@ async function handleApi(req, res, pathname) {
     return true;
   }
 
+  if (pathname === '/api/combinacoes-laboratorio' && req.method === 'GET') {
+    try {
+      const raw = fs.readFileSync(COMBOS_PATH, 'utf8');
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+      res.end(raw);
+    } catch (err) {
+      sendJson(res, 404, { ok: false, erro: String(err.message || err) });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/combinacoes-laboratorio' && req.method === 'POST') {
+    try {
+      const raw = await readBody(req);
+      const doc = JSON.parse(raw);
+      const erro = validarPayloadCombos(doc);
+      if (erro) {
+        sendJson(res, 400, { ok: false, erro });
+        return true;
+      }
+      const info = gravarCombos(doc);
+      sendJson(res, 200, {
+        ok: true,
+        ...info,
+        combos: path.relative(REPO_ROOT, COMBOS_PATH).replace(/\\/g, '/'),
+      });
+    } catch (err) {
+      sendJson(res, 500, { ok: false, erro: String(err.message || err) });
+    }
+    return true;
+  }
+
   if (pathname === '/api/health' && req.method === 'GET') {
     sendJson(res, 200, { ok: true, persistencia: true });
     return true;
@@ -197,4 +259,5 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`[lab] http://${HOST}:${PORT}/scripts/iso-validation/tinyhouse.html`);
   console.log(`[lab] persistencia POST /api/temas-arquiteto -> ${path.relative(REPO_ROOT, BIBLIA_PATH)}`);
+  console.log(`[lab] persistencia POST /api/combinacoes-laboratorio -> ${path.relative(REPO_ROOT, COMBOS_PATH)}`);
 });

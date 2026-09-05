@@ -3,6 +3,16 @@
  * Carrega calibracao-tinyhouse.json, catalogo-laboratorio.json e
  * a biblia de temas do Construtor (world-engine/src/biblia/).
  */
+import {
+  anexoParedeValido,
+  mesclarCombos,
+  normalizarPostosTrabalho,
+  postoParaGrid,
+  rebasearAnexoParede,
+  restaurarCoresDoTema,
+  validarPalco,
+} from './lab-temas.mjs';
+
 const LARGURA_TILE = 128;
 const ALTURA_TILE = 64;
 const ORIGEM = { x: 360, y: 90 };
@@ -17,6 +27,7 @@ const URL_TEMAS = '../../packages/world-engine/src/biblia/temas-arquiteto.json';
 const URL_COMBOS = './combinacoes-laboratorio.json';
 /** API do lab-server.mjs — grava a biblia no disco do repo. */
 const URL_PERSISTIR_TEMAS = '/api/temas-arquiteto';
+const URL_PERSISTIR_COMBOS = '/api/combinacoes-laboratorio';
 const STORAGE_KEY = 'microfirma-lab-catalogo-v4';
 const COMPOSE_ORIGEM = ORIGEM_COMPOSE;
 const DIR_TILES = 'Floor_Wall_Tiles_128';
@@ -380,6 +391,7 @@ function normalizarTema(t) {
     unicoNaAgencia: !!t.unicoNaAgencia,
     zonaKind: zonaKindOk(t.zonaKind),
     calibracao: t.calibracao && typeof t.calibracao === 'object' ? t.calibracao : null,
+    postosTrabalho: normalizarPostosTrabalho(t.postosTrabalho),
   };
 }
 
@@ -404,6 +416,7 @@ function estadoDoCatalogo(catalogo, temasArquivo) {
     subidaAndar: typeof catalogo.subidaAndar === 'number' ? catalogo.subidaAndar : null,
     politicaTiles: politicaPadrao(),
     previewZona: null,
+    postosTrabalho: [],
     paineis: paineisPadrao(),
   };
 }
@@ -439,6 +452,7 @@ function carregarEstado(catalogo, temasArquivo, politicaArquivo) {
       subidaAndar: typeof salvo.subidaAndar === 'number' ? salvo.subidaAndar : base.subidaAndar,
       politicaTiles: normalizarPolitica(salvo.politicaTiles || politicaArquivo, catalogo),
       previewZona: null,
+      postosTrabalho: Array.isArray(salvo.postosTrabalho) ? normalizarPostosTrabalho(salvo.postosTrabalho) : [],
       paineis: normalizarPaineis(salvo.paineis),
     };
   } catch {
@@ -466,6 +480,7 @@ function gravarEstado(estado) {
     andares: estado.andares,
     subidaAndar: estado.subidaAndar,
     politicaTiles: estado.politicaTiles,
+    postosTrabalho: estado.postosTrabalho,
     paineis: normalizarPaineis(estado.paineis),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
@@ -499,6 +514,7 @@ const ZONAS_TILE = [
   { id: 'corridor', nome: 'corredor' },
   { id: 'break', nome: 'copa' },
   { id: 'private', nome: 'privativo' },
+  { id: 'boss_room', nome: 'Boss Room' },
   { id: 'open', nome: 'open space' },
   { id: 'meeting', nome: 'reuniao' },
   { id: 'reception', nome: 'recepcao' },
@@ -598,9 +614,8 @@ function resumoPolitica(politica) {
   const bboxPorSrc = new Map();
 
   const estado = carregarEstado(catalogo, temasDoc.temas || [], temasDoc.politicaTiles);
-  if (!(estado.combos && estado.combos.length)) {
-    estado.combos = (combosDoc.combinacoes || []).slice();
-  }
+  estado.combos = mesclarCombos(combosDoc.combinacoes || [], estado.combos || []);
+  let temasOrigem = localStorage.getItem(STORAGE_KEY) ? 'localStorage' : 'disco';
 
   function todosAssets() {
     return catalogo.assets.concat(estado.combos || []);
@@ -621,7 +636,35 @@ function resumoPolitica(politica) {
   let ultBboxWall = null;
   let paredePecaIx = -1;
   let arrasteParede = null;
+  let arrastePiso = null;
+  let arraste = null;
   let pulouClickPalco = false;
+  let filtroPapel = '';
+  let arrasteCatalogo = null;
+  let bookAberto = true;
+  const UNDO_MAX = 60;
+  let historicoUndo = [];
+  let historicoRedo = [];
+  let undoDoArraste = false;
+  let composeSel = -1;
+  document.body.classList.add('book-open');
+  // Ancoragem fina sempre ativa por tras dos panos (UI de subdiv removida).
+  estado.subdiv = true;
+
+  const ESPELHAVEL_OFF = new Set([
+    'projector-screen',
+    'japanese-shelf',
+    'japanese-canvas',
+    'kitchen-cabinet-glass',
+    'kitchen-shelf',
+  ]);
+
+  function assetEspelhavel(spec) {
+    if (!spec || spec.papel !== 'wall') return false;
+    if (spec.espelhavel === false) return false;
+    if (spec.espelhavel === true) return true;
+    return !ESPELHAVEL_OFF.has(spec.assetId);
+  }
 
   function peDaFace(face) {
     return face === 'L' ? peL : peR;
@@ -648,6 +691,29 @@ function resumoPolitica(politica) {
     const pe = peDaFace(item.face);
     const v = verticeDaFace(item.face, item.gx, item.gy);
     return rectFromBlit(posBlitVertice(v.vx, v.vy, pe, item.dx || 0, item.dy || 0), bbox);
+  }
+  function rectPecaPiso(item, bbox, spec) {
+    const { ox, oy, passo } = origemDoItem(item);
+    const o = specDoItem(spec, cal);
+    if (o && o.modo === 'canto' && o.pe) {
+      return rectFromBlit(posBlitVertice(ox, oy, o.pe, 0, 0), bbox);
+    }
+    if (o && o.modo === 'centro' && o.ancora) {
+      const c = iso(ox + passo / 2, oy + passo / 2);
+      return {
+        x: ORIGEM.x + c.x - o.ancora.x + bbox.x,
+        y: ORIGEM.y + c.y - o.ancora.y + bbox.y,
+        w: bbox.w,
+        h: bbox.h,
+      };
+    }
+    const c = iso(ox + 0.5, oy + 0.5);
+    return {
+      x: ORIGEM.x + c.x - (bbox.x + bbox.w / 2) + bbox.x,
+      y: ORIGEM.y + c.y - (bbox.y + bbox.h) + bbox.y,
+      w: bbox.w,
+      h: bbox.h,
+    };
   }
   function pontoNoRect(px, py, r) {
     return px >= r.x && py >= r.y && px <= r.x + r.w && py <= r.y + r.h;
@@ -699,8 +765,323 @@ function resumoPolitica(politica) {
     }
     return -1;
   }
+  function pecaPisoSobPonto(px, py) {
+    for (let i = estado.palco.length - 1; i >= 0; i--) {
+      const p = estado.palco[i];
+      if (itemEParede(p)) continue;
+      const spec = specPorId(p.assetId);
+      const src = spec && spec.fileName;
+      if (!src || !bboxPorSrc.has(src)) continue;
+      if (pontoNoRect(px, py, rectPecaPiso(p, bboxPorSrc.get(src), spec))) return i;
+    }
+    return -1;
+  }
+  /** Qualquer peca do palco (parede tem prioridade visual se sobrepor). */
+  function pecaPalcoSobPonto(px, py) {
+    const w = pecaParedeSobPonto(px, py);
+    if (w >= 0) return w;
+    return pecaPisoSobPonto(px, py);
+  }
   function mesmaFace(a, b) {
     return a && b && a.face === b.face && a.gx === b.gx && a.gy === b.gy;
+  }
+
+  function snapshotCanvas() {
+    return {
+      palco: JSON.parse(JSON.stringify(estado.palco)),
+      celula: {
+        gx: estado.celula.gx,
+        gy: estado.celula.gy,
+        qx: estado.celula.qx || 0,
+        qy: estado.celula.qy || 0,
+      },
+      paredeSel: estado.paredeSel
+        ? { face: estado.paredeSel.face, gx: estado.paredeSel.gx, gy: estado.paredeSel.gy }
+        : null,
+      paredePecaIx,
+      composeCamadas: JSON.parse(JSON.stringify(estado.composeCamadas || [])),
+      composeSel,
+    };
+  }
+
+  function aplicarSnapshotCanvas(snap) {
+    estado.palco = JSON.parse(JSON.stringify(snap.palco || []));
+    estado.celula = {
+      gx: snap.celula && snap.celula.gx != null ? snap.celula.gx : 1,
+      gy: snap.celula && snap.celula.gy != null ? snap.celula.gy : 1,
+      qx: snap.celula && snap.celula.qx != null ? snap.celula.qx : 0,
+      qy: snap.celula && snap.celula.qy != null ? snap.celula.qy : 0,
+    };
+    estado.paredeSel = snap.paredeSel
+      ? { face: snap.paredeSel.face, gx: snap.paredeSel.gx, gy: snap.paredeSel.gy }
+      : null;
+    paredePecaIx = typeof snap.paredePecaIx === 'number' ? snap.paredePecaIx : -1;
+    estado.composeCamadas = JSON.parse(JSON.stringify(snap.composeCamadas || []));
+    composeSel = typeof snap.composeSel === 'number' ? snap.composeSel : -1;
+  }
+
+  function marcarUndo() {
+    historicoUndo.push(snapshotCanvas());
+    if (historicoUndo.length > UNDO_MAX) historicoUndo.shift();
+    historicoRedo.length = 0;
+  }
+
+  function refreshAposUndo() {
+    gravarEstado(estado);
+    pintarListaParede();
+    pintarCamadasLocais();
+    if (typeof pintarListaCamadas === 'function') pintarListaCamadas();
+    if (estado.combinando && typeof desenharCompose === 'function') desenharCompose();
+    else desenharPalco();
+  }
+
+  function desfazer() {
+    if (arrasteParede || arrastePiso || arraste || arrasteCatalogo) return;
+    if (!historicoUndo.length) return;
+    historicoRedo.push(snapshotCanvas());
+    aplicarSnapshotCanvas(historicoUndo.pop());
+    refreshAposUndo();
+  }
+
+  function refazer() {
+    if (arrasteParede || arrastePiso || arraste || arrasteCatalogo) return;
+    if (!historicoRedo.length) return;
+    historicoUndo.push(snapshotCanvas());
+    aplicarSnapshotCanvas(historicoRedo.pop());
+    refreshAposUndo();
+  }
+
+  function espelharFacePeca(idx) {
+    const peca = estado.palco[idx];
+    if (!peca || !itemEParede(peca)) return;
+    const spec = specPorId(peca.assetId);
+    if (!assetEspelhavel(spec)) return;
+    marcarUndo();
+    const faceNova = peca.face === 'L' ? 'R' : 'L';
+    const peAntigo = peDaFace(peca.face);
+    const peNovo = peDaFace(faceNova);
+    const dx = peca.dx || 0;
+    // Reflexao horizontal aproximada em torno do pe da face.
+    const dxNovo = Math.round(-(dx + (peAntigo.x - peNovo.x) * 0.15));
+    if (faceNova === 'L') {
+      peca.face = 'L';
+      peca.gx = 0;
+      peca.gy = clampInt(peca.gy || 0, 0, gradeH() - 1);
+    } else {
+      peca.face = 'R';
+      peca.gy = 0;
+      peca.gx = clampInt(peca.gx || 0, 0, gradeW() - 1);
+    }
+    peca.dx = dxNovo;
+    estado.palco[idx] = rebasearAnexoParede(peca, gradeW(), gradeH(), { R: peR, L: peL });
+    estado.paredeSel = {
+      face: estado.palco[idx].face,
+      gx: estado.palco[idx].gx,
+      gy: estado.palco[idx].gy,
+    };
+    paredePecaIx = idx;
+    gravarEstado(estado);
+    pintarListaParede();
+    pintarCamadasLocais();
+    desenharPalco();
+  }
+
+  /** Hit-test: face de parede sob o ponto ou null (cai no piso). */
+  function destinoDoPonto(px, py, preferWall) {
+    const face = faceSobPonto(px, py);
+    if (face && (preferWall || preferWall == null)) {
+      // Se o ponto esta claramente na silhueta da parede, prioriza anexo.
+      return { tipo: 'parede', face };
+    }
+    const g = telaParaGrade(px, py, true);
+    if (g.gx < 0 || g.gx >= gradeW() || g.gy < 0 || g.gy >= gradeH()) {
+      if (face) return { tipo: 'parede', face };
+      return null;
+    }
+    // Proximidade as arestas NW: se qx/qy perto da borda oeste/norte, vira parede.
+    if (!preferWall && face) {
+      const nearL = g.gx === 0 && (g.qx || 0) < 0.35;
+      const nearR = g.gy === 0 && (g.qy || 0) < 0.35;
+      if ((face.face === 'L' && nearL) || (face.face === 'R' && nearR)) {
+        return { tipo: 'parede', face };
+      }
+    }
+    if (preferWall && face) return { tipo: 'parede', face };
+    return { tipo: 'piso', celula: g };
+  }
+
+  function plantarNoPonto(spec, px, py) {
+    if (!spec) return;
+    if (estado.combinando) {
+      adicionarAoCompose(spec);
+      return;
+    }
+    const preferWall = spec.papel === 'wall';
+    const dest = destinoDoPonto(px, py, preferWall ? true : false);
+    if (!dest) return;
+    if (dest.tipo === 'parede' || (preferWall && dest.tipo === 'parede')) {
+      const face = dest.face || faceSobPonto(px, py);
+      if (!face) return;
+      marcarUndo();
+      estado.modoPlantar = 'parede';
+      estado.paredeSel = face;
+      estado.palco.push({
+        assetId: spec.assetId,
+        papel: 'wall',
+        face: face.face,
+        gx: face.gx,
+        gy: face.gy,
+        dx: 0,
+        dy: dyInicialParede(spec.assetId),
+      });
+      paredePecaIx = estado.palco.length - 1;
+      if (spec.fileName) bboxDe(spec.fileName).catch(() => undefined);
+      desenharPalco();
+      return;
+    }
+    if (spec.papel === 'wall') {
+      // Wall asset dropado no meio: ancora na face mais proxima.
+      const face = faceSobPonto(px, py) || { face: 'R', gx: dest.celula.gx, gy: 0 };
+      marcarUndo();
+      estado.paredeSel = face;
+      estado.palco.push({
+        assetId: spec.assetId,
+        papel: 'wall',
+        face: face.face,
+        gx: face.gx,
+        gy: face.gy,
+        dx: 0,
+        dy: dyInicialParede(spec.assetId),
+      });
+      paredePecaIx = estado.palco.length - 1;
+      desenharPalco();
+      return;
+    }
+    marcarUndo();
+    estado.modoPlantar = 'piso';
+    const sel = dest.celula;
+    estado.celula = sel;
+    const alvo = {
+      assetId: spec.assetId,
+      gx: sel.gx,
+      gy: sel.gy,
+      qx: sel.qx || 0,
+      qy: sel.qy || 0,
+      passo: 0.5,
+    };
+    estado.palco.push(alvo);
+    paredePecaIx = estado.palco.length - 1;
+    desenharPalco();
+  }
+
+  function vizinhosRelevantes(idx) {
+    const peca = estado.palco[idx];
+    if (!peca) return [];
+    const out = [];
+    for (let i = 0; i < estado.palco.length; i++) {
+      if (i === idx) continue;
+      const o = estado.palco[i];
+      if (itemEParede(peca) && itemEParede(o)) {
+        if (mesmaFace(peca, o)) out.push(i);
+        continue;
+      }
+      if (!itemEParede(peca) && !itemEParede(o)) {
+        if (Math.abs(peca.gx - o.gx) <= 1 && Math.abs(peca.gy - o.gy) <= 1) out.push(i);
+      }
+    }
+    return out;
+  }
+
+  function moverPecaPalco(idx, dir) {
+    if (idx < 0 || idx >= estado.palco.length) return;
+    const j = idx + dir;
+    if (j < 0 || j >= estado.palco.length) return;
+    marcarUndo();
+    const tmp = estado.palco[idx];
+    estado.palco[idx] = estado.palco[j];
+    estado.palco[j] = tmp;
+    paredePecaIx = j;
+    gravarEstado(estado);
+    pintarListaParede();
+    pintarCamadasLocais();
+    desenharPalco();
+  }
+
+  function pintarCamadasLocais() {
+    const wrap = document.getElementById('camadas-locais');
+    const root = document.getElementById('lista-camadas-locais');
+    if (!wrap || !root) return;
+    if (estado.combinando || paredePecaIx < 0) {
+      wrap.hidden = true;
+      root.innerHTML = '';
+      return;
+    }
+    const viz = vizinhosRelevantes(paredePecaIx);
+    if (!viz.length) {
+      wrap.hidden = true;
+      root.innerHTML = '';
+      return;
+    }
+    wrap.hidden = false;
+    root.innerHTML = '';
+    const self = estado.palco[paredePecaIx];
+    const selfSpec = specPorId(self.assetId);
+    const chipSelf = document.createElement('div');
+    chipSelf.className = 'chip sel';
+    chipSelf.textContent = (selfSpec ? selfSpec.nome : self.assetId) + ' (selecionado)';
+    root.appendChild(chipSelf);
+    for (const i of viz) {
+      const p = estado.palco[i];
+      const s = specPorId(p.assetId);
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      const nome = document.createElement('span');
+      nome.textContent = s ? s.nome : p.assetId;
+      const atras = document.createElement('button');
+      atras.type = 'button';
+      atras.textContent = 'atras';
+      atras.addEventListener('click', () => {
+        // Move vizinho para antes do selecionado (atras no painter se idx menor).
+        if (i > paredePecaIx) moverPecaPalco(i, paredePecaIx - i);
+        else moverPecaPalco(paredePecaIx, 1);
+      });
+      const frente = document.createElement('button');
+      frente.type = 'button';
+      frente.textContent = 'frente';
+      frente.addEventListener('click', () => {
+        if (i < paredePecaIx) moverPecaPalco(i, paredePecaIx - i);
+        else moverPecaPalco(paredePecaIx, -1);
+      });
+      chip.appendChild(nome);
+      chip.appendChild(atras);
+      chip.appendChild(frente);
+      root.appendChild(chip);
+    }
+  }
+
+  function setBookOpen(on) {
+    bookAberto = !!on;
+    document.body.classList.toggle('book-open', bookAberto);
+    const edge = document.getElementById('btn-book-edge');
+    const top = document.getElementById('btn-toggle-book');
+    if (edge) edge.classList.toggle('ativo', bookAberto);
+    if (top) top.classList.toggle('ativo', bookAberto);
+  }
+
+  function setBookTab(tab) {
+    const tabs = ['assets', 'ambiente', 'temas'];
+    const id = tabs.includes(tab) ? tab : 'assets';
+    document.querySelectorAll('[data-book-tab]').forEach((b) => {
+      b.classList.toggle('ativo', b.dataset.bookTab === id);
+    });
+    document.getElementById('pane-assets').hidden = id !== 'assets';
+    document.getElementById('pane-ambiente').hidden = id !== 'ambiente';
+    document.getElementById('pane-temas').hidden = id !== 'temas';
+  }
+
+  function setModoLab(modo) {
+    const combinar = modo === 'combinar';
+    setCombinando(combinar);
   }
 
   function jsonAtual() {
@@ -730,6 +1111,25 @@ function resumoPolitica(politica) {
       temas: estado.temas,
       politicaTiles: estado.politicaTiles,
     };
+  }
+
+  async function persistirCombosNoDisco(motivo) {
+    const payload = jsonCombos();
+    try {
+      const res = await fetch(URL_PERSISTIR_COMBOS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) {
+        throw new Error(body.erro || 'HTTP ' + res.status);
+      }
+      return { ok: true, combinacoes: body.combinacoes, motivo };
+    } catch (err) {
+      console.warn('[lab] persistencia de combos no disco falhou:', err);
+      return { ok: false, motivo };
+    }
   }
 
   /**
@@ -769,6 +1169,16 @@ function resumoPolitica(politica) {
           (motivo ? ' · ' + motivo : ''),
         true,
       );
+      const combos = await persistirCombosNoDisco(motivo);
+      if (combos.ok && combos.combinacoes != null) {
+        setStatus(
+          'disco · ' + (body.temas != null ? body.temas + ' temas' : 'ok') +
+            ' · ' + combos.combinacoes + ' combos' +
+            (motivo ? ' · ' + motivo : ''),
+          true,
+        );
+      }
+      temasOrigem = 'disco';
       return true;
     } catch (err) {
       console.warn('[lab] persistencia no disco falhou:', err);
@@ -1085,8 +1495,19 @@ function resumoPolitica(politica) {
       await blitSpecNoPalco(ctx, item.spec, item, estado.diagnostico);
     }
 
-    for (const c of celulas) {
-      if (estado.subdiv) {
+    if (estado.postosTrabalho && estado.postosTrabalho.length) {
+      for (const posto of estado.postosTrabalho) {
+        const g = postoParaGrid(posto);
+        losango(ctx, g.x, g.y, '#34d399', 'rgba(52, 211, 153, 0.25)', posto.passo || 1);
+      }
+    }
+
+    atualizarAvisoPalco(estado.palco);
+
+    // Grade / quartos / ancoras: so no diagnostico. No modo normal o palco fica limpo
+    // para nao atrapalhar drag-and-drop.
+    if (estado.diagnostico) {
+      for (const c of celulas) {
         for (let qy = 0; qy < 2; qy++) {
           for (let qx = 0; qx < 2; qx++) {
             const sel = c.gx === estado.celula.gx && c.gy === estado.celula.gy &&
@@ -1095,51 +1516,46 @@ function resumoPolitica(politica) {
               ctx,
               c.gx + qx * 0.5,
               c.gy + qy * 0.5,
-              sel ? '#7ec8ff' : 'rgba(80, 160, 255, 0.7)',
-              sel ? 'rgba(80, 160, 255, 0.18)' : null,
+              sel ? '#7ec8ff' : 'rgba(80, 160, 255, 0.55)',
+              sel ? 'rgba(80, 160, 255, 0.14)' : null,
               0.5,
             );
           }
         }
+        const p = iso(c.gx + 0.5, c.gy + 0.5);
+        ctx.fillStyle = '#ff3b3b';
+        ctx.beginPath();
+        ctx.arc(ORIGEM.x + p.x, ORIGEM.y + p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(200, 230, 255, 0.85)';
+        ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+        ctx.fillText(c.gx + ',' + c.gy, ORIGEM.x + p.x + 4, ORIGEM.y + p.y - 4);
       }
-      const selCel = c.gx === estado.celula.gx && c.gy === estado.celula.gy && !estado.subdiv;
-      losango(
-        ctx,
-        c.gx,
-        c.gy,
-        selCel ? '#f5d76e' : 'rgba(80, 200, 255, 0.35)',
-        selCel ? 'rgba(245, 215, 110, 0.12)' : null,
-      );
-      const p = iso(c.gx + 0.5, c.gy + 0.5);
-      ctx.fillStyle = '#ff3b3b';
-      ctx.beginPath();
-      ctx.arc(ORIGEM.x + p.x, ORIGEM.y + p.y, 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(200, 230, 255, 0.85)';
-      ctx.font = '10px ui-monospace, Consolas, monospace';
-      ctx.fillText(c.gx + ',' + c.gy, ORIGEM.x + p.x + 4, ORIGEM.y + p.y - 4);
     }
     perimetroGrade(ctx, w, h);
 
-    if (estado.modoPlantar === 'parede' && estado.paredeSel && ultBboxWall) {
-      const sel = estado.paredeSel;
-      const bboxF = sel.face === 'L' ? ultBboxWall.L : ultBboxWall.R;
-      const rF = rectFace(sel.face, sel.gx, sel.gy, bboxF);
-      ctx.strokeStyle = '#f5d76e';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(rF.x - 0.5, rF.y - 0.5, rF.w + 1, rF.h + 1);
-      ctx.lineWidth = 1;
-    }
+    // Destaque so da peca selecionada (nao da malha do piso).
     if (paredePecaIx >= 0 && paredePecaIx < estado.palco.length) {
       const peca = estado.palco[paredePecaIx];
       const specP = specPorId(peca.assetId);
       const src = specP && specP.fileName;
       const bboxPeca = src ? bboxPorSrc.get(src) : null;
-      if (itemEParede(peca) && bboxPeca) {
-        const rP = rectPecaParede(peca, bboxPeca);
-        ctx.strokeStyle = '#f5d76e';
+      if (bboxPeca && specP) {
+        const rP = itemEParede(peca)
+          ? rectPecaParede(peca, bboxPeca)
+          : rectPecaPiso(peca, bboxPeca, specP);
+        ctx.strokeStyle = '#c4a35a';
+        ctx.lineWidth = 2;
         ctx.strokeRect(rP.x - 0.5, rP.y - 0.5, rP.w + 1, rP.h + 1);
+        ctx.lineWidth = 1;
       }
+    }
+    if (estado.diagnostico && estado.paredeSel && ultBboxWall) {
+      const sel = estado.paredeSel;
+      const bboxF = sel.face === 'L' ? ultBboxWall.L : ultBboxWall.R;
+      const rF = rectFace(sel.face, sel.gx, sel.gy, bboxF);
+      ctx.strokeStyle = 'rgba(196, 163, 90, 0.7)';
+      ctx.strokeRect(rF.x - 0.5, rF.y - 0.5, rF.w + 1, rF.h + 1);
     }
 
     document.getElementById('meta').textContent =
@@ -1377,17 +1793,33 @@ function resumoPolitica(politica) {
 
   async function montarCards() {
     const root = document.getElementById('cards');
+    if (!root) return;
     root.innerHTML = '';
-    const q = document.getElementById('filtro').value.trim().toLowerCase();
+    const q = (document.getElementById('filtro')?.value || '').trim().toLowerCase();
+    const kindSel = document.getElementById('filtro-kind')?.value || '';
+    const usoSel = document.getElementById('filtro-uso')?.value || '';
+    const soEsp = !!document.getElementById('filtro-espelhavel')?.checked;
+    const kinds = new Set();
     for (const a of todosAssets()) {
+      if (a.kind) kinds.add(a.kind);
       const blob = (a.nome + ' ' + a.kind + ' ' + a.assetId + ' ' + a.papel + (a.camadas ? ' combo' : '')).toLowerCase();
       if (q && !blob.includes(q)) continue;
+      if (filtroPapel && a.papel !== filtroPapel) continue;
+      if (kindSel && a.kind !== kindSel) continue;
       const uso = estado.usos[a.assetId] || a.uso;
+      if (usoSel && uso !== usoSel) continue;
+      if (soEsp && !assetEspelhavel(a)) continue;
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'card' + (uso === 'off' ? ' uso-off' : '') + (a.camadas ? ' combo' : '') + (a.papel === 'wall' ? ' card-wall' : '');
       btn.setAttribute('role', 'listitem');
       btn.dataset.id = a.assetId;
+      if (assetEspelhavel(a)) {
+        const badge = document.createElement('span');
+        badge.className = 'badge';
+        badge.textContent = 'espelho';
+        btn.appendChild(badge);
+      }
       const cv = document.createElement('canvas');
       cv.width = 140;
       cv.height = 72;
@@ -1400,8 +1832,8 @@ function resumoPolitica(politica) {
       const kind = document.createElement('span');
       kind.className = 'kind';
       kind.textContent = a.camadas
-        ? a.kind + ' · ' + a.papel + ' · ' + a.assetId + ' · combo'
-        : a.kind + ' · ' + a.papel + ' · ' + a.assetId;
+        ? a.kind + ' · ' + a.papel + ' · combo'
+        : a.kind + ' · ' + a.papel;
       btn.appendChild(kind);
       const usos = document.createElement('div');
       usos.className = 'usos';
@@ -1425,9 +1857,39 @@ function resumoPolitica(politica) {
         usos.appendChild(lab);
       }
       btn.appendChild(usos);
-      btn.addEventListener('click', () => {
+      btn.addEventListener('pointerdown', (ev) => {
+        if (ev.target.closest('.usos')) return;
+        if (ev.button != null && ev.button !== 0) return;
+        arrasteCatalogo = {
+          spec: a,
+          x0: ev.clientX,
+          y0: ev.clientY,
+          moved: false,
+          ghost: null,
+        };
+        btn.classList.add('dragging');
+        btn.setPointerCapture?.(ev.pointerId);
+        ev.preventDefault();
+      });
+      btn.addEventListener('click', (ev) => {
+        if (ev.target.closest('.usos')) return;
+        if (arrasteCatalogo && arrasteCatalogo.moved) return;
         if (estado.combinando) adicionarAoCompose(a);
-        else plantar(a);
+        else {
+          // Clique simples: planta na celula/face atual (legado) ou centro do palco.
+          if (estado.paredeSel && a.papel === 'wall') {
+            estado.modoPlantar = 'parede';
+            plantar(a);
+          } else if (a.papel !== 'wall') {
+            estado.modoPlantar = 'piso';
+            plantar(a);
+          } else {
+            const face = estado.paredeSel || { face: 'R', gx: Math.floor(gradeW() / 2), gy: 0 };
+            estado.paredeSel = face;
+            estado.modoPlantar = 'parede';
+            plantar(a);
+          }
+        }
       });
       root.appendChild(btn);
       if (a.camadas) {
@@ -1448,72 +1910,99 @@ function resumoPolitica(politica) {
         });
       }
     }
+    const selKind = document.getElementById('filtro-kind');
+    if (selKind && selKind.options.length <= 1) {
+      [...kinds].sort().forEach((k) => {
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = k;
+        selKind.appendChild(opt);
+      });
+    }
   }
 
   function pintarListaParede() {
     const root = document.getElementById('lista-parede');
     if (!root) return;
-    const noParede = estado.modoPlantar === 'parede' && !estado.combinando;
-    root.hidden = !noParede;
     root.innerHTML = '';
-    if (!noParede) return;
-    const sel = estado.paredeSel;
-    if (!sel) {
-      const p = document.createElement('p');
-      p.className = 'hint-combo';
-      p.textContent = 'Selecione uma face da parede no palco.';
-      root.appendChild(p);
+    if (estado.combinando) {
+      root.hidden = true;
       return;
     }
     const pecas = estado.palco
       .map((p, i) => ({ p, i }))
-      .filter((x) => itemEParede(x.p) && mesmaFace(x.p, sel));
+      .filter((x) => itemEParede(x.p));
     if (!pecas.length) {
-      const p = document.createElement('p');
-      p.className = 'hint-combo';
-      p.textContent = 'Nada nesta face. Clique um card, depois arraste.';
-      root.appendChild(p);
+      root.hidden = true;
       return;
     }
+    root.hidden = false;
     for (const { p, i } of pecas) {
       const s = specPorId(p.assetId);
       const row = document.createElement('div');
-      row.className = 'camada-row' + (i === paredePecaIx ? ' sel' : '');
+      row.className = 'chip' + (i === paredePecaIx ? ' sel' : '');
       const nome = document.createElement('span');
-      nome.className = 'nome-cam';
-      nome.textContent = (s ? s.nome : p.assetId) + '  dx ' + (p.dx || 0) + ' dy ' + (p.dy || 0);
+      nome.textContent = s ? s.nome : p.assetId;
+      const meta = document.createElement('span');
+      meta.className = 'meta-chip';
+      meta.textContent = p.face + ' dx ' + (p.dx || 0) + ' dy ' + (p.dy || 0);
       const rm = document.createElement('button');
       rm.type = 'button';
       rm.textContent = 'remover';
-      rm.addEventListener('click', () => removerPecaParede(i));
-      row.addEventListener('click', (ev) => {
-        if (ev.target === rm) return;
-        paredePecaIx = i;
-        pintarListaParede();
-        desenharPalco();
+      rm.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        removerPecaParede(i);
       });
       row.appendChild(nome);
+      row.appendChild(meta);
+      if (assetEspelhavel(s)) {
+        const esp = document.createElement('button');
+        esp.type = 'button';
+        esp.textContent = 'espelhar';
+        esp.title = 'Trocar face L ↔ R';
+        esp.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          espelharFacePeca(i);
+        });
+        row.appendChild(esp);
+      }
       row.appendChild(rm);
+      row.addEventListener('click', (ev) => {
+        if (ev.target.closest('button')) return;
+        paredePecaIx = i;
+        estado.paredeSel = { face: p.face, gx: p.gx, gy: p.gy };
+        pintarListaParede();
+        pintarCamadasLocais();
+        desenharPalco();
+      });
       root.appendChild(row);
     }
+    pintarCamadasLocais();
+  }
+
+  function removerPecaPalco(idx) {
+    if (idx == null) idx = paredePecaIx;
+    if (idx < 0 || idx >= estado.palco.length) return;
+    marcarUndo();
+    estado.palco.splice(idx, 1);
+    if (paredePecaIx === idx) paredePecaIx = -1;
+    else if (paredePecaIx > idx) paredePecaIx -= 1;
+    desenharPalco();
+    pintarListaParede();
+    pintarCamadasLocais();
   }
 
   function removerPecaParede(idx) {
     if (idx == null) idx = paredePecaIx;
     if (idx < 0 || idx >= estado.palco.length || !itemEParede(estado.palco[idx])) return;
-    estado.palco.splice(idx, 1);
-    if (paredePecaIx === idx) paredePecaIx = -1;
-    else if (paredePecaIx > idx) paredePecaIx -= 1;
-    desenharPalco();
+    removerPecaPalco(idx);
   }
 
   function plantar(spec) {
-    if (estado.modoPlantar === 'parede') {
-      const face = estado.paredeSel;
-      if (!face) {
-        atualizarCelulaTxt();
-        return;
-      }
+    if (spec.papel === 'wall' || estado.modoPlantar === 'parede') {
+      const face = estado.paredeSel || { face: 'R', gx: Math.floor(gradeW() / 2), gy: 0 };
+      estado.paredeSel = face;
+      marcarUndo();
       const mesma = estado.palco.findIndex((p) =>
         itemEParede(p) && p.assetId === spec.assetId && mesmaFace(p, face),
       );
@@ -1522,6 +2011,7 @@ function resumoPolitica(politica) {
         if (paredePecaIx === mesma) paredePecaIx = -1;
         else if (paredePecaIx > mesma) paredePecaIx -= 1;
         desenharPalco();
+        pintarListaParede();
         return;
       }
       estado.palco.push({
@@ -1536,65 +2026,91 @@ function resumoPolitica(politica) {
       paredePecaIx = estado.palco.length - 1;
       if (spec.fileName) bboxDe(spec.fileName).catch(() => undefined);
       desenharPalco();
-      return;
-    }
-    if (spec.papel === 'wall') {
-      const el = document.getElementById('celula-txt');
-      if (el) {
-        el.textContent = 'Esse card e de parede. Mude plantar para parede, clique a face NW, depois o card.';
-      }
+      pintarListaParede();
       return;
     }
     const sel = estado.celula;
     if (sel.gx < 0 || sel.gx >= gradeW() || sel.gy < 0 || sel.gy >= gradeH()) return;
-    const passo = estado.subdiv ? 0.5 : 1;
+    const passo = 0.5;
     const alvo = {
       assetId: spec.assetId,
       gx: sel.gx,
       gy: sel.gy,
-      qx: estado.subdiv ? (sel.qx || 0) : 0,
-      qy: estado.subdiv ? (sel.qy || 0) : 0,
+      qx: sel.qx || 0,
+      qy: sel.qy || 0,
       passo,
     };
-    const mesma = estado.palco.findIndex((p) =>
-      !itemEParede(p) && p.assetId === spec.assetId &&
-      (estado.subdiv ? mesmoSlot(p, alvo) : mesmaCelula(p, alvo)),
-    );
-    if (mesma >= 0) {
-      estado.palco.splice(mesma, 1);
-      desenharPalco();
-      return;
-    }
-    if (spec.papel === 'prop') {
-      estado.palco = estado.palco.filter((p) => {
-        if (itemEParede(p)) return true;
-        const s = specPorId(p.assetId);
-        if (!s || s.papel !== 'prop') return true;
-        return estado.subdiv ? !mesmoSlot(p, alvo) : !mesmaCelula(p, alvo);
+    marcarUndo();
+    estado.palco.push(alvo);
+    paredePecaIx = estado.palco.length - 1;
+    desenharPalco();
+  }
+
+  function sincronizarUiCores(cores) {
+    const selPiso = document.getElementById('sel-piso');
+    const selParede = document.getElementById('sel-parede');
+    if (selPiso) selPiso.value = cores.pisoEfetivo || selPiso.value;
+    if (selParede) selParede.value = cores.paredeEfetiva || selParede.value;
+    pintarTemas();
+    const boxPiso = document.getElementById('swatches-piso');
+    const boxParede = document.getElementById('swatches-parede');
+    if (boxPiso) {
+      boxPiso.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('ativo', b.dataset.nome === estado.pisoLivre);
       });
     }
-    estado.palco.push(alvo);
-    desenharPalco();
+    if (boxParede) {
+      boxParede.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('ativo', b.dataset.nome === estado.paredeLivre);
+      });
+    }
+    const chkPrev = document.getElementById('chk-preview-zona');
+    if (chkPrev) chkPrev.checked = false;
+  }
+
+  function atualizarAvisoPalco(palco) {
+    const el = document.getElementById('palco-aviso');
+    if (!el) return;
+    const v = validarPalco(palco, specPorId);
+    if (v.ok) {
+      el.dataset.ok = '1';
+      el.textContent = '';
+      return;
+    }
+    el.dataset.ok = '0';
+    el.textContent =
+      v.missingAssetIds.length +
+      ' peca(s) sem asset no catalogo/combos: ' +
+      v.missingAssetIds.join(', ') +
+      ' — recarregue combos ou reset JSON do repo.';
   }
 
   function aplicarTema(tema) {
     const t = normalizarTema(tema);
+
+    estado.previewZona = null;
     estado.tilesetAtivo = t.tilesetAtivo || 'nordic-calm';
-    estado.pisoLivre = t.pisoLivre != null ? t.pisoLivre : null;
-    estado.paredeLivre = t.paredeLivre != null ? t.paredeLivre : null;
+    const ts = catalogo.tilesets.find((x) => x.tileSetId === estado.tilesetAtivo) || catalogo.tilesets[0];
+    const coresRestauradas = restaurarCoresDoTema(t, {
+      piso: ts ? ts.piso : '',
+      parede: ts ? ts.parede : '',
+    });
+    estado.pisoLivre = coresRestauradas.pisoLivre;
+    estado.paredeLivre = coresRestauradas.paredeLivre;
+
     estado.grade = t.grade;
     estado.andares = t.andares;
     estado.subidaAndar = t.subidaAndar;
-    estado.subdiv = t.subdiv !== false;
+    estado.subdiv = true;
     estado.palco = t.palco.map((p) => ({ ...p }));
+    estado.postosTrabalho = (t.postosTrabalho || []).slice();
+
     if (estado.celula.gx >= estado.grade.w) estado.celula.gx = Math.max(0, estado.grade.w - 1);
     if (estado.celula.gy >= estado.grade.h) estado.celula.gy = Math.max(0, estado.grade.h - 1);
     cortarPalcoFora();
-    const ts = catalogo.tilesets.find((x) => x.tileSetId === estado.tilesetAtivo);
-    if (ts) {
-      document.getElementById('sel-piso').value = estado.pisoLivre || ts.piso;
-      document.getElementById('sel-parede').value = estado.paredeLivre || ts.parede;
-    }
+
+    sincronizarUiCores(coresRestauradas);
+
     const nomeEl = document.getElementById('nome-tema');
     const prioEl = document.getElementById('tema-prioridade');
     const unicoEl = document.getElementById('tema-unico');
@@ -1604,7 +2120,10 @@ function resumoPolitica(politica) {
     if (prioEl) prioEl.value = String(t.prioridade);
     if (unicoEl) unicoEl.checked = !!t.unicoNaAgencia;
     if (zonaEl) zonaEl.value = zonaKindOk(t.zonaKind);
-    if (subdivEl) subdivEl.checked = estado.subdiv;
+    if (subdivEl) subdivEl.checked = true;
+
+    atualizarAvisoPalco(estado.palco);
+
     desenharPalco();
   }
 
@@ -1652,6 +2171,7 @@ function resumoPolitica(politica) {
       piso: cores.piso,
       parede: cores.parede,
       calibracao: snapshotCalibracao(),
+      postosTrabalho: normalizarPostosTrabalho(estado.postosTrabalho),
     });
   }
 
@@ -1691,7 +2211,8 @@ function resumoPolitica(politica) {
           ' · P' + (tema.prioridade || 5) +
           (tema.unicoNaAgencia ? ' · unico' : '') +
           ' · ' + (tema.palco || []).length + ' pecas' +
-          ' · ' + (tema.piso || tema.tilesetAtivo);
+          ' · ' + (tema.piso || tema.tilesetAtivo) +
+          (temasOrigem === 'localStorage' ? ' · rascunho local' : '');
         const carregarBtn = document.createElement('button');
         carregarBtn.type = 'button';
         carregarBtn.textContent = 'carregar';
@@ -1732,9 +2253,7 @@ function resumoPolitica(politica) {
   const canvasCompose = document.getElementById('palco-compose');
   const ctxCompose = canvasCompose ? canvasCompose.getContext('2d') : null;
   if (ctxCompose) ctxCompose.imageSmoothingEnabled = false;
-  let arraste = null;
   let geraCompose = 0;
-  let composeSel = -1;
 
   const DECOR_KINDS = { laptop: 1, monitor: 1, keyboard: 1, mouse: 1, books: 1, radio: 1 };
 
@@ -1843,6 +2362,7 @@ function resumoPolitica(politica) {
   }
 
   function adicionarAoCompose(spec) {
+    marcarUndo();
     if (spec.camadas && spec.camadas.length) {
       for (const cam of spec.camadas) {
         estado.composeCamadas.push({
@@ -1878,6 +2398,7 @@ function resumoPolitica(politica) {
   function removerCamada(idx) {
     if (idx == null) idx = composeSel;
     if (idx < 0 || idx >= estado.composeCamadas.length) return;
+    marcarUndo();
     estado.composeCamadas.splice(idx, 1);
     if (!estado.composeCamadas.length) composeSel = -1;
     else if (composeSel === idx) composeSel = Math.min(idx, estado.composeCamadas.length - 1);
@@ -1891,6 +2412,7 @@ function resumoPolitica(politica) {
     const i = composeSel;
     const j = i + dir;
     if (i < 0 || j < 0 || j >= estado.composeCamadas.length) return;
+    marcarUndo();
     const tmp = estado.composeCamadas[i];
     estado.composeCamadas[i] = estado.composeCamadas[j];
     estado.composeCamadas[j] = tmp;
@@ -2001,14 +2523,37 @@ function resumoPolitica(politica) {
     estado.combinando = !!on;
     const painel = document.getElementById('painel-combinar');
     const btn = document.getElementById('btn-combinar');
+    const listaCam = document.getElementById('lista-camadas');
+    const canvasPalco = document.getElementById('palco');
+    const canvasComp = document.getElementById('palco-compose');
+    const toolbarPalco = document.getElementById('toolbar-palco');
+    const barraGrade = document.getElementById('barra-grade');
+    const btnPalco = document.getElementById('btn-modo-palco');
+    const btnComb = document.getElementById('btn-modo-combinar');
     if (painel) painel.hidden = !estado.combinando;
+    if (listaCam) listaCam.hidden = !estado.combinando;
+    if (canvasPalco) canvasPalco.hidden = !!estado.combinando;
+    if (canvasComp) canvasComp.hidden = !estado.combinando;
+    if (toolbarPalco) toolbarPalco.hidden = !!estado.combinando;
+    if (barraGrade) barraGrade.hidden = !!estado.combinando;
     if (btn) {
       btn.classList.toggle('ativo', estado.combinando);
       btn.setAttribute('aria-pressed', estado.combinando ? 'true' : 'false');
     }
+    if (btnPalco) {
+      btnPalco.classList.toggle('ativo', !estado.combinando);
+      btnPalco.setAttribute('aria-selected', estado.combinando ? 'false' : 'true');
+    }
+    if (btnComb) {
+      btnComb.classList.toggle('ativo', estado.combinando);
+      btnComb.setAttribute('aria-selected', estado.combinando ? 'true' : 'false');
+    }
     if (estado.combinando) {
       desenharCompose();
       pintarListaCamadas();
+    } else {
+      pintarListaParede();
+      desenharPalco();
     }
     atualizarCelulaTxt();
   }
@@ -2068,6 +2613,7 @@ function resumoPolitica(politica) {
     kindEl.value = kind;
     montarCards();
     gravarEstado(estado);
+    void persistirCombosNoDisco('combo');
   }
 
   if (canvasCompose) {
@@ -2092,6 +2638,10 @@ function resumoPolitica(politica) {
       const py = (ev.clientY - r.top) * (canvasCompose.height / r.height);
       const cam = estado.composeCamadas[arraste.idx];
       if (!cam) return;
+      if (!undoDoArraste) {
+        marcarUndo();
+        undoDoArraste = true;
+      }
       cam.dx = Math.round(arraste.dx0 + (px - arraste.x0));
       cam.dy = Math.round(arraste.dy0 + (py - arraste.y0));
       desenharCompose();
@@ -2099,6 +2649,7 @@ function resumoPolitica(politica) {
     window.addEventListener('mouseup', () => {
       if (arraste) {
         arraste = null;
+        undoDoArraste = false;
         if (canvasCompose) canvasCompose.classList.remove('arrastando');
         gravarEstado(estado);
       }
@@ -2114,34 +2665,171 @@ function resumoPolitica(politica) {
   }
 
   canvas.addEventListener('pointerdown', (ev) => {
-    if (estado.combinando || estado.modoPlantar !== 'parede') return;
+    if (estado.combinando) return;
     const pt = pontoDoCanvas(canvas, ev);
-    const ix = pecaParedeSobPonto(pt.x, pt.y);
+    const ix = pecaPalcoSobPonto(pt.x, pt.y);
     if (ix < 0) return;
     const peca = estado.palco[ix];
     paredePecaIx = ix;
-    estado.paredeSel = { face: peca.face, gx: peca.gx, gy: peca.gy };
-    arrasteParede = { idx: ix, x0: pt.x, y0: pt.y, dx0: peca.dx || 0, dy0: peca.dy || 0 };
+    if (itemEParede(peca)) {
+      estado.paredeSel = { face: peca.face, gx: peca.gx, gy: peca.gy };
+      arrasteParede = { idx: ix, x0: pt.x, y0: pt.y, dx0: peca.dx || 0, dy0: peca.dy || 0 };
+      arrastePiso = null;
+    } else {
+      estado.celula = {
+        gx: peca.gx,
+        gy: peca.gy,
+        qx: peca.qx || 0,
+        qy: peca.qy || 0,
+      };
+      arrastePiso = {
+        idx: ix,
+        x0: pt.x,
+        y0: pt.y,
+        gx0: peca.gx,
+        gy0: peca.gy,
+        qx0: peca.qx || 0,
+        qy0: peca.qy || 0,
+      };
+      arrasteParede = null;
+    }
     canvas.classList.add('arrastando');
     pintarListaParede();
+    pintarCamadasLocais();
     desenharPalco();
     ev.preventDefault();
   });
   window.addEventListener('pointermove', (ev) => {
-    if (!arrasteParede) return;
-    const peca = estado.palco[arrasteParede.idx];
-    if (!peca || !itemEParede(peca)) return;
-    const pt = pontoDoCanvas(canvas, ev);
-    peca.dx = Math.round(arrasteParede.dx0 + (pt.x - arrasteParede.x0));
-    peca.dy = Math.round(arrasteParede.dy0 + (pt.y - arrasteParede.y0));
-    pulouClickPalco = true;
-    desenharPalco();
-  });
-  window.addEventListener('pointerup', () => {
+    if (arrasteCatalogo) {
+      const dx = ev.clientX - arrasteCatalogo.x0;
+      const dy = ev.clientY - arrasteCatalogo.y0;
+      if (!arrasteCatalogo.moved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+        arrasteCatalogo.moved = true;
+        const ghost = document.createElement('canvas');
+        ghost.className = 'ghost-drag';
+        ghost.width = 96;
+        ghost.height = 64;
+        ghost.style.left = ev.clientX - 48 + 'px';
+        ghost.style.top = ev.clientY - 32 + 'px';
+        document.body.appendChild(ghost);
+        arrasteCatalogo.ghost = ghost;
+        const spec = arrasteCatalogo.spec;
+        if (spec.fileName) {
+          carregar(spec.fileName).then((img) => {
+            const b = medirBbox(img);
+            const t = thumb(img, b, 96, 64);
+            ghost.getContext('2d').drawImage(t, 0, 0);
+          }).catch(() => undefined);
+        }
+      }
+      if (arrasteCatalogo.ghost) {
+        arrasteCatalogo.ghost.style.left = ev.clientX - 48 + 'px';
+        arrasteCatalogo.ghost.style.top = ev.clientY - 32 + 'px';
+      }
+      return;
+    }
     if (arrasteParede) {
+      const peca = estado.palco[arrasteParede.idx];
+      if (!peca || !itemEParede(peca)) return;
+      const pt = pontoDoCanvas(canvas, ev);
+      if (!undoDoArraste) {
+        marcarUndo();
+        undoDoArraste = true;
+      }
+      peca.dx = Math.round(arrasteParede.dx0 + (pt.x - arrasteParede.x0));
+      peca.dy = Math.round(arrasteParede.dy0 + (pt.y - arrasteParede.y0));
+      pulouClickPalco = true;
+      desenharPalco();
+      return;
+    }
+    if (arrastePiso) {
+      const peca = estado.palco[arrastePiso.idx];
+      if (!peca || itemEParede(peca)) return;
+      const pt = pontoDoCanvas(canvas, ev);
+      const g = telaParaGrade(pt.x, pt.y, true);
+      if (g.gx >= 0 && g.gx < gradeW() && g.gy >= 0 && g.gy < gradeH()) {
+        if (!undoDoArraste) {
+          marcarUndo();
+          undoDoArraste = true;
+        }
+        peca.gx = g.gx;
+        peca.gy = g.gy;
+        peca.qx = g.qx || 0;
+        peca.qy = g.qy || 0;
+        peca.passo = 0.5;
+        estado.celula = { gx: g.gx, gy: g.gy, qx: g.qx || 0, qy: g.qy || 0 };
+        pulouClickPalco = true;
+        desenharPalco();
+      }
+    }
+  });
+  window.addEventListener('pointerup', (ev) => {
+    if (arrasteCatalogo) {
+      const drag = arrasteCatalogo;
+      arrasteCatalogo = null;
+      document.querySelectorAll('.card.dragging').forEach((el) => el.classList.remove('dragging'));
+      if (drag.ghost) drag.ghost.remove();
+      if (drag.moved) {
+        const alvo = estado.combinando ? canvasCompose : canvas;
+        if (alvo && !alvo.hidden) {
+          const r = alvo.getBoundingClientRect();
+          if (
+            ev.clientX >= r.left &&
+            ev.clientX <= r.right &&
+            ev.clientY >= r.top &&
+            ev.clientY <= r.bottom
+          ) {
+            const px = (ev.clientX - r.left) * (alvo.width / r.width);
+            const py = (ev.clientY - r.top) * (alvo.height / r.height);
+            if (estado.combinando) adicionarAoCompose(drag.spec);
+            else plantarNoPonto(drag.spec, px, py);
+            gravarEstado(estado);
+            pintarListaParede();
+            pintarCamadasLocais();
+          }
+        }
+        pulouClickPalco = true;
+      }
+      return;
+    }
+    if (arrasteParede) {
+      const peca = estado.palco[arrasteParede.idx];
+      if (peca && itemEParede(peca)) {
+        estado.palco[arrasteParede.idx] = rebasearAnexoParede(
+          peca,
+          gradeW(),
+          gradeH(),
+          { R: peR, L: peL },
+        );
+        estado.paredeSel = {
+          face: estado.palco[arrasteParede.idx].face,
+          gx: estado.palco[arrasteParede.idx].gx,
+          gy: estado.palco[arrasteParede.idx].gy,
+        };
+        if (!anexoParedeValido(estado.palco[arrasteParede.idx])) {
+          const status = document.getElementById('tema-persist-status');
+          if (status) {
+            status.dataset.ok = '0';
+            status.textContent = 'anexo fora da parede; reposicione antes de salvar';
+          }
+        }
+      }
       arrasteParede = null;
+      undoDoArraste = false;
       canvas.classList.remove('arrastando');
       gravarEstado(estado);
+      pintarListaParede();
+      pintarCamadasLocais();
+      desenharPalco();
+      return;
+    }
+    if (arrastePiso) {
+      arrastePiso = null;
+      undoDoArraste = false;
+      canvas.classList.remove('arrastando');
+      gravarEstado(estado);
+      pintarCamadasLocais();
+      desenharPalco();
     }
   });
 
@@ -2152,28 +2840,33 @@ function resumoPolitica(politica) {
     }
     if (estado.combinando) return;
     const pt = pontoDoCanvas(canvas, ev);
-    if (estado.modoPlantar === 'parede') {
-      const ix = pecaParedeSobPonto(pt.x, pt.y);
-      if (ix >= 0) {
-        const peca = estado.palco[ix];
-        paredePecaIx = ix;
+    const ix = pecaPalcoSobPonto(pt.x, pt.y);
+    if (ix >= 0) {
+      const peca = estado.palco[ix];
+      paredePecaIx = ix;
+      if (itemEParede(peca)) {
         estado.paredeSel = { face: peca.face, gx: peca.gx, gy: peca.gy };
-        atualizarCelulaTxt();
-        desenharPalco();
-        return;
+      } else {
+        estado.celula = {
+          gx: peca.gx,
+          gy: peca.gy,
+          qx: peca.qx || 0,
+          qy: peca.qy || 0,
+        };
       }
-      const face = faceSobPonto(pt.x, pt.y);
-      if (!face) return;
-      estado.paredeSel = face;
-      paredePecaIx = -1;
       atualizarCelulaTxt();
+      pintarListaParede();
+      pintarCamadasLocais();
       desenharPalco();
       return;
     }
-    const g = telaParaGrade(pt.x, pt.y, estado.subdiv);
-    if (g.gx < 0 || g.gx >= gradeW() || g.gy < 0 || g.gy >= gradeH()) return;
-    estado.celula = g;
+    // Clique no chao vazio: limpa selecao. Nao captura celula/face —
+    // isso atrapalhava o DnD e forçava overlays mentais de grade.
+    paredePecaIx = -1;
+    if (!estado.diagnostico) estado.paredeSel = null;
     atualizarCelulaTxt();
+    pintarListaParede();
+    pintarCamadasLocais();
     desenharPalco();
   });
   const bind = (id, fn) => {
@@ -2189,45 +2882,42 @@ function resumoPolitica(politica) {
   bind('btn-subida-plus', () => alterarSubida(1));
   bind('btn-subida-minus', () => alterarSubida(-1));
   pintarBarraGrade();
-  document.getElementById('chk-diag').checked = !!estado.diagnostico;
-  document.getElementById('chk-diag').addEventListener('change', (ev) => {
-    estado.diagnostico = ev.target.checked;
-    desenharPalco();
-  });
-  document.getElementById('chk-subdiv').checked = estado.subdiv !== false;
-  document.getElementById('chk-subdiv').addEventListener('change', (ev) => {
-    estado.subdiv = ev.target.checked;
-    if (!estado.subdiv) {
-      estado.celula.qx = 0;
-      estado.celula.qy = 0;
-    }
-    desenharPalco();
-  });
+  const chkDiag = document.getElementById('chk-diag');
+  if (chkDiag) {
+    chkDiag.checked = !!estado.diagnostico;
+    chkDiag.addEventListener('change', (ev) => {
+      estado.diagnostico = ev.target.checked;
+      desenharPalco();
+    });
+  }
+  const chkSubdiv = document.getElementById('chk-subdiv');
+  if (chkSubdiv) {
+    chkSubdiv.checked = true;
+    estado.subdiv = true;
+  }
   function setModoPlantar(modo) {
     estado.modoPlantar = modo === 'parede' ? 'parede' : 'piso';
     const radioP = document.getElementById('radio-piso');
     const radioW = document.getElementById('radio-parede');
     if (radioP) radioP.checked = estado.modoPlantar === 'piso';
     if (radioW) radioW.checked = estado.modoPlantar === 'parede';
-    canvas.style.cursor = estado.modoPlantar === 'parede' ? 'pointer' : 'crosshair';
+    if (canvas) canvas.style.cursor = 'grab';
     if (estado.modoPlantar === 'piso') {
-      paredePecaIx = -1;
+      /* keep paredePecaIx for chip selection */
     }
     atualizarCelulaTxt();
     gravarEstado(estado);
     desenharPalco();
   }
-  const radioPiso = document.getElementById('radio-piso');
-  const radioParede = document.getElementById('radio-parede');
-  if (radioPiso) radioPiso.addEventListener('change', () => setModoPlantar('piso'));
-  if (radioParede) radioParede.addEventListener('change', () => setModoPlantar('parede'));
   setModoPlantar(estado.modoPlantar);
   document.getElementById('btn-padrao').addEventListener('click', () => {
+    marcarUndo();
     estado.palco = (catalogo.palcoPadrao || []).map(palcoItemNormalizado);
     estado.celula = { gx: 1, gy: 1, qx: 0, qy: 0 };
     desenharPalco();
   });
   document.getElementById('btn-limpar').addEventListener('click', () => {
+    marcarUndo();
     estado.palco = [];
     desenharPalco();
   });
@@ -2248,9 +2938,13 @@ function resumoPolitica(politica) {
     paredePecaIx = -1;
     estado.politicaTiles = normalizarPolitica(temasDoc.politicaTiles, catalogo);
     estado.previewZona = null;
+    estado.postosTrabalho = [];
+    temasOrigem = 'disco';
     estado.paineis = paineisPadrao();
     document.getElementById('chk-diag').checked = false;
-    document.getElementById('chk-subdiv').checked = true;
+    const chkSub = document.getElementById('chk-subdiv');
+    if (chkSub) chkSub.checked = true;
+    estado.subdiv = true;
     const chkPrev = document.getElementById('chk-preview-zona');
     if (chkPrev) chkPrev.checked = true;
     document.getElementById('sel-piso').value = resolverCores(catalogo, estado).piso;
@@ -2271,14 +2965,83 @@ function resumoPolitica(politica) {
       document.getElementById('nome-tema').focus();
       return;
     }
+    const aviso = validarPalco(estado.palco, specPorId);
+    if (!aviso.ok) {
+      atualizarAvisoPalco(estado.palco);
+      return;
+    }
+    const anexosInvalidos = estado.palco.filter((p) => itemEParede(p) && !anexoParedeValido(p));
+    if (anexosInvalidos.length) {
+      const status = document.getElementById('tema-persist-status');
+      if (status) {
+        status.dataset.ok = '0';
+        status.textContent = anexosInvalidos.length + ' anexo(s) fora da parede; reposicione antes de salvar';
+      }
+      return;
+    }
     const novo = snapshotTema(nome);
     const ix = estado.temas.findIndex((t) => t.id === novo.id || t.nome === novo.nome);
     if (ix >= 0) estado.temas[ix] = novo;
     else estado.temas.push(novo);
+    temasOrigem = 'localStorage';
     atualizarJsonOut();
     pintarListaTemas();
     await persistirTemasNoDisco('salvar');
   });
+  const btnRecarregarDisco = document.getElementById('btn-recarregar-disco');
+  if (btnRecarregarDisco) {
+    btnRecarregarDisco.addEventListener('click', async () => {
+      try {
+        const res = await fetch(URL_PERSISTIR_TEMAS);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const doc = await res.json();
+        estado.temas = (doc.temas || []).map(normalizarTema);
+        estado.politicaTiles = normalizarPolitica(doc.politicaTiles, catalogo);
+        temasOrigem = 'disco';
+        gravarEstado(estado);
+        pintarListaTemas();
+        pintarPolitica();
+        atualizarJsonOut();
+        const statusEl = document.getElementById('tema-persist-status');
+        if (statusEl) {
+          statusEl.textContent = 'recarregado do disco · ' + estado.temas.length + ' temas';
+          statusEl.dataset.ok = '1';
+        }
+      } catch (err) {
+        const statusEl = document.getElementById('tema-persist-status');
+        if (statusEl) {
+          statusEl.textContent = 'falha ao recarregar — rode pnpm lab:iso';
+          statusEl.dataset.ok = '0';
+        }
+        console.warn('[lab] recarregar do disco:', err);
+      }
+    });
+  }
+  const btnMarcarAssento = document.getElementById('btn-marcar-assento');
+  if (btnMarcarAssento) {
+    btnMarcarAssento.addEventListener('click', () => {
+      const passo = estado.subdiv ? 0.5 : 1;
+      const zonaEl = document.getElementById('tema-zona');
+      const slot =
+        zonaEl && zonaEl.value === 'boss_room'
+          ? 'agent-boss'
+          : 'default';
+      const entry = {
+        agentSlot: slot,
+        gx: estado.celula.gx,
+        gy: estado.celula.gy,
+        qx: estado.subdiv ? (estado.celula.qx || 0) : 0,
+        qy: estado.subdiv ? (estado.celula.qy || 0) : 0,
+        passo,
+        facing: 2,
+      };
+      estado.postosTrabalho = estado.postosTrabalho.filter((p) => p.agentSlot !== slot);
+      estado.postosTrabalho.push(entry);
+      estado.postosTrabalho = normalizarPostosTrabalho(estado.postosTrabalho);
+      gravarEstado(estado);
+      desenharPalco();
+    });
+  }
   document.getElementById('btn-copiar-temas').addEventListener('click', async () => {
     const txt = JSON.stringify(jsonTemas(), null, 2);
     try {
@@ -2306,6 +3069,59 @@ function resumoPolitica(politica) {
     }
   });
   document.getElementById('filtro').addEventListener('input', () => montarCards());
+  const filtroKind = document.getElementById('filtro-kind');
+  if (filtroKind) filtroKind.addEventListener('change', () => montarCards());
+  const filtroUso = document.getElementById('filtro-uso');
+  if (filtroUso) filtroUso.addEventListener('change', () => montarCards());
+  const filtroEsp = document.getElementById('filtro-espelhavel');
+  if (filtroEsp) filtroEsp.addEventListener('change', () => montarCards());
+  document.querySelectorAll('#filtros-papel .chip-filter').forEach((b) => {
+    b.addEventListener('click', () => {
+      filtroPapel = b.dataset.papel || '';
+      document.querySelectorAll('#filtros-papel .chip-filter').forEach((x) => {
+        x.classList.toggle('ativo', x === b);
+      });
+      montarCards();
+    });
+  });
+  const btnModoPalco = document.getElementById('btn-modo-palco');
+  const btnModoCombinar = document.getElementById('btn-modo-combinar');
+  if (btnModoPalco) btnModoPalco.addEventListener('click', () => setModoLab('palco'));
+  if (btnModoCombinar) btnModoCombinar.addEventListener('click', () => setModoLab('combinar'));
+  const btnToggleBook = document.getElementById('btn-toggle-book');
+  const btnBookEdge = document.getElementById('btn-book-edge');
+  if (btnToggleBook) btnToggleBook.addEventListener('click', () => setBookOpen(!bookAberto));
+  if (btnBookEdge) btnBookEdge.addEventListener('click', () => setBookOpen(!bookAberto));
+  document.querySelectorAll('[data-book-tab]').forEach((b) => {
+    b.addEventListener('click', () => setBookTab(b.dataset.bookTab));
+  });
+  const btnInfo = document.getElementById('btn-info-tec');
+  if (btnInfo) {
+    btnInfo.addEventListener('click', () => {
+      const meta = document.getElementById('meta');
+      if (!meta) return;
+      meta.hidden = !meta.hidden;
+      btnInfo.classList.toggle('ativo', !meta.hidden);
+      btnInfo.setAttribute('aria-pressed', meta.hidden ? 'false' : 'true');
+    });
+  }
+  const helpDrawer = document.getElementById('help-drawer');
+  const btnHelp = document.getElementById('btn-help');
+  const btnHelpClose = document.getElementById('btn-help-close');
+  if (btnHelp && helpDrawer) {
+    btnHelp.addEventListener('click', () => helpDrawer.classList.add('open'));
+  }
+  if (btnHelpClose && helpDrawer) {
+    btnHelpClose.addEventListener('click', () => helpDrawer.classList.remove('open'));
+  }
+  if (helpDrawer) {
+    helpDrawer.addEventListener('click', (ev) => {
+      if (ev.target === helpDrawer) helpDrawer.classList.remove('open');
+    });
+  }
+  setBookTab('assets');
+  setBookOpen(true);
+  setCombinando(false);
   const btnCombinar = document.getElementById('btn-combinar');
   if (btnCombinar) {
     btnCombinar.addEventListener('click', () => setCombinando(!estado.combinando));
@@ -2313,6 +3129,7 @@ function resumoPolitica(politica) {
   const btnComposeLimpar = document.getElementById('btn-compose-limpar');
   if (btnComposeLimpar) {
     btnComposeLimpar.addEventListener('click', () => {
+      marcarUndo();
       estado.composeCamadas = [];
       composeSel = -1;
       desenharCompose();
@@ -2335,6 +3152,18 @@ function resumoPolitica(politica) {
   window.addEventListener('keydown', (ev) => {
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const cmd = ev.ctrlKey || ev.metaKey;
+    if (cmd && (ev.key === 'z' || ev.key === 'Z')) {
+      ev.preventDefault();
+      if (ev.shiftKey) refazer();
+      else desfazer();
+      return;
+    }
+    if (cmd && (ev.key === 'y' || ev.key === 'Y')) {
+      ev.preventDefault();
+      refazer();
+      return;
+    }
     if (estado.combinando) {
       if (ev.key === 'Delete' || ev.key === 'Backspace') {
         removerCamada();
@@ -2348,8 +3177,8 @@ function resumoPolitica(politica) {
       }
       return;
     }
-    if (estado.modoPlantar === 'parede' && (ev.key === 'Delete' || ev.key === 'Backspace')) {
-      removerPecaParede();
+    if (ev.key === 'Delete' || ev.key === 'Backspace') {
+      removerPecaPalco();
       ev.preventDefault();
     }
   });
@@ -2371,10 +3200,9 @@ function resumoPolitica(politica) {
         document.getElementById('json-out').value = txt;
         document.getElementById('json-out').select();
       }
+      await persistirCombosNoDisco('copiar');
     });
   }
-
-  ligarPaineis();
   await montarSwatches(catalogo.pisos, 'Floor_128_', 'sel-piso', 'swatches-piso', 'pisoLivre');
   await montarSwatches(catalogo.paredes, 'Wall_R_128_', 'sel-parede', 'swatches-parede', 'paredeLivre');
   montarSelTemaZona();
@@ -2396,10 +3224,7 @@ function resumoPolitica(politica) {
   await montarCards();
   pintarListaTemas();
   await desenharPalco();
-  // Migra temas ja no localStorage (ou do arquivo) para o disco do projeto.
-  if (estado.temas.length) {
-    void persistirTemasNoDisco('boot');
-  }
+  atualizarAvisoPalco(estado.palco);
 })().catch((err) => {
   document.getElementById('meta').textContent = String(err);
 });
