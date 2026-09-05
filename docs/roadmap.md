@@ -581,25 +581,29 @@ escritorio reconhecivel, proximo de Stardew Valley / SoWork / Gather.town.
 
 ### 3.5.8 Laboratorio do arquiteto (2026-08-17)
 
-- `tinyhouse.html` deixou de ser so calibracao: palco 3x3 clicavel, tabela
-  de sprites (`catalogo-laboratorio.json`), temas TILESETS e mix livre de
-  piso/parede do pack.
-- Intencao obrigatorio/aleatorio/off e biblia visual. Ainda nao escreve
-  `PROP_OBRIGATORIOS` / o solver. Gravacao: localStorage + copiar JSON.
-- Combinar assets: segundo preview abaixo das medidas, drag-drop para
-  assentar notebook/telefone no tampo. Combos viram cards; JSON em
-  `combinacoes-laboratorio.json`. Ainda so no laboratorio.
+- `tinyhouse.html` deixou de ser so calibracao: palco, catalogo, temas e
+  mix de piso/parede. Combos em `combinacoes-laboratorio.json`.
+
+### 3.5.9 Lab gamificado + painter global (2026-09-04)
+
+- Lab: caderninho, DnD, empilhar piso/parede/decor, Ctrl+Z/Y, Delete,
+  diagnostico off por padrao, espelhar anexos L↔R.
+- Debugpreview: `cena-isometrica.ts` (painter global); `stripParedeL`
+  (atalho W) pre-compoe Wall_L + anexos sem clip; `espaco-agencia` +
+  `simulacao-agentes`; RosaVentos.
+- Clip de Wall_L permanece como caminho padrao ate aceite visual do strip.
 
 ### Resultado parcial
 
-- **Typecheck:** limpo
-- **Testes:** 225 passando, 21 arquivos, 0 falhas
-- **Visual:** gramatica de tiles calibrada (plano B). Catalogo TinyHouse v2.2
-  no solver. Aceite humano de paredes/mesas em `?agents=7` ainda em aberto.
+- **Typecheck:** limpo (debugpreview)
+- **Testes debugpreview:** 51 passando; snapshot estrutural da seed fixa
+  precisa `-u` quando a biblia do Lab estabilizar (salas sorteadas mudaram).
+- **Visual:** Lab gamificado operacional; A/B clip vs strip no Debugpreview.
 
 ### Pendencias da fase 3.5
 
-- Aceite visual do usuario em `?agents=7` (mesas vs parede, seam, metragem).
+- Aceite visual do usuario em `?agents=7` e no strip Wall_L (W).
+- Promover `stripParedeL` como padrao; depois Wall_R.
 - Variedade por seed no atlas (hoje o ultimo asset de cada `kind` vence).
 - Meter ainda sem PNG de repouso no TinyHouse.
 - Promover combos do laboratorio e a intencao obrigatorio/aleatorio/off

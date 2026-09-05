@@ -252,11 +252,11 @@ corepack pnpm lab:iso
 Abra `http://127.0.0.1:3333/scripts/iso-validation/tinyhouse.html`. Os numeros
 ficam em `apps/demo/src/calibracao-tinyhouse.json`. Ver `scripts/iso-validation/README.md`.
 
-O lab tambem e a **bancada do Construtor**: monta ProtoComodos (grade, tileset,
-palco, calibracao), grava a biblia em
+O lab e a **bancada do Construtor**: caderninho com Assets / Ambiente / Temas,
+arraste-e-solte no palco, empilhamento de piso/parede/decor, **Ctrl+Z** para
+desfazer, combinar assets, e gravacao da biblia em
 `packages/world-engine/src/biblia/temas-arquiteto.json` via
-`POST /api/temas-arquiteto`, e define `politicaTiles` (ex.: corredor unico
-`Concrete`).
+`POST /api/temas-arquiteto` (+ combos via `POST /api/combinacoes-laboratorio`).
 
 ### Debugpreview (agencia a partir da biblia)
 
@@ -266,10 +266,15 @@ Bancada isolada para validar o empacote visual sem subir a demo completa:
 corepack pnpm dev:debugpreview
 ```
 
-Abra `http://127.0.0.1:5175/`. Informe quantas salas e copas, clique **Gerar**:
-cada proto e blitado **inteiro** (mesmo pipeline do lab) e as salas sao
-agrupadas em faixas com piso de corredor Concrete entre elas. **Resetar**
-volta ao palco vazio.
+Abra `http://127.0.0.1:5175/`. Informe quantas salas, clique **Gerar**:
+`montarAgencia` empacota faixas N/S com corredor Concrete; o **painter
+global** (`cena-isometrica.ts`) compila a cena inteira numa lista ordenada
+por profundidade e a renderiza num canvas unico. Agentes roteirizados
+caminham por cima da cena estatica.
+
+Atalhos no palco: **D** overlay de debug espacial; **W** alterna Wall_L entre
+clip por face (padrao) e **faixa pre-composta** (`stripParedeL`) — A/B do
+problema de oclusao de anexos na coluna oeste.
 
 ### Modo OTLP (telemetria real)
 
@@ -634,12 +639,12 @@ O roadmap completo vive em `docs/roadmap.md` e e o documento vivo do projeto.
 | **Fase 1** - Fundacao de produto | Concluida | Servidor autoritativo (WS), OTLP/HTTP, i18n, schema cross-linguagem, persistencia/replay |
 | **Fase 2** - Fidelidade visual e escala | Concluida | Sprites pre-renderizados, temas, camera (zoom/pan/follow/reset), arquiteto/decorador (LLM scaffold) |
 | **Fase 3** - Produto | Concluida | Multi-tenant, JWT+RBAC, auditoria, alertas (Slack/PagerDuty), aprovacao acionavel, onboarding self-service |
-| **Fase 3.5** - Refinamento TinyHouse | Em andamento | Lab + biblia do Construtor, `solveLayout` cola ProtoComodos, Debugpreview monta agencia com blit lab intacto |
+| **Fase 3.5** - Refinamento TinyHouse | Em andamento | Lab gamificado + biblia; Construtor cola ProtoComodos; Debugpreview com painter global, faixa Wall_L (A/B) e agentes |
 
 ### Proxima fase
 
-Fase 3.5 continua ate aceite visual estavel (`?agents=7` + Debugpreview). O
-sequenciamento seguinte permanece em `docs/roadmap.md`.
+Fase 3.5 continua ate aceite visual estavel (`?agents=7` + Debugpreview com
+`stripParedeL`). O sequenciamento seguinte permanece em `docs/roadmap.md`.
 
 ---
 
@@ -674,13 +679,16 @@ As frentes abaixo foram implementadas e refletidas nos commits da main. Todos os
 - `apps/server/src/alert-engine.ts` — entrega real por webhook, Slack, PagerDuty e email.
 
 ### 7. Refinamento visual TinyHouse + Construtor (Fase 3.5)
-- Laboratorio oficial (`pnpm lab:iso`) com calibracao, catalogo, temas e
-  persistencia da biblia em `packages/world-engine/src/biblia/temas-arquiteto.json`.
+- Laboratorio oficial (`pnpm lab:iso`): caderninho, DnD, Ctrl+Z, empilhar
+  props, combinar assets; persistencia da biblia e de combos no disco.
 - Construtor: `construtor-biblia.ts`, `emitir-paredes.ts`, `face-corredor.ts`,
   `politicaTiles` (corredor `Concrete` / `cool-lab`).
-- Debugpreview (`pnpm dev:debugpreview`): empacota N salas + M copas em
-  agencia, desenhando cada proto completo e separando por piso de corredor —
-  sem desmontar paredes/palco no preview.
+- Debugpreview (`pnpm dev:debugpreview`):
+  - `montarAgencia` empacota faixas N/S + corredor.
+  - `cena-isometrica.ts` — painter global (compilar → preparar → renderizar).
+  - `stripParedeL` (atalho **W**) pre-compoe Wall_L + anexos sem clip.
+  - `espaco-agencia` + `simulacao-agentes` — NavGrid e atores roteirizados.
+  - Rosa dos ventos alinhada ao grid iso.
 
 ---
 
