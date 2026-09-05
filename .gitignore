@@ -27,3 +27,7 @@ scripts/blender-render/output/
 
 # Cursor IDE (local agent state / debug logs)
 .cursor/
+
+# Lixo de sistema de arquivos (assets-source recebe muitos diretorios extraidos)
+Thumbs.db
+.DS_Store
