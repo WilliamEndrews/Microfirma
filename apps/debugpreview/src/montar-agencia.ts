@@ -3,8 +3,15 @@
  * Nao usa solveLayout / emitirParedes / colarProto — o blit do lab fica intacto.
  */
 
-import { gradeDoProto } from '@microfirma/world-engine';
-import { seedDoPedido, selecionarPedido, type PedidoGeracao, type ProtoEscolhido } from './selecionar-pedido';
+import { createRng, gradeDoProto } from '@microfirma/world-engine';
+import {
+  assinaturaTemas,
+  seedDaGeracao,
+  seedDoPedido,
+  selecionarPedido,
+  type PedidoGeracao,
+  type ProtoEscolhido,
+} from './selecionar-pedido';
 
 export type RectAgencia = { x0: number; y0: number; x1: number; y1: number };
 export type SlotAgencia = { proto: ProtoEscolhido; rect: RectAgencia };
@@ -12,6 +19,7 @@ export type CelulaAgencia = { x: number; y: number };
 
 export type AgenciaMontada = {
   seed: number;
+  geracao?: number;
   grid: { width: number; height: number };
   slots: SlotAgencia[];
   corridors: CelulaAgencia[];
@@ -83,26 +91,13 @@ function celulasDeCorredor(
   return out;
 }
 
-export function montarAgencia(pedido: PedidoGeracao): AgenciaMontada | null {
-  const salas = Math.max(0, Math.floor(pedido.salas) || 0);
-  const copas = Math.max(0, Math.floor(pedido.copas) || 0);
-  if (salas + copas <= 0) return null;
+function empacotar(protos: ProtoEscolhido[], seed: number): Omit<AgenciaMontada, 'seed' | 'geracao'> {
+  const rng = createRng(seed).fork('empacote');
+  const ordem = rng.shuffle(protos);
 
-  const protos = selecionarPedido({ salas, copas });
-  if (protos.length === 0) {
-    return {
-      seed: seedDoPedido({ salas, copas }),
-      grid: { width: 10, height: 9 },
-      slots: [],
-      corridors: [],
-      corredorY: 4,
-      pisoCorredor: PISO_CORREDOR,
-    };
-  }
-
-  const meio = Math.ceil(protos.length / 2);
-  const sul = protos.slice(0, meio);
-  const norte = protos.slice(meio);
+  const meio = Math.ceil(ordem.length / 2);
+  const sul = ordem.slice(0, meio);
+  const norte = ordem.slice(meio);
 
   const hNorte = norte.length === 0 ? 0 : Math.max(...norte.map((p) => gradeDoProto(p.tema).h));
   const hSul = sul.length === 0 ? 0 : Math.max(...sul.map((p) => gradeDoProto(p.tema).h));
@@ -115,11 +110,49 @@ export function montarAgencia(pedido: PedidoGeracao): AgenciaMontada | null {
   const width = Math.max(faixaNorte.xFim, faixaSul.xFim, PAD + 2) + PAD;
 
   return {
-    seed: seedDoPedido({ salas, copas }),
     grid: { width, height },
     slots,
     corridors: celulasDeCorredor(slots, width, corredorY),
     corredorY,
     pisoCorredor: PISO_CORREDOR,
   };
+}
+
+export function assinaturaAgencia(agencia: AgenciaMontada): string {
+  return assinaturaTemas(agencia.slots.map((s) => s.proto));
+}
+
+/**
+ * Monta a agencia. `seed` explicita torna o resultado reproduzivel;
+ * sem seed usa so o pedido (legado / testes simples).
+ */
+export function montarAgencia(pedido: PedidoGeracao, seed?: number): AgenciaMontada | null {
+  const salas = Math.max(0, Math.floor(pedido.salas) || 0);
+  if (salas <= 0) return null;
+
+  const semente = seed ?? seedDoPedido({ salas });
+  const protos = selecionarPedido({ salas }, semente);
+  if (protos.length === 0) {
+    return {
+      seed: semente,
+      grid: { width: 10, height: 9 },
+      slots: [],
+      corridors: [],
+      corredorY: 4,
+      pisoCorredor: PISO_CORREDOR,
+    };
+  }
+
+  return { seed: semente, ...empacotar(protos, semente) };
+}
+
+export function montarAgenciaGeracao(
+  pedido: PedidoGeracao,
+  geracao: number,
+  salt: number,
+): AgenciaMontada | null {
+  const seed = seedDaGeracao(pedido, geracao, salt);
+  const agencia = montarAgencia(pedido, seed);
+  if (!agencia) return null;
+  return { ...agencia, geracao };
 }

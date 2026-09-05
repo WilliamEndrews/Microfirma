@@ -99,6 +99,16 @@ body {
   color: var(--bp-mute);
 }
 
+.dash-hint {
+  margin: 0;
+  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--bp-mute);
+  max-width: 14rem;
+  line-height: 1.35;
+}
+
 .dash-input {
   width: 88px;
   padding: 8px 10px;
@@ -169,19 +179,56 @@ body {
   min-height: 360px;
   background: var(--bp-panel);
   border: 1px solid var(--bp-line-strong);
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.stage-grid {
+.stage-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.rosa-ventos {
   position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--bp-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--bp-line) 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position: -1px -1px;
+  bottom: 12px;
+  right: 12px;
+  width: 72px;
+  height: 72px;
+  z-index: 20;
   pointer-events: none;
-  z-index: 0;
+}
+
+.rosa-ventos-svg {
+  display: block;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.rosa-ring {
+  fill: rgba(6, 16, 28, 0.72);
+  stroke: var(--bp-line-strong);
+  stroke-width: 1.5;
+}
+
+.rosa-eixo {
+  stroke: var(--bp-cyan-dim);
+  stroke-width: 1.25;
+}
+
+.rosa-ponta {
+  fill: var(--bp-cyan);
+}
+
+.rosa-letra {
+  fill: var(--bp-cyan);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
 .stage-canvas-wrap {

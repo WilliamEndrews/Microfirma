@@ -106,6 +106,7 @@ export async function desenharProtoEm(
   ctx: CanvasRenderingContext2D,
   tema: TemaArquiteto,
   origem: Pt,
+  _espelharY = false,
 ): Promise<{ w: number; h: number }> {
   ctx.imageSmoothingEnabled = false;
 
@@ -148,10 +149,10 @@ export async function desenharProtoEm(
   const palco = (tema.palco || []) as PecaPalcoItem[];
 
   const itensParede = palco.filter((p) => {
-    if (!itemEParede(p)) return false;
-    if (p.face === 'R') return p.gx >= 0 && p.gx < w;
-    return p.gy >= 0 && p.gy < h;
-  });
+      if (!itemEParede(p)) return false;
+      if (p.face === 'R') return p.gx >= 0 && p.gx < w;
+      return p.gy >= 0 && p.gy < h;
+    });
   for (const item of itensParede) {
     const spec = specPorId(item.assetId);
     if (!spec) continue;

@@ -12,7 +12,10 @@ export function carregar(src: string): Promise<HTMLImageElement> {
   const p = new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('falhou ' + src));
+    img.onerror = () => {
+      cache.delete(src);
+      reject(new Error('falhou ' + src));
+    };
     img.src = urlPng(src);
   });
   cache.set(src, p);

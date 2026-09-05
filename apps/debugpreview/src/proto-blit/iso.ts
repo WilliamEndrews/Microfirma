@@ -15,6 +15,105 @@ export function iso(gx: number, gy: number): Pt {
   };
 }
 
+export type RectSala = { x0: number; y0: number; x1: number; y1: number };
+
+/**
+ * Silhueta 2D do prisma da sala: diamante do piso extrudado para cima.
+ * Paredes estruturais so podem pintar dentro deste volume; isso impede que
+ * Wall_L de uma sala da frente cubra anexos da parede oeste da sala de tras.
+ */
+export function prismaIso(rect: RectSala, alturaPx: number): Pt[] {
+  const nw = iso(rect.x0, rect.y0);
+  const ne = iso(rect.x1, rect.y0);
+  const se = iso(rect.x1, rect.y1);
+  const sw = iso(rect.x0, rect.y1);
+  return [
+    { x: sw.x, y: sw.y },
+    { x: se.x, y: se.y },
+    { x: ne.x, y: ne.y },
+    { x: ne.x, y: ne.y - alturaPx },
+    { x: nw.x, y: nw.y - alturaPx },
+    { x: sw.x, y: sw.y - alturaPx },
+  ];
+}
+
+export function pontoNoPoligono(p: Pt, poly: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    const intersect =
+      a.y > p.y !== b.y > p.y &&
+      p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y + Number.EPSILON) + a.x;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Pe tipico Wall_L_128 (peDir). A maior parte do PNG fica a oeste do vertice;
+ * padOut cobre esse lado externo; padIn e a espessura para dentro da sala.
+ * Sem padOut o clip corta a face visivel (rasgo).
+ */
+export const PE_WALL_L_DEFAULT = { x: 95, y: 83 };
+/** Celulas a oeste da face L (= pe.x / (LARGURA_TILE/2)). */
+export const FACE_PAD_OUT = PE_WALL_L_DEFAULT.x / (LARGURA_TILE / 2);
+/** Celulas a leste da face L (espessura interna). */
+export const FACE_PAD_IN = 0.35;
+/** @deprecated use FACE_PAD_OUT — mantido para imports legados. */
+export const FACE_PAD = FACE_PAD_OUT;
+export const FACE_PAD_R = 0.35;
+
+/**
+ * Volume de pintura de um tile de parede. Wall_L = face oeste da celula
+ * (padOut para fora + padIn para dentro); Wall_R = face norte.
+ * Limitado a vy..vy+1 para nao invadir a celula de tras na coluna oeste.
+ */
+export function faceParedeIso(
+  face: 'L' | 'R',
+  vx: number,
+  vy: number,
+  alturaPx: number,
+  pad: number | { out?: number; in?: number } = face === 'L'
+    ? { out: FACE_PAD_OUT, in: FACE_PAD_IN }
+    : FACE_PAD_R,
+): Pt[] {
+  if (face === 'L') {
+    const padOut = typeof pad === 'number' ? pad : (pad.out ?? FACE_PAD_OUT);
+    const padIn = typeof pad === 'number' ? FACE_PAD_IN : (pad.in ?? FACE_PAD_IN);
+    const nw = iso(vx - padOut, vy);
+    const sw = iso(vx - padOut, vy + 1);
+    const se = iso(vx + padIn, vy + 1);
+    const ne = iso(vx + padIn, vy);
+    return [
+      { x: sw.x, y: sw.y },
+      { x: se.x, y: se.y },
+      { x: ne.x, y: ne.y },
+      { x: ne.x, y: ne.y - alturaPx },
+      { x: nw.x, y: nw.y - alturaPx },
+      { x: sw.x, y: sw.y - alturaPx },
+    ];
+  }
+  const padR = typeof pad === 'number' ? pad : FACE_PAD_R;
+  const nw = iso(vx, vy);
+  const ne = iso(vx + 1, vy);
+  const se = iso(vx + 1, vy + padR);
+  const sw = iso(vx, vy + padR);
+  return [
+    { x: sw.x, y: sw.y },
+    { x: se.x, y: se.y },
+    { x: ne.x, y: ne.y },
+    { x: ne.x, y: ne.y - alturaPx },
+    { x: nw.x, y: nw.y - alturaPx },
+    { x: sw.x, y: sw.y - alturaPx },
+  ];
+}
+
+/** Inverte gy local (0..h-1) quando a sala espelha para a porta ficar no corredor. */
+export function espelharGyLocal(gy: number, h: number, espelhar: boolean): number {
+  return espelhar ? h - 1 - gy : gy;
+}
+
 export function origemDoItem(p: {
   gx: number;
   gy: number;

@@ -1,0 +1,61 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`cena isometrica global > mantem snapshot estrutural para uma seed fixa 1`] = `
+{
+  "comandosPorTipo": {
+    "catalog": 167,
+    "label": 4,
+    "threshold": 2,
+    "tile": 77,
+    "vertex": 51,
+  },
+  "corredorY": 4,
+  "grid": {
+    "height": 10,
+    "width": 13,
+  },
+  "slots": [
+    {
+      "key": "private-0-sala-simples2-new",
+      "rect": {
+        "x0": 1,
+        "x1": 5,
+        "y0": 1,
+        "y1": 4,
+      },
+      "zona": "private",
+    },
+    {
+      "key": "break-0-copa-simples-new",
+      "rect": {
+        "x0": 6,
+        "x1": 11,
+        "y0": 1,
+        "y1": 4,
+      },
+      "zona": "break",
+    },
+    {
+      "key": "private-1-sala-simples2-piso-azul-new",
+      "rect": {
+        "x0": 1,
+        "x1": 5,
+        "y0": 5,
+        "y1": 8,
+      },
+      "zona": "private",
+    },
+    {
+      "key": "boss_room-0-boss-room-2",
+      "rect": {
+        "x0": 6,
+        "x1": 11,
+        "y0": 5,
+        "y1": 9,
+      },
+      "zona": "boss_room",
+    },
+  ],
+  "warnings": [],
+}
+`;
