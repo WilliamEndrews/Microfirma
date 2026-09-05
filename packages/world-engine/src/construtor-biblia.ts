@@ -22,6 +22,7 @@ export type ZonaKindTiles =
   | 'open'
   | 'private'
   | 'break'
+  | 'boss_room'
   | 'meeting'
   | 'war_room'
   | 'reception'
@@ -46,6 +47,16 @@ export interface PecaPalco {
   dy?: number;
 }
 
+export interface PostoTrabalho {
+  agentSlot: string;
+  gx: number;
+  gy: number;
+  qx?: number;
+  qy?: number;
+  passo?: number;
+  facing?: 0 | 1 | 2 | 3;
+}
+
 export interface TemaArquiteto {
   id: string;
   nome: string;
@@ -60,6 +71,7 @@ export interface TemaArquiteto {
   palco: PecaPalco[];
   grade?: { w: number; h: number };
   calibracao?: CalibracaoSala | null;
+  postosTrabalho?: PostoTrabalho[];
 }
 
 export interface BibliaTemas {
@@ -250,10 +262,41 @@ export function specDoAsset(assetId: string) {
   return INITIAL_CATALOG.assets.find((a) => a.assetId === assetId);
 }
 
-export function kindDoAsset(assetId: string): Prop['kind'] | undefined {
-  const spec = specDoAsset(assetId);
-  if (!spec || spec.papel === 'decor') return undefined;
+/** Spec minimo para colar palco (catalogo do lab ou INITIAL_CATALOG). */
+export type ResolverSpec = {
+  assetId: string;
+  kind: string;
+  papel?: string;
+  uso?: string;
+  camadas?: { assetId: string; dx?: number; dy?: number }[];
+};
+
+export type ColarProtoOpts = {
+  resolverSpec?: (assetId: string) => ResolverSpec | undefined;
+};
+
+function specParaColar(assetId: string, opts?: ColarProtoOpts): ResolverSpec | undefined {
+  const injetado = opts?.resolverSpec?.(assetId);
+  if (injetado) return injetado;
+  const base = specDoAsset(assetId);
+  if (!base) return undefined;
+  return {
+    assetId: base.assetId,
+    kind: base.kind,
+    papel: base.papel,
+    uso: base.uso,
+  };
+}
+
+function kindDeSpec(spec: ResolverSpec): Prop['kind'] | undefined {
+  if (spec.papel === 'decor' || spec.papel === 'wall') return undefined;
   return spec.kind as Prop['kind'];
+}
+
+export function kindDoAsset(assetId: string, opts?: ColarProtoOpts): Prop['kind'] | undefined {
+  const spec = specParaColar(assetId, opts);
+  if (!spec) return undefined;
+  return kindDeSpec(spec);
 }
 
 /**
@@ -266,6 +309,7 @@ export function colarProto(
   proto: TemaArquiteto | undefined,
   agentIds: readonly string[],
   espelharY = false,
+  opts?: ColarProtoOpts,
 ): { props: Prop[]; mounts: WallMount[] } {
   const props: Prop[] = [];
   const mounts: WallMount[] = [];
@@ -276,7 +320,7 @@ export function colarProto(
   let indiceAgente = 0;
 
   for (const peca of proto.palco) {
-    const spec = specDoAsset(peca.assetId);
+    const spec = specParaColar(peca.assetId, opts);
     if (!spec || spec.uso === 'off') continue;
     const gx = x0 + peca.gx;
     const gy = y0 + (espelharY ? altura - 1 - peca.gy : peca.gy);
@@ -296,8 +340,8 @@ export function colarProto(
       });
       continue;
     }
-    if (spec.papel !== 'prop') continue;
-    const kind = kindDoAsset(peca.assetId);
+    if (spec.papel !== 'prop' && !spec.camadas?.length) continue;
+    const kind = kindDeSpec(spec);
     if (!kind) continue;
 
     const k = `${gx},${gy}`;

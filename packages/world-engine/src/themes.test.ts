@@ -51,7 +51,7 @@ describe('resolverPaleta', () => {
 
   it('piso tem todas as kinds de sala', () => {
     const paleta = resolverPaleta(TEMAS[0]!);
-    for (const kind of ['open', 'private', 'break', 'meeting', 'war_room', 'reception']) {
+    for (const kind of ['open', 'private', 'break', 'boss_room', 'meeting', 'war_room', 'reception']) {
       expect(paleta.piso[kind]).toBeDefined();
     }
   });

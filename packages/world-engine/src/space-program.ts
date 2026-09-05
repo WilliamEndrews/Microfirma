@@ -54,10 +54,24 @@ export function planSpaceProgram(agents: AgentDescriptor[], opts: PlanOptions): 
   const rng = createRng(opts.seed).fork('space-program');
   const maxPorArea = opts.maxAgentsPorAreaAberta ?? 2;
 
-  const privados = agents.filter((a) => ROOM_PREFERENCE[a.role] === 'private');
-  const abertos = agents.filter((a) => ROOM_PREFERENCE[a.role] !== 'private');
+  const privados = agents.filter(
+    (a) => ROOM_PREFERENCE[a.role] === 'private',
+  );
+  const gerentes = agents.filter((a) => a.role === 'orchestrator');
+  const abertos = agents.filter(
+    (a) => ROOM_PREFERENCE[a.role] !== 'private' && a.role !== 'orchestrator',
+  );
 
   const zones: ZoneRequest[] = [];
+
+  // Boss Room: sempre uma sala; o gerente (orchestrator) e alocado aqui.
+  zones.push({
+    zoneId: 'zone-boss',
+    name: 'Boss Room',
+    kind: 'boss_room',
+    areaWeight: 1.3,
+    agentIds: gerentes.length ? [gerentes[0]!.agentId] : [],
+  });
 
   // Escritorios privativos: 1 agente por sala para micro-firma real.
   for (const agente of privados) {

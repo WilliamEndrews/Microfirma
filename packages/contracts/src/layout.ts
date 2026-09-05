@@ -25,7 +25,7 @@ import { AgentRole } from './domain-events.js';
 export const ZoneRequest = z.object({
   zoneId: z.string().min(1),
   name: z.string().min(1),
-  kind: z.enum(['open', 'private', 'break', 'meeting', 'war_room', 'reception']),
+  kind: z.enum(['open', 'private', 'break', 'boss_room', 'meeting', 'war_room', 'reception']),
   /** Peso relativo de area. O solver normaliza; nao sao metros quadrados. */
   areaWeight: z.number().positive(),
   /** Agentes alocados nesta zona (definem quantas mesas o solver precisa criar). */
@@ -223,7 +223,7 @@ export type OfficeLayout = z.infer<typeof OfficeLayout>;
 
 /** Preferencia de tipo de sala por papel - usada pelo Arquiteto e por testes. */
 export const ROOM_PREFERENCE: Record<AgentRole, ZoneRequest['kind']> = {
-  orchestrator: 'private',
+  orchestrator: 'boss_room',
   finance: 'private',
   guardian: 'private',
   researcher: 'open',

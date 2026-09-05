@@ -49,7 +49,11 @@ export {
   tileSetsDoLayout,
   kindChaoAtivo,
   type TemaArquiteto,
+  type PostoTrabalho,
   type TileVisual,
+  type ZonaKindTiles,
+  type ColarProtoOpts,
+  type ResolverSpec,
 } from './construtor-biblia.js';
 export { emitirParedes } from './emitir-paredes.js';
 export { OtlpIngestor, type OtlpIngestorOptions, type IngestStats } from './otlp-ingestor.js';
