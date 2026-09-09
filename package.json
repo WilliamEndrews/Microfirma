@@ -14,7 +14,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lab:iso": "node scripts/iso-validation/lab-server.mjs",
-    "load-test": "npx tsx scripts/load-test.ts",
+    "relatorio:postos": "node scripts/relatorio-postos-trabalho.mjs",
+    "load-test": "npm exec --yes --package=tsx@4.19.2 -- tsx scripts/load-test.ts",
+    "telemetria:dry": "npm exec --yes --package=tsx@4.19.2 -- tsx scripts/enviar-telemetria-agencia.ts --dry-run",
+    "telemetria:enviar": "npm exec --yes --package=tsx@4.19.2 -- tsx scripts/enviar-telemetria-agencia.ts",
+    "test:debugpreview": "vitest run --root apps/debugpreview",
     "contracts:jsonschema": "pnpm --filter @microfirma/contracts gen:jsonschema"
   },
   "devDependencies": {

@@ -25,7 +25,7 @@ import { AgentRole } from './domain-events.js';
 export const ZoneRequest = z.object({
   zoneId: z.string().min(1),
   name: z.string().min(1),
-  kind: z.enum(['open', 'private', 'break', 'boss_room', 'meeting', 'war_room', 'reception']),
+  kind: z.enum(['open', 'private', 'break', 'boss_room', 'meeting', 'war_room', 'reception', 'landing']),
   /** Peso relativo de area. O solver normaliza; nao sao metros quadrados. */
   areaWeight: z.number().positive(),
   /** Agentes alocados nesta zona (definem quantas mesas o solver precisa criar). */
@@ -174,6 +174,18 @@ export const Prop = z.object({
   footprint: Footprint.default({ w: 1, h: 1 }),
   /** Variante visual (ADR-0012). Sem isto o atlas cai no last-wins do kind. */
   assetId: z.string().optional(),
+  /**
+   * Celula exata para "trabalhar" nesta mesa - vem do `postoTrabalho`
+   * autorado no Lab (botao "marcar assento"), resolvido em geometria pura
+   * no momento em que o palco e colado (sem depender do NavGrid, que ainda
+   * nao existe nesse ponto do pipeline). So preenchido em `desk` cujo
+   * `ownerAgentId` e inequivoco na sala (ver `colarProto`).
+   * Ausente = quem consumir usa o vizinho generico (`seatCellFor`), como
+   * sempre foi - este campo e aditivo e nao quebra layouts antigos.
+   */
+  seat: Cell.optional(),
+  /** Orientacao do agente sentado, autorada/inferida junto ao posto. */
+  seatFacing: z.number().int().min(0).max(3).optional(),
 });
 export type Prop = z.infer<typeof Prop>;
 

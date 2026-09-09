@@ -16,14 +16,19 @@ export {
 } from './space-program.js';
 export { solveLayout } from './layout-solver.js';
 export { faceTocaCorredor } from './face-corredor.js';
+export { facingDeDelta } from './facing.js';
 export { validarLayout, assertLayoutValido, type Violacao } from './layout-validation.js';
 export {
   buildNavGrid,
   findPath,
+  footprintCells,
+  isTransitionAllowed,
   isWalkable,
+  propBloqueia,
   reachableFrom,
   seatCellFor,
   type NavGrid,
+  type ResolverColisao,
 } from './navgrid.js';
 export {
   NarrativeScheduler,
@@ -34,6 +39,15 @@ export {
   type Chatter,
 } from './narrative-scheduler.js';
 export { WorldEngine, type WorldEngineOptions } from './world-engine.js';
+export {
+  postoParaGridWorld,
+  resolverAssento,
+  resolverPostoAgente,
+  facingOlhandoPara,
+  mesaMaisProxima,
+  inferirFacingAssento,
+  type PostoResolvido,
+} from './postos-trabalho.js';
 export {
   BIBLIA_TEMAS,
   CALIBRACAO_PADRAO,
@@ -48,6 +62,8 @@ export {
   tileSetDoVisual,
   tileSetsDoLayout,
   kindChaoAtivo,
+  kindDoAsset,
+  resolverColisaoDoCatalogo,
   type TemaArquiteto,
   type PostoTrabalho,
   type TileVisual,

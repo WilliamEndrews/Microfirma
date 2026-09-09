@@ -31,7 +31,10 @@ import type {
   WorldDelta,
   WorldSnapshot,
 } from '@microfirma/contracts';
-import { buildNavGrid, findPath, isWalkable, seatCellFor, type NavGrid } from './navgrid.js';
+import { resolverColisaoDoCatalogo } from './construtor-biblia.js';
+import { facingDeDelta } from './facing.js';
+import { buildNavGrid, findPath, isWalkable, type NavGrid } from './navgrid.js';
+import { resolverAssento } from './postos-trabalho.js';
 import { NarrativeScheduler, type NarrativeConfig } from './narrative-scheduler.js';
 import { createRng, type Rng } from './prng.js';
 
@@ -57,6 +60,7 @@ interface Actor {
   duracaoMs: number;
   homeDesk?: Prop;
   seat?: Cell;
+  seatFacing?: 0 | 1 | 2 | 3;
   intent?: NarrativeIntent;
   causedByEventId?: string;
   /** Alvo de servico dos agentes internos (agentId atendido). */
@@ -68,6 +72,11 @@ export interface WorldEngineOptions {
   agents: AgentDescriptor[];
   seed: number;
   narrative?: Partial<NarrativeConfig>;
+  /**
+   * Resolver de colisao alinhado ao catalogo que colou os props.
+   * Lab iso usa o catalogo do laboratorio; omitido = INITIAL_CATALOG.
+   */
+  resolverColisao?: (p: Prop) => boolean | undefined;
 }
 
 export class WorldEngine {
@@ -88,7 +97,11 @@ export class WorldEngine {
 
   constructor(opts: WorldEngineOptions) {
     this.layout = opts.layout;
-    this.nav = buildNavGrid(opts.layout);
+    // resolverColisaoDoCatalogo: mesma fonte de verdade (INITIAL_CATALOG) que
+    // colarProto usou para escolher os assetId dos props deste layout.
+    this.nav = buildNavGrid(opts.layout, {
+      resolverColisao: opts.resolverColisao ?? resolverColisaoDoCatalogo(),
+    });
     this.rng = createRng(opts.seed).fork('world');
     this.scheduler = new NarrativeScheduler(opts.narrative);
 
@@ -119,7 +132,7 @@ export class WorldEngine {
     if (this.atores.has(agente.agentId)) return;
 
     const mesa = this.mesaPorAgente.get(agente.agentId);
-    const assento = mesa ? seatCellFor(this.nav, mesa.cell) : null;
+    const assento = mesa ? resolverAssento(this.nav, mesa, this.cadeirasDaSala(mesa.roomId)) : null;
     const inicio = assento ?? this.entrada;
 
     this.atores.set(agente.agentId, {
@@ -135,6 +148,7 @@ export class WorldEngine {
       duracaoMs: 0,
       ...(mesa ? { homeDesk: mesa } : {}),
       ...(assento ? { seat: assento } : {}),
+      ...(mesa?.seatFacing != null ? { seatFacing: mesa.seatFacing as 0 | 1 | 2 | 3 } : {}),
     });
   }
 
@@ -265,7 +279,7 @@ export class WorldEngine {
         ator.x += (dx / dist) * passo;
         ator.y += (dy / dist) * passo;
       }
-      ator.facing = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 3 : 1) : dy > 0 ? 0 : 2;
+      ator.facing = facingDeDelta(dx, dy, ator.facing);
       ator.activity = 'walking';
       return;
     }
@@ -363,7 +377,7 @@ export class WorldEngine {
     duracaoMs: number,
   ): void {
     const mesa = this.mesaPorAgente.get(agenteAlvo);
-    const destino = mesa ? seatCellFor(this.nav, mesa.cell) : null;
+    const destino = mesa ? resolverAssento(this.nav, mesa, this.cadeirasDaSala(mesa.roomId)) : null;
     if (!destino) return;
 
     interno.atendendo = agenteAlvo;
@@ -411,12 +425,19 @@ export class WorldEngine {
         ? clamp01(1 - (ator.ateMs - this.tMundo) / ator.duracaoMs)
         : 0;
 
+    const noAssento =
+      ator.role === 'client' &&
+      ator.path.length === 0 &&
+      ator.seat != null &&
+      Math.hypot(ator.x - ator.seat.x, ator.y - ator.seat.y) < 0.1;
+
     return {
       agentId: ator.agentId,
       x: ator.x,
       y: ator.y,
-      facing: ator.facing,
+      facing: noAssento ? (ator.seatFacing ?? ator.facing) : ator.facing,
       activity: ator.activity,
+      pose: noAssento ? 'seated' : 'standing',
       progress: progresso,
       health: !ambiente
         ? 'healthy'
@@ -463,6 +484,11 @@ export class WorldEngine {
       }
       return { roomId: sala.roomId, lightBroken: luzQueimada, incident: incidente };
     });
+  }
+
+  /** Props `chair` da sala - usado por `resolverAssento` como 2a preferencia. */
+  private cadeirasDaSala(roomId: string): Prop[] {
+    return this.layout.props.filter((p) => p.kind === 'chair' && p.roomId === roomId);
   }
 
   /** Celula livre dentro de uma sala, escolhida de forma estavel pela seed. */

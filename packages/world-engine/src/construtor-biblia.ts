@@ -17,6 +17,7 @@ import {
 } from '@microfirma/contracts';
 import type { Rng } from './prng.js';
 import temasJson from './biblia/temas-arquiteto.json';
+import { resolverPostoAgente } from './postos-trabalho.js';
 
 export type ZonaKindTiles =
   | 'open'
@@ -26,7 +27,8 @@ export type ZonaKindTiles =
   | 'meeting'
   | 'war_room'
   | 'reception'
-  | 'corridor';
+  | 'corridor'
+  | 'landing';
 
 export interface SlotPoliticaTiles {
   modo: 'default' | 'unico' | 'opcoes';
@@ -55,6 +57,8 @@ export interface PostoTrabalho {
   qy?: number;
   passo?: number;
   facing?: 0 | 1 | 2 | 3;
+  facingOrigem?: 'olhar_mesa' | 'manual' | 'padrao_norte';
+  deskAssetId?: string;
 }
 
 export interface TemaArquiteto {
@@ -269,6 +273,10 @@ export type ResolverSpec = {
   papel?: string;
   uso?: string;
   camadas?: { assetId: string; dx?: number; dy?: number }[];
+  /** Footprint real do catalogo. Ausente = 1x1 (default de `Footprint`). */
+  footprint?: { w: number; h: number };
+  /** Decisao explicita de colisao do catalogo (`AssetEntry.colide`). Ausente = default por kind em navgrid.ts. */
+  colide?: boolean;
 };
 
 export type ColarProtoOpts = {
@@ -285,6 +293,8 @@ function specParaColar(assetId: string, opts?: ColarProtoOpts): ResolverSpec | u
     kind: base.kind,
     papel: base.papel,
     uso: base.uso,
+    footprint: base.footprint,
+    colide: base.colide,
   };
 }
 
@@ -297,6 +307,23 @@ export function kindDoAsset(assetId: string, opts?: ColarProtoOpts): Prop['kind'
   const spec = specParaColar(assetId, opts);
   if (!spec) return undefined;
   return kindDeSpec(spec);
+}
+
+/**
+ * Constroi um `ResolverColisao` (navgrid.ts) a partir do MESMO catalogo que
+ * `colarProto` usou para montar os props (`opts.resolverSpec`, se houver, ou
+ * `INITIAL_CATALOG`). Garante que quem decide "este prop bloqueia?" e a
+ * mesma fonte que decidiu o `assetId` da peca - sem isto, o Debugpreview
+ * (catalogo do lab) e a producao (`INITIAL_CATALOG`) poderiam divergir na
+ * decisao de colisao para o mesmo `assetId`.
+ */
+export function resolverColisaoDoCatalogo(
+  opts?: ColarProtoOpts,
+): (p: { assetId?: string }) => boolean | undefined {
+  return (p) => {
+    if (!p.assetId) return undefined;
+    return specParaColar(p.assetId, opts)?.colide;
+  };
 }
 
 /**
@@ -353,6 +380,16 @@ export function colarProto(
         ? agentIds[indiceAgente++]
         : undefined;
 
+    // Posto de trabalho (geometria pura, sem NavGrid - ver docstring de
+    // Prop.seat). So resolvido quando a sala e inequivocamente de UM agente
+    // (agentIds.length === 1): com mais de uma mesa na mesma sala, o tema
+    // so tem um posto 'default', e aplicar o mesmo ponto a todas colocaria
+    // os agentes empilhados na mesma celula.
+    const postoResolvido =
+      kind === 'desk' && ownerAgentId && agentIds.length === 1
+        ? resolverPostoAgente(proto, ownerAgentId, sala, espelharY)
+        : undefined;
+
     props.push({
       propId: `palco-${sala.roomId}-${peca.assetId}-${gx}-${gy}`,
       kind,
@@ -360,8 +397,14 @@ export function colarProto(
       roomId: sala.roomId,
       ownerAgentId,
       facing: 0,
-      footprint: { w: 1, h: 1 },
+      footprint: spec.footprint ?? { w: 1, h: 1 },
       assetId: peca.assetId,
+      ...(postoResolvido
+        ? {
+            seat: postoResolvido.cellAlvo,
+            seatFacing: postoResolvido.render.facing,
+          }
+        : {}),
     });
   }
   return { props, mounts };

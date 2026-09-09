@@ -13,21 +13,57 @@
  * Custo: A* com heap binario. Um escritorio tipico tem < 3000 celulas, logo
  * cada busca custa microssegundos. Recalculo de rota nunca sera o gargalo -
  * o gargalo e o numero de atores desenhados (ver LOD no renderizador).
+ *
+ * PORTA COMO UNICA PASSAGEM (evolucao): alem de "caminhavel/bloqueado" por
+ * celula, o NavGrid guarda `blockedEdges` - pares de celulas adjacentes cuja
+ * TRAVESSIA e proibida, mesmo que ambas sejam caminhaveis. E assim que a
+ * porta se torna a unica entrada de uma sala: toda a borda do `rect` da sala
+ * fica com a travessia para fora bloqueada, exceto no par (porta, vizinho).
+ * Isso vale tanto para sala->corredor quanto para sala->sala (salas vizinhas
+ * na mesma faixa nao tem gap nenhum na producao - ver `layout-solver.ts`
+ * `alocarFaixa`), sem o codigo precisar saber o que esta do outro lado.
  */
 
-import type { Cell, OfficeLayout } from '@microfirma/contracts';
+import type { Cell, OfficeLayout, Prop, Room } from '@microfirma/contracts';
 
 export interface NavGrid {
   width: number;
   height: number;
   /** 1 = caminhavel, 0 = bloqueado. Indexado por y * width + x. */
   cells: Uint8Array;
+  /**
+   * Pares de celulas adjacentes cuja travessia e proibida (fronteira de
+   * sala fora da porta). Chave canonica via `edgeKey` - ver essa funcao.
+   * Vazio para grids sem salas (ex.: agencia sem protos).
+   */
+  blockedEdges: Set<string>;
 }
 
-/** Tipos de mobiliario que bloqueiam passagem (o resto e decorativo/pisavel). */
-const PROPS_BLOQUEANTES = new Set(['desk', 'sofa', 'board', 'printer', 'meter', 'plant']);
+/**
+ * Default de bloqueio por `kind`, quando o Prop nao traz `assetId` ou o
+ * catalogo nao decide (`AssetEntry.colide`) para aquele asset. Identico ao
+ * antigo `PROPS_BLOQUEANTES` - preserva o comportamento atual.
+ */
+const BLOQUEIO_PADRAO_POR_KIND: Record<Prop['kind'], boolean> = {
+  desk: true,
+  sofa: true,
+  board: true,
+  printer: true,
+  meter: true,
+  plant: true,
+  chair: false,
+  cabinet: false,
+  bookshelf: false,
+  water: false,
+  coffee: false,
+  lamp: false,
+  rug: false,
+};
 
-export function buildNavGrid(layout: OfficeLayout): NavGrid {
+/** Resolve, por Prop, se ele bloqueia o NavGrid. Ausencia de decisao explicita usa o default por kind. */
+export type ResolverColisao = (p: Prop) => boolean | undefined;
+
+export function buildNavGrid(layout: OfficeLayout, opts: { resolverColisao?: ResolverColisao } = {}): NavGrid {
   const { width, height } = layout.grid;
   const cells = new Uint8Array(width * height); // tudo bloqueado por padrao
 
@@ -45,16 +81,73 @@ export function buildNavGrid(layout: OfficeLayout): NavGrid {
 
   // Mobiliario bloqueia DEPOIS de liberar o piso.
   for (const p of layout.props) {
-    if (!PROPS_BLOQUEANTES.has(p.kind)) continue;
+    if (!propBloqueia(p, opts.resolverColisao)) continue;
     for (const c of footprintCells(p)) bloquear(cells, width, height, c);
   }
 
-  return { width, height, cells };
+  const blockedEdges = new Set<string>();
+  for (const sala of layout.rooms) bloquearFronteiraDaSala(sala, blockedEdges);
+
+  return { width, height, cells, blockedEdges };
+}
+
+/**
+ * True se o Prop bloqueia passagem: o `resolverColisao` injetado (tipicamente
+ * lendo `AssetEntry.colide` do catalogo pelo `assetId`) tem prioridade;
+ * sem decisao explicita, cai no default por `kind`.
+ */
+export function propBloqueia(p: Prop, resolverColisao?: ResolverColisao): boolean {
+  const decisao = resolverColisao?.(p);
+  if (decisao !== undefined) return decisao;
+  return BLOQUEIO_PADRAO_POR_KIND[p.kind] ?? false;
 }
 
 function bloquear(cells: Uint8Array, width: number, height: number, c: Cell): void {
   if (c.x < 0 || c.y < 0 || c.x >= width || c.y >= height) return;
   cells[c.y * width + c.x] = 0;
+}
+
+/** Chave canonica (independente de ordem) para o par de celulas adjacentes. */
+function edgeKey(a: Cell, b: Cell): string {
+  const ka = `${a.x},${a.y}`;
+  const kb = `${b.x},${b.y}`;
+  return ka < kb ? `${ka}|${kb}` : `${kb}|${ka}`;
+}
+
+/**
+ * Bloqueia a travessia de toda celula da borda do `rect` da sala para fora
+ * dela, exceto no ponto da porta - que e deliberadamente deixado de fora do
+ * `blockedEdges` (logo, sua travessia so depende de `isWalkable`, como hoje).
+ * Nao importa o que ha do lado de fora (corredor, outra sala, nada): a
+ * unica celula por onde se entra/sai e `sala.door`.
+ */
+function bloquearFronteiraDaSala(sala: Room, blockedEdges: Set<string>): void {
+  const { x0, y0, x1, y1 } = sala.rect;
+  const eAPorta = (c: Cell) => c.x === sala.door.x && c.y === sala.door.y;
+
+  for (let x = x0; x < x1; x++) {
+    marcarSeNaoForPorta({ x, y: y0 }, { x, y: y0 - 1 }, eAPorta, blockedEdges);
+    marcarSeNaoForPorta({ x, y: y1 - 1 }, { x, y: y1 }, eAPorta, blockedEdges);
+  }
+  for (let y = y0; y < y1; y++) {
+    marcarSeNaoForPorta({ x: x0, y }, { x: x0 - 1, y }, eAPorta, blockedEdges);
+    marcarSeNaoForPorta({ x: x1 - 1, y }, { x: x1, y }, eAPorta, blockedEdges);
+  }
+}
+
+function marcarSeNaoForPorta(
+  dentro: Cell,
+  fora: Cell,
+  eAPorta: (c: Cell) => boolean,
+  blockedEdges: Set<string>,
+): void {
+  if (eAPorta(dentro)) return; // a porta e a unica travessia livre desta celula
+  blockedEdges.add(edgeKey(dentro, fora));
+}
+
+/** True se a travessia entre duas celulas adjacentes e permitida (fora de fronteira de sala, ou pela porta). */
+export function isTransitionAllowed(nav: NavGrid, a: Cell, b: Cell): boolean {
+  return !nav.blockedEdges.has(edgeKey(a, b));
 }
 
 /**
@@ -89,7 +182,7 @@ export function reachableFrom(nav: NavGrid, origem: Cell): Set<string> {
     const atual = fila.shift() as Cell;
     for (const v of vizinhos(atual)) {
       const k = `${v.x},${v.y}`;
-      if (visitados.has(k) || !isWalkable(nav, v)) continue;
+      if (visitados.has(k) || !isWalkable(nav, v) || !isTransitionAllowed(nav, atual, v)) continue;
       visitados.add(k);
       fila.push(v);
     }
@@ -127,7 +220,7 @@ export function findPath(nav: NavGrid, de: Cell, para: Cell): Cell[] | null {
     }
 
     for (const v of vizinhos(atual)) {
-      if (!isWalkable(nav, v)) continue;
+      if (!isWalkable(nav, v) || !isTransitionAllowed(nav, atual, v)) continue;
       const vi = idx(v);
       if (fechado[vi]) continue;
       const g = (custoG[atualIdx] as number) + 1;
@@ -148,7 +241,7 @@ export function findPath(nav: NavGrid, de: Cell, para: Cell): Cell[] | null {
  */
 export function seatCellFor(nav: NavGrid, objeto: Cell): Cell | null {
   for (const v of vizinhos(objeto)) {
-    if (isWalkable(nav, v)) return v;
+    if (isWalkable(nav, v) && isTransitionAllowed(nav, objeto, v)) return v;
   }
   return null;
 }

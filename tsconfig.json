@@ -6,7 +6,10 @@
     "paths": {
       "@microfirma/contracts": ["./packages/contracts/src/index.ts"],
       "@microfirma/world-engine": ["./packages/world-engine/src/index.ts"],
-      "@microfirma/synthetic": ["./packages/synthetic/src/index.ts"]
+      "@microfirma/synthetic": ["./packages/synthetic/src/index.ts"],
+      "@microfirma/iso-characters": ["./packages/iso-characters/src/index.ts"],
+      "@microfirma/iso-office": ["./packages/iso-office/src/index.ts"],
+      "@microfirma/iso-office/planta": ["./packages/iso-office/src/planta.ts"]
     }
   },
   "include": [

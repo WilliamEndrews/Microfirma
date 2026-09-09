@@ -32,6 +32,9 @@ export type Activity =
   | 'repairing'
   | 'talking';
 
+/** Postura corporal independente da atividade operacional. */
+export type ActorPose = 'standing' | 'seated';
+
 /** Estado visual de um ator (agente do cliente ou agente interno da MicroFirma). */
 export interface ActorState {
   agentId: string;
@@ -40,6 +43,8 @@ export interface ActorState {
   y: number;
   facing: 0 | 1 | 2 | 3;
   activity: Activity;
+  /** Sentar e uma pose espacial explicita, nao uma inferencia de `working`. */
+  pose: ActorPose;
   /** 0..1 - progresso da atividade atual, desenhado como barra sobre a cabeca. */
   progress: number;
   health: HealthStatus;

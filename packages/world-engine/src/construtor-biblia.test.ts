@@ -25,6 +25,12 @@ describe('biblia do Construtor', () => {
     expect(escolherTema('meeting', rng, usados)).toBeUndefined();
   });
 
+  it('zona landing existe na politica e o proto handcrafted e listavel', () => {
+    expect(BIBLIA_TEMAS.politicaTiles.landing?.modo).toBe('default');
+    expect(listarProtos('landing').map((t) => t.id)).toContain('landing');
+    expect(escolherTema('landing', createRng(1), new Set())?.id).toBe('landing');
+  });
+
   it('desk/chair preferem asset obrigatorio; kind de parede nao e chao', () => {
     const rng = createRng(7);
     expect(escolherAssetId('desk', rng)).toBe('office-main-table');

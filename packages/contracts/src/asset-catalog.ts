@@ -53,6 +53,14 @@ export const AssetEntry = z.object({
   uso: UsoAsset.default('aleatorio'),
   /** Onde planta: piso, superficie ou face de parede. */
   papel: PapelAsset.default('prop'),
+  /**
+   * Bloqueia passagem no NavGrid. Ausente = usa o default por `kind`
+   * (`BLOQUEIO_PADRAO_POR_KIND` em `navgrid.ts`), preservando o
+   * comportamento atual sem exigir migracao do catalogo inteiro. Existe
+   * para permitir excecoes asset-a-asset (ex.: uma estante grande que deve
+   * bloquear mesmo que `bookshelf` nao bloqueie por padrao).
+   */
+  colide: z.boolean().optional(),
 });
 export type AssetEntry = z.infer<typeof AssetEntry>;
 
@@ -179,6 +187,21 @@ export const TINYHOUSE_PACK: AssetPack = {
 };
 
 /**
+ * Klimmos Cozy Isometric Modular Male Character Kit.
+ * Personagens (Idle/Walk/Sit), nao mobiliario — sem AssetEntry no catalogo ativo.
+ * Runtime: `@microfirma/iso-characters`. Folha 512x320, frame 64x80.
+ */
+export const KLIMMOS_ISO_MALE_PACK: AssetPack = {
+  packId: 'klimmos-iso-male',
+  name: 'Cozy Iso Modular Male Character Kit',
+  author: 'Klimmos',
+  sourceUrl: 'https://klimmos.itch.io',
+  license: 'commercial-paid',
+  basePath: 'klimmos-iso-male',
+  tileWidth: 64,
+};
+
+/**
  * Registro de todos os packs conhecidos, processados ou nao. Fonte unica de
  * verdade para `packId` valido - qualquer referencia a um `packId` fora desta
  * lista (em `INITIAL_CATALOG.assets` ou no mapa de temas do Agente Decorador)
@@ -186,6 +209,7 @@ export const TINYHOUSE_PACK: AssetPack = {
  */
 export const KNOWN_PACKS: readonly AssetPack[] = [
   TINYHOUSE_PACK,
+  KLIMMOS_ISO_MALE_PACK,
   KENNEY_FURNITURE_PACK,
   KENNEY_NATURE_PACK,
   KENNEY_FOLIAGE_PACK,
