@@ -1,78 +1,80 @@
-import { useState, useCallback, Suspense, useMemo } from 'react';
-import Scene from './Scene';
-import FallbackScene from './FallbackScene';
+import { useCallback, useState } from 'react';
 import ErrorBoundary from './ErrorBoundary';
+import FallbackScene from './FallbackScene';
+import IsoScene from './IsoScene';
+import Onboarding, { type FaseOnboarding } from './Onboarding';
+import type { RespostaPonte } from './api';
 
-const DEMO_URL = import.meta.env.VITE_MICROFIRMA_DEMO_URL ?? 'http://localhost:5173';
-
-function hasWebGL(): boolean {
-  try {
-    const canvas = document.createElement('canvas');
-    return (
-      canvas.getContext('webgl') !== null ||
-      canvas.getContext('experimental-webgl') !== null
-    );
-  } catch {
-    return false;
-  }
-}
+type Fase = 'idle' | 'zooming' | FaseOnboarding;
 
 export default function App() {
-  const [transitioning, setTransitioning] = useState(false);
-  const webglAvailable = useMemo(hasWebGL, []);
+  const [fase, setFase] = useState<Fase>('idle');
+  const [isoFalhou, setIsoFalhou] = useState(false);
+  const [sessao, setSessao] = useState<RespostaPonte | null>(null);
+
+  const overlayAberto = fase !== 'idle' && fase !== 'zooming';
 
   const handleEnter = useCallback(() => {
-    if (transitioning) return;
-    setTransitioning(true);
-  }, [transitioning]);
+    if (fase !== 'idle') return;
+    const reduzir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setFase(reduzir || isoFalhou ? 'escolher' : 'zooming');
+  }, [fase, isoFalhou]);
 
   const handleArrived = useCallback(() => {
-    window.location.href = DEMO_URL;
+    setFase((atual) => (atual === 'zooming' || atual === 'idle' ? 'escolher' : atual));
   }, []);
 
-  const scene = (
-    <Scene
-      transitioning={transitioning}
-      onArrived={handleArrived}
-      onStart={handleEnter}
-    />
-  );
+  const handleFail = useCallback(() => {
+    setIsoFalhou(true);
+  }, []);
 
   return (
     <>
-      <div className="ui-layer">
-        <h1 className="brand">MicroFirma</h1>
-        <p className="tagline">
-          Plano de controle espacial para agentes autonomos
-        </p>
-        <p className="hint">clique para entrar no escritorio</p>
-      </div>
+      <div className={`landing-shell${overlayAberto ? ' landing-shell--recolhido' : ''}`}>
+        <header className="landing-brand">
+          <h1 className="brand">MicroFirma</h1>
+        </header>
 
-      {webglAvailable ? (
-        <ErrorBoundary
-          fallback={
+        <div className="landing-palco">
+          {isoFalhou ? (
             <FallbackScene
-              transitioning={transitioning}
+              transitioning={fase === 'zooming'}
               onStart={handleEnter}
               onArrived={handleArrived}
             />
-          }
-        >
-          <Suspense
-            fallback={
-              <div className="loading" aria-live="polite">
-                carregando ambiente
-              </div>
-            }
-          >
-            {scene}
-          </Suspense>
-        </ErrorBoundary>
-      ) : (
-        <FallbackScene
-          transitioning={transitioning}
-          onStart={handleEnter}
-          onArrived={handleArrived}
+          ) : (
+            <ErrorBoundary
+              fallback={
+                <FallbackScene
+                  transitioning={fase === 'zooming'}
+                  onStart={handleEnter}
+                  onArrived={handleArrived}
+                />
+              }
+            >
+              <IsoScene
+                transitioning={fase === 'zooming'}
+                onStart={handleEnter}
+                onArrived={handleArrived}
+                onFail={handleFail}
+              />
+            </ErrorBoundary>
+          )}
+        </div>
+
+        {!overlayAberto && (
+          <p className="landing-tagline">
+            Plano de controle espacial para agentes autonomos
+          </p>
+        )}
+      </div>
+
+      {overlayAberto && (
+        <Onboarding
+          fase={fase}
+          sessao={sessao}
+          onFase={setFase}
+          onSessao={setSessao}
         />
       )}
     </>

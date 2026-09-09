@@ -3,7 +3,12 @@
   "compilerOptions": {
     "noEmit": true,
     "types": ["node", "vite/client"],
-    "paths": {}
+    "paths": {
+      "@microfirma/contracts": ["../../packages/contracts/src/index.ts"],
+      "@microfirma/world-engine": ["../../packages/world-engine/src/index.ts"],
+      "@microfirma/iso-office": ["../../packages/iso-office/src/index.ts"],
+      "@microfirma/iso-characters": ["../../packages/iso-characters/src/index.ts"]
+    }
   },
   "include": ["src/**/*", "vite.config.ts"]
 }
