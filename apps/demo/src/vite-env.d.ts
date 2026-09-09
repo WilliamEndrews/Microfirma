@@ -10,6 +10,7 @@ interface ImportMetaEnv {
    * Ausente = a demo simula no proprio navegador (Fase 0).
    */
   readonly VITE_MICROFIRMA_WS?: string;
+  readonly VITE_MICROFIRMA_API?: string;
 }
 
 interface ImportMeta {

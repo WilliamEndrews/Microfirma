@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ActorState, DomainEvent, WorldKpis } from '@microfirma/contracts';
 import { validarLayout, type Violacao } from '@microfirma/world-engine';
-import { criarRenderer, type RendererHandle } from './office-renderer-2d';
+import { criarRenderer, type RendererHandle } from './office-renderer-iso';
 import {
   criarFonteLocal,
   criarFonteRemota,
@@ -35,13 +35,25 @@ import { simular, type SimularResult } from './api';
  * (ADR-0006): o resto do arquivo consome `WorldSource` e nao faz ideia se o
  * mundo veio de um socket ou de um `setInterval` ao lado.
  */
-const URL_SERVIDOR = import.meta.env.VITE_MICROFIRMA_WS as string | undefined;
+const TOKEN_QUERY = new URL(window.location.href).searchParams.get('token');
+
+function resolverUrlServidor(): string | undefined {
+  if (TOKEN_QUERY) {
+    const api = import.meta.env.VITE_MICROFIRMA_API ?? 'http://127.0.0.1:8787';
+    const u = new URL(api);
+    const ws = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${ws}//${u.host}/mundo?token=${encodeURIComponent(TOKEN_QUERY)}`;
+  }
+  return import.meta.env.VITE_MICROFIRMA_WS as string | undefined;
+}
+
+const URL_SERVIDOR = resolverUrlServidor();
 
 /**
  * Cenarios de teste via query string:
- *   sem param / ?agents=7  elenco padrao (7 agentes, demo completa)
- *   ?agents=1              micro-firma (1 privativo + copa)
- *   ?agents=2              micro-firma (2 privativos + copa)
+ *   sem param / ?agents=7  elenco padrao (7 agentes: 1 boss + 6 priv + copa)
+ *   ?agents=1              1 Boss Room + 1 copa
+ *   ?agents=2              1 Boss + 1 privativo + copa
  */
 const PARAM_AGENTES = (() => {
   const url = new URL(window.location.href);
@@ -144,7 +156,7 @@ export default function App() {
       // A sessao remota pode estar servindo outra semente (ela e compartilhada
       // e vive independentemente deste navegador). Pedir `reseed` e a forma
       // honesta de alinhar: o servidor e a autoridade, nao a tela.
-      if (URL_SERVIDOR && criada.seedSessao !== seed) {
+      if (URL_SERVIDOR && !TOKEN_QUERY && criada.seedSessao !== seed) {
         criada.enviar({ type: 'reseed', seed });
       }
 
@@ -518,12 +530,6 @@ export default function App() {
             {t('camera.reset')}
           </button>
           <span className="dica-camera">{t('camera.dica')}</span>
-        </div>
-        <div className="legenda">
-          <span><i className="l-fila" /> {t('legenda.fila')}</span>
-          <span><i className="l-calor" /> {t('legenda.calor')}</span>
-          <span><i className="l-luz" /> {t('legenda.luz')}</span>
-          <span><i className="l-lixo" /> {t('legenda.lixo')}</span>
         </div>
       </main>
     </div>

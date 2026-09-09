@@ -19,8 +19,6 @@
  */
 
 import type {
-  AgentDescriptor,
-  AgentRole,
   ClientCommand,
   DomainEvent,
   OfficeLayout,
@@ -31,12 +29,11 @@ import type {
 } from '@microfirma/contracts';
 import {
   WorldEngine,
-  planSpaceProgram,
-  solveLayout,
   validarLayout,
   type Violacao,
 } from '@microfirma/world-engine';
-import { SyntheticStream, colaboracaoDoElenco, type SyntheticOptions } from '@microfirma/synthetic';
+import { SyntheticStream, type SyntheticOptions } from '@microfirma/synthetic';
+import { montarMundoIso, resolverColisaoLab } from '@microfirma/iso-office';
 
 /** Passo de simulacao: 10 Hz. Mesmo valor no navegador e no servidor. */
 export const PASSO_MS = 100;
@@ -135,14 +132,15 @@ export function criarFonteLocal(seed: number, agentes?: number): WorldSource {
     opts.quantidadeAgentes = agentes;
   }
   const stream = new SyntheticStream(opts);
-  const programa = planSpaceProgram(stream.agents, {
-    officeId: `office-${seed}`,
-    seed,
-    collaboration: colaboracaoDoElenco(),
-  });
-  const layout = solveLayout(programa);
+  const mundo = montarMundoIso(seed, stream.agents);
+  const layout = mundo.layout;
   const violacoes = validarLayout(layout);
-  const engine = new WorldEngine({ layout, agents: stream.agents, seed });
+  const engine = new WorldEngine({
+    layout,
+    agents: stream.agents,
+    seed,
+    resolverColisao: resolverColisaoLab(),
+  });
 
   const quadros = criarEmissor<QuadroRecebido>();
   const estados = criarEmissor<EstadoConexao>();

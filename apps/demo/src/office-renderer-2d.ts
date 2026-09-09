@@ -17,6 +17,7 @@
  */
 
 import type { OfficeLayout, WorldDelta, WorldSnapshot } from '@microfirma/contracts';
+import { dimensoesPersonagem, PersonagemKit } from '@microfirma/iso-characters';
 import { resolverPaleta, tileSetsDoLayout, type PaletaResolvida } from '@microfirma/world-engine';
 import { carregarAtlas, type LoadedAsset } from './asset-atlas';
 import {
@@ -76,6 +77,16 @@ export async function criarRenderer(
   const atlas = carregarAtlas('', tileSetsDoLayout(layout));
   await atlas.ready;
   const sprites = criarFabrica(paleta, atlas);
+  const personagens = await PersonagemKit.carregar();
+  const pendingBake = new Set<string>();
+
+  const garantirAtores = (frame: WorldSnapshot | WorldDelta): void => {
+    for (const ator of frame.actors) {
+      if (personagens.tem(ator.agentId) || pendingBake.has(ator.agentId)) continue;
+      pendingBake.add(ator.agentId);
+      void personagens.garantir(ator.agentId).finally(() => pendingBake.delete(ator.agentId));
+    }
+  };
 
   let estatico: HTMLCanvasElement | null = null;
   let escalaDoEstatico = 0;
@@ -225,7 +236,7 @@ export async function criarRenderer(
       ctx.setTransform(escalaEfetiva * dpr, 0, 0, escalaEfetiva * dpr, panEfetivoX * dpr, panEfetivoY * dpr);
       desenharPenumbra(ctx, layout, quadro, fase, paleta);
       desenharAmbiente(ctx, layout, quadro, fase, paleta);
-      desenharAtores(ctx, quadro, selecionado, fase, paleta, sprites);
+      desenharAtores(ctx, quadro, selecionado, fase, paleta, sprites, personagens);
     }
 
     raf = requestAnimationFrame(laco);
@@ -233,7 +244,10 @@ export async function criarRenderer(
   raf = requestAnimationFrame(laco);
 
   return {
-    push: (f) => { quadro = f; },
+    push: (f) => {
+      quadro = f;
+      garantirAtores(f);
+    },
     select: (id) => { selecionado = id; },
     focusAgent: (id) => { camera.seguirAgente = id; },
     resetCamera: () => {
@@ -711,77 +725,97 @@ function desenharAtores(
   fase: number,
   paleta: PaletaResolvida,
   sprites: SpriteCache,
+  personagens: PersonagemKit,
 ): void {
+  const tMs = fase * 1000;
+  const dimensoes = dimensoesPersonagem(personagens.escalaPadrao);
   const ordenados = [...quadro.actors].sort((a, b) => a.x + a.y - (b.x + b.y));
   for (const ator of ordenados) {
     const c = iso(ator.x + 0.5, ator.y + 0.5);
     const base = corDoAtor(ator.agentId, ator.isInternal, paleta);
-    const bob = ator.activity === 'walking' ? Math.abs(Math.sin(fase * 8)) * 2.5 : Math.sin(fase * 2) * 0.8;
+    const bob =
+      ator.activity === 'walking' ? Math.abs(Math.sin(fase * 8)) * 2.5 : Math.sin(fase * 2) * 0.8;
+    const peY = c.y + bob;
 
-    elipse(ctx, c.x, c.y + 2, 9, 4.5, cor(0x000000, 0.18));
+    elipse(ctx, c.x, peY + 2, dimensoes.largura * 0.16, 4, cor(0x000000, 0.18));
 
     if (selecionado === ator.agentId) {
       ctx.beginPath();
-      ctx.ellipse(c.x, c.y + 2, 15, 7.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(c.x, peY + 2, 18, 8, 0, 0, Math.PI * 2);
       ctx.strokeStyle = cor(0x1f2937, 0.8);
       ctx.lineWidth = 2;
       ctx.stroke();
     }
 
-    const sprite = obterSpriteAtor(sprites, base, ator.isInternal);
-    desenharSpriteAtor(ctx, sprite, c.x, c.y, bob);
+    const klimmos = personagens.desenhar(
+      ctx,
+      ator.agentId,
+      ator.activity,
+      ator.pose,
+      ator.facing,
+      tMs,
+      c.x,
+      peY,
+    );
+    if (!klimmos) {
+      const sprite = obterSpriteAtor(sprites, base, ator.isInternal);
+      desenharSpriteAtor(ctx, sprite, c.x, peY, 0);
+    }
+
+    const topo = peY - (klimmos ? dimensoes.altura + 4 : 38);
 
     if (ator.health !== 'healthy') {
       ctx.beginPath();
-      ctx.rect(c.x - 7, c.y - 14 - bob, 14, 3);
+      ctx.rect(c.x - 7, topo, 14, 3);
       ctx.fillStyle = cor(ator.health === 'failing' ? paleta.perigo : 0xe0a03f);
       ctx.fill();
     }
 
     if (ator.activity === 'working' && ator.progress > 0) {
       ctx.beginPath();
-      ctx.rect(c.x - 10, c.y - 38 - bob, 20, 3.5);
+      ctx.rect(c.x - 10, topo - 6, 20, 3.5);
       ctx.fillStyle = cor(0x000000, 0.18);
       ctx.fill();
       ctx.beginPath();
-      ctx.rect(c.x - 10, c.y - 38 - bob, 20 * ator.progress, 3.5);
+      ctx.rect(c.x - 10, topo - 6, 20 * ator.progress, 3.5);
       ctx.fillStyle = cor(0x3f8f52);
       ctx.fill();
     }
 
     if (ator.activity === 'waiting_approval') {
       const pulso = 0.6 + 0.4 * Math.sin(fase * 5);
-      disco(ctx, c.x, c.y - 46 - bob, 8, 0xffffff, 0.95);
+      const iy = topo - 14;
+      disco(ctx, c.x, iy, 8, 0xffffff, 0.95);
       ctx.beginPath();
-      ctx.arc(c.x, c.y - 46 - bob, 8, 0, Math.PI * 2);
+      ctx.arc(c.x, iy, 8, 0, Math.PI * 2);
       ctx.strokeStyle = cor(paleta.perigo, pulso);
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.beginPath();
-      ctx.rect(c.x - 1, c.y - 50 - bob, 2, 5);
+      ctx.rect(c.x - 1, iy - 4, 2, 5);
       ctx.fillStyle = cor(paleta.perigo);
       ctx.fill();
-      disco(ctx, c.x, c.y - 43 - bob, 1.2, paleta.perigo);
+      disco(ctx, c.x, iy + 3, 1.2, paleta.perigo);
     }
 
     if (ator.activity === 'sweeping') {
       ctx.beginPath();
-      ctx.rect(c.x + 8, c.y - 20 - bob, 2, 18);
+      ctx.rect(c.x + 10, peY - 36, 2, 18);
       ctx.fillStyle = cor(0x8d6e63);
       ctx.fill();
       ctx.beginPath();
-      ctx.rect(c.x + 4, c.y - 4 - bob, 10, 3);
+      ctx.rect(c.x + 6, peY - 20, 10, 3);
       ctx.fillStyle = cor(0xd9a86c);
       ctx.fill();
     }
     if (ator.activity === 'repairing') {
       ctx.beginPath();
-      ctx.rect(c.x + 8, c.y - 18 - bob, 2, 10);
+      ctx.rect(c.x + 10, peY - 34, 2, 10);
       ctx.fillStyle = cor(0x9aa0a6);
       ctx.fill();
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      halo(ctx, c.x, c.y - 24, 26, 0xfff3d6, 0.35);
+      halo(ctx, c.x, peY - 40, 26, 0xfff3d6, 0.35);
       ctx.restore();
     }
   }
