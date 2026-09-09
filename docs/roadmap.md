@@ -593,6 +593,40 @@ escritorio reconhecivel, proximo de Stardew Valley / SoWork / Gather.town.
   `simulacao-agentes`; RosaVentos.
 - Clip de Wall_L permanece como caminho padrao ate aceite visual do strip.
 
+### 3.5.10 Demo herda o escritorio iso do lab (2026-09-07)
+
+O Demo deixa de usar `planSpaceProgram`/`solveLayout` + `office-renderer-2d`
+(piso vetorial + overlays de clima). A planta e o painter passam a ser os
+do Debugpreview, extraidos para `@microfirma/iso-office` **sem editar** o
+app-lab.
+
+- **Planta:** `selecionarPedido` + `montarAgencia` + `construirEspacoAgencia`.
+  N agentes cliente => 1 Boss Room + (N-1) privativos + 1 copa. Temas da
+  biblia do lab. Elenco da telemetria/sintetico (finance/orchestrator/guardian
+  ocupa o boss).
+- **Painter:** `cena-isometrica` + Klimmos + oclusao de corredor.
+- **Autoridade:** WorldEngine continua no cliente (local) e no
+  `OfficeSession` (remoto). Mesma funcao deterministica nos dois lados
+  (ADR-0006). Quando o elenco OTLP cresce, a sessao **remesha** a planta
+  (`officeId` inclui a assinatura do elenco) para os agentes ganharem mesa.
+- **Debugpreview intacto:** Gerar salas, tarefa especial, RosaVentos e o
+  chrome azul de blueprint ficam so no lab.
+- **Canvas do Demo neste ciclo nao desenha:** heat, pilha=fila, luz
+  apagada, lixo, fumaca. O scheduler ainda calcula (KPI/painel depois).
+  Legenda dessas metaforas saiu do palco.
+
+#### Proximo passo estetico (nao neste ciclo)
+
+- Fundo do palco deixa de ser o branco/areia atual: cenario isometrico
+  tematico atras do predio (ceu, floresta, jardim), escolhido por tema.
+- HUD do Demo mais gamificado, mantendo ADR-0009 (nada so no canvas).
+- Camada de "clima" (heat/fila/luz/lixo/fumaca) volta depois do fundo,
+  como overlay semantico sobre o painter do lab — nao como o renderer 2d
+  antigo.
+
+Aceite visual: o escritorio do Demo deve parecer o Debugpreview **sem**
+o dashboard-lab e **sem** o fundo blueprint.
+
 ### Resultado parcial
 
 - **Typecheck:** limpo (debugpreview)
@@ -614,32 +648,35 @@ escritorio reconhecivel, proximo de Stardew Valley / SoWork / Gather.town.
 ## Fase 4 - Go-to-Market: landing page
 
 **Objetivo:** apresentar o MicroFirma como produto e converter a curiosidade
-em uma demonstracao viva sem confundir com a demo tecnica.
+em uma demonstracao viva sem confundir com a demo tecnica. Inclui ponte de
+onboarding/cliente **antes** da telemetria iniciar.
 
-### 4.1 Experiencia cinematografica
+### 4.1 Fluxo atual
 
-- **Cenario 3D branco** (`apps/landing/src/Scene.tsx`): quarto totalmente
-  branco, sombras e iluminacao controladas, vultos atmosfericos flutuando.
-- **Transicao de entrada**: ao clicar, a camera avanca suavemente para dentro
-  do quarto (`CameraFlight`) e redireciona para a demo.
-- **Stack**: React + Vite + Three.js (`@react-three/fiber` e `@react-three/drei`).
-- **App separado** (`apps/landing`): roda na porta 5174, nao compartilha
-  bundle nem estado com a `apps/demo`.
+1. Sala isometrica do proto `landing` no centro (`montarSalaLanding` + painter
+   iso). Clique faz zoom in (~1.8s; `prefers-reduced-motion` pula).
+2. Onboarding de duas portas: **Nova empresa** (`POST /api/public/onboard`) ou
+   **Ja tenho codigo** (`POST /api/public/conectar`). O codigo e o `tenantId`.
+3. Painel-ponte permanece na landing: codigo + snippet OTLP
+   (`POST /v1/traces` + `x-tenant-id`). Telemetria so depois que o cliente
+   enviar spans.
+4. **Entrar no escritorio** abre `apps/demo?token=<JWT>`.
+
+`Room.kind: landing` existe no contrato. `planSpaceProgram` / `montarMundoIso`
+nao emitem essa zona.
 
 ### 4.2 Estrutura
 
-- `apps/landing/package.json`
-- `apps/landing/vite.config.ts` (porta 5174)
-- `apps/landing/index.html`
-- `apps/landing/src/main.tsx`
-- `apps/landing/src/App.tsx` (textos e logica de redirecionamento)
-- `apps/landing/src/Scene.tsx` (cena Three.js)
-- `apps/landing/src/index.css` (UI layer minimalista)
+- `apps/landing` — porta 5174, canvas 2D, sem Three.js
+- `packages/iso-office/src/montar-sala-landing.ts`
+- `apps/server/src/public-onboard.ts`
+- Lab: zona Landing → `temas-arquiteto.json`
 
 ### Resultado
 
 - **Typecheck:** limpo
-- **Deploy:** preparado para build estatico (`vite build`)
+- **Deploy:** build estatico (`vite build`)
+- **Ponte:** tenant + JWT sem `MICROFIRMA_ONBOARDING_KEY` no browser
 
 ---
 

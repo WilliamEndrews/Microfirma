@@ -61,16 +61,38 @@ curl -H "authorization: Bearer <token>" http://127.0.0.1:8787/api/tenants/<tenan
 
 ## OTLP real
 
-Envie spans para `/v1/traces` com o header `x-tenant-id`:
+O tenant demo padrao **nao** tem `OtlpIngestor`. Crie um tenant com
+`otlpEndpoint` (flag de criacao) e envie JSON GenAI para `:8787` — **nao**
+protobuf e **nao** `:4318`.
+
+Logica da ponte (codigo do cliente, JWT, `x-tenant-id`):
+[`docs/conexao-telemetria.md`](conexao-telemetria.md).
+
+Runbook completo, criterios de aceite e gap de layout:
+[`docs/telemetria-otlp.md`](telemetria-otlp.md).
+
+```powershell
+.\scripts\setup-otlp-tenant.ps1
+npm run telemetria:enviar
+
+# Validacao offline da fixture:
+npm run telemetria:dry
+
+# Simulador Python (JSON + gen_ai.* / human_approval.*):
+python scripts/test_agency_telemetry.py
+```
+
+Envio manual:
 
 ```powershell
 curl -X POST http://127.0.0.1:8787/v1/traces `
   -H "content-type: application/json" `
   -H "x-tenant-id: <tenantId>" `
-  -d @meu-lote-otlp.json
+  -d @scripts/fixtures/agencia-3-agentes.otlp.json
 ```
 
-O lote deve conter spans com atributos `gen_ai.*` para serem traduzidos em eventos de dominio.
+O lote deve usar atributos `gen_ai.*` e `human_approval.*` (ver
+`packages/contracts/src/otlp.ts`).
 
 ## Testes de carga
 

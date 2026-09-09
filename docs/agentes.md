@@ -13,12 +13,16 @@
 ## Como usar este arquivo
 
 1. No inicio de uma sessao, ler este arquivo inteiro antes de tocar em codigo.
-2. Antes de propor qualquer arquitetura, framework ou padrao, checar a secao
+2. Abrir [`docs/sink-iso.md`](sink-iso.md): se houver itens em **Pendentes**,
+   lembrar o dono do produto (ou aplicar se ele pedir `aplicar sink`).
+3. Antes de propor qualquer arquitetura, framework ou padrao, checar a secao
    "Stack e frameworks - o que ja esta decidido" e os ADRs referenciados.
-3. Antes de escrever prompt de agente interno, checar "Engenharia de prompts".
-4. Antes de desenhar UI, checar "UX/UI e acessibilidade".
-5. Nunca adotar uma skill nova sem antes confrontar com as convencoes do repo
+4. Antes de escrever prompt de agente interno, checar "Engenharia de prompts".
+5. Antes de desenhar UI, checar "UX/UI e acessibilidade".
+6. Nunca adotar uma skill nova sem antes confrontar com as convencoes do repo
    (secao "Convencoes intocaveis").
+7. Sempre que editar codigo **portavel** em `apps/debugpreview/src/`, seguir a
+   rotina Sink (abaixo e no fluxo §9) — perguntar antes de sync ou enfileirar.
 
 ---
 
@@ -155,10 +159,13 @@ ADR.
 | --- | --- |
 | `packages/contracts` | 5 contratos: domain-events, layout, world, wire, tenant. Duplicar tipo e bug. |
 | `packages/world-engine` | Motor autoritativo: WorldEngine, Narrative Scheduler, layout solver, navgrid, agentes arquiteto/decorador. |
+| `packages/iso-office` | Painter/planta iso do Demo (copia adaptada do lab). Seed `demo:`; sem shell Debugpreview. |
+| `packages/iso-characters` | Klimmos (compose Idle/Walk/Sit) para atores. |
 | `packages/synthetic` | Gerador de telemetria de demo (7 agentes). |
 | `apps/server` | Node.js: HTTP REST + WebSocket multi-tenant, auth JWT + RBAC, audit, alertas, replay. |
-| `apps/demo` | React + Vite + Canvas 2D: renderer, painel, i18n, world-source. |
-| `apps/landing` | Landing page (Three.js / R3F - quarto branco). |
+| `apps/demo` | React + Vite + Canvas 2D: renderer iso, painel, i18n, world-source. |
+| `apps/debugpreview` | Bancada visual do lab (Gerar salas, tarefa especial, RosaVentos). Nao e OTLP. |
+| `apps/landing` | Landing iso (`zonaKind: landing`) + onboarding de duas portas + ponte OTLP antes da demo. |
 
 ### Frontend
 
@@ -168,8 +175,9 @@ ADR.
   (`office-renderer.ts`) permanece no repo nao referenciada como base futura.
 - **Tailwind + shadcn/ui** para paineis de controle.
 - **Zustand / Jotai** para estado local do cliente.
-- **React Three Fiber + Drei** para a landing 3D (quarto branco, shaders GLSL,
-  raycasting no clique).
+- **Canvas 2D iso** na landing (`montarSalaLanding` + `@microfirma/iso-office`).
+  Onboarding publico (`/api/public/onboard`, `/api/public/conectar`) cria a
+  ponte cliente (`tenantId` = codigo = `x-tenant-id`) antes da telemetria.
 
 ### Backend
 
@@ -314,17 +322,17 @@ geometria deterministica por seed. O LLM nunca toca em coordenadas (ADR-0004).
 - Numeros localizados via `Intl.NumberFormat` / `Intl.DateTimeFormat`; moeda
   sempre USD, so o formato muda (ADR-0011).
 
-### 6.3 Landing page (o quarto branco)
+### 6.3 Landing page (sala iso + ponte)
 
-- Stack: React Three Fiber + Drei + shaders GLSL customizados.
-- Quarto 3D minimalista, branco, com iluminacao volumetrica e sombras suaves
-  para distinguir geometria.
-- "Vultos" sao malhas translucidas com comportamentos leves (para, olha para
-  camera, trabalha em notebook invisivel, carrega caixa) - nao so passando.
-- Clique => raycasting => transicao cinematografica (camera empurra para dentro
-  + fade de particulas brancas) => painel de onboarding.
-- Audio espacial sutil (reverb de quarto vazio + passos distantes) como opcional,
-  mutavel por padrao.
+- Stack: React + Vite + canvas 2D (`@microfirma/iso-office`). Proto
+  `zonaKind: landing` da biblia; `Room.kind: landing` no contrato.
+- Clique na sala => zoom in => onboarding (nova empresa ou codigo) => painel
+  ponte (`tenantId` + snippet OTLP) => demo com `?token=`.
+- Sem agentes andando na landing. Sem Three.js. Sem chave de onboarding no
+  browser.
+- Logica da conexao (codigo vs JWT vs OTLP):
+  [`docs/conexao-telemetria.md`](conexao-telemetria.md). Runbook de teste:
+  [`docs/telemetria-otlp.md`](telemetria-otlp.md).
 
 ### 6.4 Escritorio (sandbox)
 
@@ -425,21 +433,56 @@ Qualquer roadmap que os omitir esta incompleto.
 Ao iniciar qualquer tarefa no MicroFirma:
 
 1. **Ler este arquivo** + `docs/roadmap.md` + os ADRs relevantes ao topico.
-2. **Verificar o estado real do repo** com grep/glob/read antes de afirmar "ja
+2. **Checar [`docs/sink-iso.md`](sink-iso.md)** se houver Pendentes (avisar ou
+   aplicar sob pedido).
+3. **Verificar o estado real do repo** com grep/glob/read antes de afirmar "ja
    existe X" ou "falta Y". Nao confiar em memoria de sessao anterior.
-3. **Confirmar convencoes** (secao 4) antes de escrever codigo.
-4. **Para decisoes arquiteturais**: propor ADR se a decisao for nova e duravel;
+4. **Confirmar convencoes** (secao 4) antes de escrever codigo.
+5. **Para decisoes arquiteturais**: propor ADR se a decisao for nova e duravel;
    nao decidir informalmente em codigo.
-5. **Para prompts de agentes**: seguir secao 5; validar saida com zod; garantir
+6. **Para prompts de agentes**: seguir secao 5; validar saida com zod; garantir
    fallback deterministico.
-6. **Para UI**: seguir secao 6; checar equivalente textual de qualquer coisa
+7. **Para UI**: seguir secao 6; checar equivalente textual de qualquer coisa
    adicionada ao canvas.
-7. **Para claims externos** (framework, API, paper): verificar fonte (secao
+8. **Para claims externos** (framework, API, paper): verificar fonte (secao
    1.3) antes de afirmar.
-8. **Antes de commitar**: `corepack pnpm typecheck` + `corepack pnpm test`
+9. **Antes de commitar**: `corepack pnpm typecheck` + `corepack pnpm test`
    verdes. Suite atual: 191 testes, 16 arquivos.
-9. **Mensagens ao dono do produto**: em portugues, traduzindo qualquer termo
-   externo. Codigo e comentarios: portugues ASCII-only.
+10. **Mensagens ao dono do produto**: em portugues, traduzindo qualquer termo
+    externo. Codigo e comentarios: portugues ASCII-only.
+
+### 9.1 Sink iso (Debugpreview → Demo)
+
+O Demo e o Debugpreview **nao** compartilham codigo de painter. Mudancas de
+logica no lab (oclusao, blit, labels, strip Wall_L, etc.) **nao** chegam ao
+Demo sozinhas. Temas/catalogo JSON compartilhados sincronizam sozinhos e
+**nao** entram no Sink.
+
+**Mapa portavel** (candidatos a `packages/iso-office`): `proto-blit/*`,
+`cena-isometrica.ts`, `desenhar-agencia.ts`, `montar-agencia.ts`,
+`selecionar-pedido.ts`, `espaco-agencia.ts`, `oclusao-parede.ts`,
+`desenhar-atores.ts` (+ testes equivalentes).
+
+**Nunca sync**: `App.tsx`, `PreviewStage.tsx`, `RosaVentos.tsx`,
+`tarefa-especial/*`, `simulacao-agentes*`, CSS blueprint.
+
+Sempre que a tarefa **criar ou editar** arquivos portaveis em
+`apps/debugpreview/src/`, o agente **para e pergunta** ao dono do produto:
+
+1. **Sim, sincronizar agora** — portar para `packages/iso-office` preservando
+   adaptacoes (`demo:` seed, labels off, fill `#f4f1ea`, sem overlay D/W /
+   tarefa especial, elenco real) e rodar testes do pacote.
+2. **Nao no momento** — acrescentar item `pendente` em
+   [`docs/sink-iso.md`](sink-iso.md) (nao esquecer).
+3. **Nao / nunca esta mudanca** — item `descartado` com motivo curto.
+
+Frases do usuario:
+
+- `mostrar sink` — listar Pendentes.
+- `aplicar sink` / `sincronizar sink` — drenar Pendentes na ordem, marcar
+  `aplicado`, citar paths, rodar `vitest` em `packages/iso-office`.
+
+**Proibido:** sync automatico silencioso; portar shell do lab para o Demo.
 
 ### Comandos do repo
 
@@ -464,6 +507,7 @@ Ao iniciar qualquer tarefa no MicroFirma:
   (sintetico e com cliente real). Ler ANTES de propor nova arquitetura ou
   afirmar que algo "falta"/"ja existe".
 - `docs/roadmap.md` - documento vivo; planejamento e status por fase.
+- `docs/sink-iso.md` - fila de sync seletivo Debugpreview → `iso-office` / Demo.
 - `docs/adr/` - decisoes arquiteturais:
   - `0008-sprites-pre-renderizados.md` - arte pre-renderizada, renderer
     agnostico a origem do sprite.
@@ -477,6 +521,8 @@ Ao iniciar qualquer tarefa no MicroFirma:
 - `packages/contracts/src/` - 5 contratos (fonte unica de tipos).
 - `packages/world-engine/src/` - WorldEngine, Narrative Scheduler, layout
   solver, navgrid, agentes arquiteto/decorador.
+- `packages/iso-office/src/` - painter/planta iso consumidos pelo Demo.
+- `apps/debugpreview/src/` - bancada do lab (oraculo visual; nao e OTLP).
 
 ---
 
@@ -493,4 +539,10 @@ Ao iniciar qualquer tarefa no MicroFirma:
 - Nao commitar com typecheck ou testes vermelhos.
 - Nao afirmar capacidade de ferramenta/API sem verificar a fonte.
 - Nao criar arquivo de documentacao para descrever mudanca pontual - usar ADR
-  ou atualizar o roadmap. (Excecao: este arquivo e o AGENTS.md sao persistentes.)
+  ou atualizar o roadmap. (Excecao: este arquivo, o Sink iso e regras Cursor
+  persistentes.)
+- Nao editar codigo portavel em `apps/debugpreview` sem perguntar sync Demo /
+  registrar a decisao em `docs/sink-iso.md`.
+- Nao sincronizar shell do Debugpreview (Gerar salas, tarefa especial,
+  RosaVentos, CSS blueprint) para o Demo.
+- Nao fazer sync silencioso Debugpreview → `iso-office` sem decisao do dono.
