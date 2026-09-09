@@ -15,6 +15,8 @@
  *   GET  /api/tenants/:id/audit    - trilha de auditoria
  *   POST /api/tenants/:id/simulate - roda cenario SimFirma what-if
  *   POST /api/auth/login           - emite JWT
+ *   POST /api/public/onboard       - landing: cria tenant (sem x-api-key)
+ *   POST /api/public/conectar      - landing: reconecta por tenantId
  *   GET  /health                   - saude do servidor
  *   POST /v1/traces                - receptor OTLP (roteado por tenant)
  *
@@ -48,6 +50,7 @@ import {
   extrairTokenHeader,
   gerarId,
 } from './auth.js';
+import { conectarPublico, criarOnboardPublico } from './public-onboard.js';
 
 const PORTA = Number(process.env.MICROFIRMA_PORT ?? 8787);
 const HOST = process.env.MICROFIRMA_HOST ?? '127.0.0.1';
@@ -120,6 +123,46 @@ const http = createServer(async (req, res) => {
   if (req.url === '/metrics') {
     res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' });
     res.end(metrics.expose());
+    return;
+  }
+
+  const urlReq = new URL(req.url ?? '/', `http://${HOST}:${PORTA}`);
+  const pathPublico = urlReq.pathname;
+
+  // Ponte da landing (publico, sem x-api-key).
+  if (pathPublico === '/api/public/onboard' && req.method === 'POST') {
+    try {
+      const body = JSON.parse(await lerBody(req)) as { displayName?: unknown };
+      const displayName = typeof body.displayName === 'string' ? body.displayName : '';
+      const host = req.headers.host ?? `${HOST}:${PORTA}`;
+      const proto = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+      const r = await criarOnboardPublico(registry, displayName, `${proto}://${host}`);
+      res.writeHead(201, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(r));
+    } catch (erro) {
+      const msg = erro instanceof Error ? erro.message : 'payload invalido';
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: msg }));
+    }
+    return;
+  }
+
+  if (pathPublico === '/api/public/conectar' && req.method === 'POST') {
+    try {
+      const body = JSON.parse(await lerBody(req)) as { codigo?: unknown };
+      const codigo = typeof body.codigo === 'string' ? body.codigo : '';
+      const r = await conectarPublico(registry, codigo);
+      if (!r) {
+        res.writeHead(404, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: 'codigo nao encontrado' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(r));
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload invalido' }));
+    }
     return;
   }
 

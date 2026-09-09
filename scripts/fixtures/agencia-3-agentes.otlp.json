@@ -1,0 +1,130 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          { "key": "service.name", "value": { "stringValue": "agencia-suporte-financeiro" } },
+          { "key": "telemetry.sdk.name", "value": { "stringValue": "crewai" } },
+          { "key": "telemetry.sdk.language", "value": { "stringValue": "python" } },
+          { "key": "deployment.environment", "value": { "stringValue": "local-test" } }
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": { "name": "microfirma-test-agency", "version": "1.0.0" },
+          "spans": [
+            {
+              "traceId": "a1000000000000000000000000000001",
+              "spanId": "b100000000000001",
+              "name": "agent_run",
+              "kind": 1,
+              "startTimeUnixNano": "1700000000000000000",
+              "endTimeUnixNano": "1700000001500000000",
+              "attributes": [
+                { "key": "gen_ai.agent.id", "value": { "stringValue": "agent_triador_01" } },
+                { "key": "gen_ai.agent.name", "value": { "stringValue": "Triador de Demandas" } },
+                { "key": "gen_ai.agent.role", "value": { "stringValue": "researcher" } },
+                { "key": "gen_ai.operation.name", "value": { "stringValue": "chat" } },
+                { "key": "gen_ai.request.model", "value": { "stringValue": "gpt-4o-mini" } },
+                { "key": "gen_ai.usage.input_tokens", "value": { "intValue": "800" } },
+                { "key": "gen_ai.usage.output_tokens", "value": { "intValue": "220" } },
+                { "key": "gen_ai.usage.cost", "value": { "doubleValue": 0.0021 } }
+              ],
+              "status": { "code": 1 }
+            },
+
+            {
+              "traceId": "a2000000000000000000000000000002",
+              "spanId": "b200000000000001",
+              "name": "agent_run",
+              "kind": 1,
+              "startTimeUnixNano": "1700000010000000000",
+              "endTimeUnixNano": "1700000014000000000",
+              "attributes": [
+                { "key": "gen_ai.agent.id", "value": { "stringValue": "agent_analista_02" } },
+                { "key": "gen_ai.agent.name", "value": { "stringValue": "Analista de Credito" } },
+                { "key": "gen_ai.agent.role", "value": { "stringValue": "analyst" } },
+                { "key": "gen_ai.request.model", "value": { "stringValue": "gpt-4o-mini" } }
+              ],
+              "status": { "code": 1 }
+            },
+            {
+              "traceId": "a2000000000000000000000000000002",
+              "spanId": "b200000000000002",
+              "parentSpanId": "b200000000000001",
+              "name": "tool_call",
+              "kind": 3,
+              "startTimeUnixNano": "1700000010500000000",
+              "endTimeUnixNano": "1700000011200000000",
+              "attributes": [
+                { "key": "gen_ai.agent.id", "value": { "stringValue": "agent_analista_02" } },
+                { "key": "gen_ai.agent.name", "value": { "stringValue": "Analista de Credito" } },
+                { "key": "gen_ai.operation.name", "value": { "stringValue": "tool" } },
+                { "key": "gen_ai.tool.name", "value": { "stringValue": "ConsultarSerasaAPI" } }
+              ],
+              "status": { "code": 1 }
+            },
+            {
+              "traceId": "a2000000000000000000000000000002",
+              "spanId": "b200000000000003",
+              "parentSpanId": "b200000000000001",
+              "name": "tool_call",
+              "kind": 3,
+              "startTimeUnixNano": "1700000011500000000",
+              "endTimeUnixNano": "1700000012200000000",
+              "attributes": [
+                { "key": "gen_ai.agent.id", "value": { "stringValue": "agent_analista_02" } },
+                { "key": "gen_ai.agent.name", "value": { "stringValue": "Analista de Credito" } },
+                { "key": "gen_ai.operation.name", "value": { "stringValue": "tool" } },
+                { "key": "gen_ai.tool.name", "value": { "stringValue": "ConsultarSerasaAPI" } }
+              ],
+              "status": { "code": 1 }
+            },
+            {
+              "traceId": "a2000000000000000000000000000002",
+              "spanId": "b200000000000004",
+              "parentSpanId": "b200000000000001",
+              "name": "tool_call",
+              "kind": 3,
+              "startTimeUnixNano": "1700000012500000000",
+              "endTimeUnixNano": "1700000013500000000",
+              "attributes": [
+                { "key": "gen_ai.agent.id", "value": { "stringValue": "agent_analista_02" } },
+                { "key": "gen_ai.agent.name", "value": { "stringValue": "Analista de Credito" } },
+                { "key": "gen_ai.operation.name", "value": { "stringValue": "tool" } },
+                { "key": "gen_ai.tool.name", "value": { "stringValue": "ConsultarSerasaAPI" } },
+                { "key": "error.type", "value": { "stringValue": "timeout" } },
+                { "key": "exception.message", "value": { "stringValue": "Serasa API timed out after 8s" } }
+              ],
+              "status": { "code": 2, "message": "tool failure" }
+            },
+
+            {
+              "traceId": "a3000000000000000000000000000003",
+              "spanId": "b300000000000001",
+              "name": "agent_run",
+              "kind": 1,
+              "startTimeUnixNano": "1700000020000000000",
+              "endTimeUnixNano": "1700000023000000000",
+              "attributes": [
+                { "key": "gen_ai.agent.id", "value": { "stringValue": "agent_gerente_03" } },
+                { "key": "gen_ai.agent.name", "value": { "stringValue": "Gerente de Contas" } },
+                { "key": "gen_ai.agent.role", "value": { "stringValue": "finance" } },
+                { "key": "gen_ai.request.model", "value": { "stringValue": "gpt-4o" } },
+                { "key": "human_approval.required", "value": { "boolValue": true } },
+                { "key": "human_approval.id", "value": { "stringValue": "appr-limite-500k" } },
+                { "key": "human_approval.question", "value": { "stringValue": "Liberar limite acima de R$500.000" } },
+                { "key": "error.type", "value": { "stringValue": "timeout" } },
+                {
+                  "key": "exception.message",
+                  "value": { "stringValue": "O operador humano demorou muito para responder (timeout)." }
+                }
+              ],
+              "status": { "code": 2, "message": "Timeout na resposta humana" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -36,12 +36,16 @@ import {
 } from '@microfirma/contracts';
 import {
   WorldEngine,
-  planSpaceProgram,
-  solveLayout,
   validarLayout,
   type Violacao,
 } from '@microfirma/world-engine';
-import { SyntheticStream, colaboracaoDoElenco } from '@microfirma/synthetic';
+import { SyntheticStream } from '@microfirma/synthetic';
+import {
+  AGENTE_PLACEHOLDER,
+  assinaturaElencoDe,
+  montarMundoIso,
+  resolverColisaoLab,
+} from '@microfirma/iso-office/planta';
 
 /**
  * Fonte de eventos de dominio. Tudo que alimenta a engine vem daqui.
@@ -67,21 +71,7 @@ function fonteSintetica(stream: SyntheticStream): FonteEventos {
   };
 }
 
-/**
- * Agente placeholder para o modo OTLP antes do primeiro span chegar.
- * O escritorio precisa de pelo menos um agente para ter mesas e areas -
- * sem isso, a planta e so paredes vazias e o primeiro cliente que conecta
- * ve nada. Quando spans reais chegam, a reseed reconstrói com os agentes
- * descobertos.
- */
-const AGENTE_PLACEHOLDER = {
-  agentId: 'microfirma-placeholder',
-  displayName: 'Aguardando telemetria',
-  role: 'unknown' as const,
-  framework: 'unknown',
-  discoveredVia: 'manual' as const,
-  avatarSeed: 0,
-};
+/** Placeholder OTLP ate o primeiro span: 1 Boss + 1 copa (`AGENTE_PLACEHOLDER`). */
 
 export interface OfficeSessionOptions {
   seed: number;
@@ -134,6 +124,8 @@ export class OfficeSession {
   private pausado = false;
   /** Forca snapshot no proximo tick (apos reseed a planta mudou por completo). */
   private snapshotPendente = true;
+  /** Elenco com o qual a planta atual foi montada. */
+  private elencoAssinatura = '';
 
   constructor(opts: OfficeSessionOptions) {
     this.tenantId = opts.tenantId ?? 'demo';
@@ -219,6 +211,10 @@ export class OfficeSession {
     if (this.pausado) return null;
 
     const eventos = this.fonte.poll(this.tickMs);
+    if (this.elencoMudou()) {
+      this.construirMundo(this.seed_);
+      this.snapshotPendente = true;
+    }
     this.engine.ingest(eventos);
     const delta = this.engine.tick(this.tickMs);
     this.ticks++;
@@ -264,32 +260,33 @@ export class OfficeSession {
     this.construirMundo(seed);
   }
 
-  private construirMundo(seed: number): void {
-    // A fonte de eventos e injetada no construtor. Aqui so usamos os agentes
-    // que ela conhece para montar o escritorio. Se a fonte e OTLP, os agentes
-    // sao os descobertos pela telemetria real; se e sintetica, sao os da demo.
-    // No modo OTLP antes do primeiro span, usa placeholder para que a planta
-    // exista (sem agentes, nao ha mesas nem areas de trabalho).
-    const agentes = this.fonte.agents.length > 0 ? this.fonte.agents : [AGENTE_PLACEHOLDER];
+  private elencoAtual(): AgentDescriptor[] {
+    return this.fonte.agents.length > 0 ? this.fonte.agents : [AGENTE_PLACEHOLDER];
+  }
 
-    const programa = planSpaceProgram(agentes, {
-      officeId: `office-${seed}`,
-      seed,
-      collaboration: colaboracaoDoElenco(),
-    });
-    this.layout_ = solveLayout(programa);
+  private elencoMudou(): boolean {
+    return assinaturaElencoDe(this.elencoAtual()) !== this.elencoAssinatura;
+  }
+
+  private construirMundo(seed: number): void {
+    const agentes = this.elencoAtual();
+    this.elencoAssinatura = assinaturaElencoDe(agentes);
+
+    const mundo = montarMundoIso(seed, agentes);
+    this.layout_ = mundo.layout;
     this.violacoes_ = validarLayout(this.layout_);
 
     this.engine = new WorldEngine({
       layout: this.layout_,
       agents: agentes,
       seed,
+      resolverColisao: resolverColisaoLab(),
     });
   }
 
   private escreverHeaderGravacao(): void {
     if (!this.gravador) return;
-    const agentes = this.fonte.agents.length > 0 ? this.fonte.agents : [AGENTE_PLACEHOLDER];
+    const agentes = this.elencoAtual();
     const header: SessionLogHeader = {
       format: 'microfirma-session-log',
       version: 1,

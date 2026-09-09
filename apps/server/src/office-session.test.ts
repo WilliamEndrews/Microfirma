@@ -139,4 +139,65 @@ describe('OfficeSession', () => {
       rNormal.snapshot.kpis.activeRuns,
     );
   });
+
+  it('remesha a planta quando o elenco OTLP cresce e atribui mesas', () => {
+    const agentes: Array<{
+      agentId: string;
+      displayName: string;
+      role: 'researcher' | 'analyst' | 'finance';
+      framework: string;
+      discoveredVia: 'otel';
+      avatarSeed: number;
+    }> = [];
+    const fonte = {
+      get agents() {
+        return agentes;
+      },
+      poll: () => [],
+    };
+    const s = new OfficeSession({ seed: 11, fonteEventos: fonte });
+    const officeAntes = s.layout.officeId;
+    expect(s.layout.rooms.filter((r) => r.kind === 'boss_room')).toHaveLength(1);
+    expect(s.layout.rooms.filter((r) => r.kind === 'private')).toHaveLength(0);
+    expect(s.layout.rooms.filter((r) => r.kind === 'break')).toHaveLength(1);
+
+    agentes.push(
+      {
+        agentId: 'agent_triador_01',
+        displayName: 'Triador',
+        role: 'researcher',
+        framework: 'test',
+        discoveredVia: 'otel',
+        avatarSeed: 1,
+      },
+      {
+        agentId: 'agent_analista_02',
+        displayName: 'Analista',
+        role: 'analyst',
+        framework: 'test',
+        discoveredVia: 'otel',
+        avatarSeed: 2,
+      },
+      {
+        agentId: 'agent_gerente_03',
+        displayName: 'Gerente',
+        role: 'finance',
+        framework: 'test',
+        discoveredVia: 'otel',
+        avatarSeed: 3,
+      },
+    );
+    const quadro = s.tick();
+    expect(quadro!.kind).toBe('snapshot');
+    expect(s.layout.officeId).not.toBe(officeAntes);
+    expect(s.layout.rooms.filter((r) => r.kind === 'boss_room')).toHaveLength(1);
+    expect(s.layout.rooms.filter((r) => r.kind === 'private')).toHaveLength(2);
+    expect(s.layout.rooms.filter((r) => r.kind === 'break')).toHaveLength(1);
+    const donos = s.layout.props
+      .filter((p) => p.kind === 'desk' && p.ownerAgentId)
+      .map((p) => p.ownerAgentId);
+    expect(donos.sort()).toEqual(
+      ['agent_analista_02', 'agent_gerente_03', 'agent_triador_01'].sort(),
+    );
+  });
 });

@@ -12,6 +12,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1105.0",
     "@microfirma/contracts": "workspace:*",
+    "@microfirma/iso-office": "workspace:*",
     "@microfirma/synthetic": "workspace:*",
     "@microfirma/world-engine": "workspace:*",
     "jose": "^6.2.8",
