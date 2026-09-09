@@ -27,6 +27,7 @@ explicitamente para este projeto.
 | `kenney-foliage-pack/` | Foliage Pack | kenney.nl/assets/foliage-pack | CC0 (arquivo `License.txt` incluso) | 2026-08-10 | 2D, 100 arquivos. Candidato a vegetacao como sprite plano. |
 | `sbs-isometric-floor-tiles/` | Isometric Tiles - Floor Pack (variante Large 256x128) | screamingbrainstudios.itch.io/isotilepack, autor Screaming Brain Studios | CC0/Public Domain (arquivo `License.txt` incluso) | 2026-08-10 | 2D, 57 arquivos. Projecao 2:1. Nao e o piso ativo: o renderer usa Floor_128 do TinyHouse. |
 | `omies-assets-office-set/` | Office Cubicle Set (Office Set) | omies-assets.itch.io/omies-assets-office-set, autor Omie's Assets | CC0 (declarado na pagina do produto) | 2026-08-10 | 138 arquivos, ~582 MB. FBX + PBR. Precisa do pipeline Blender antes de virar `AssetEntry`. |
+| `klimmos-iso-male/` | Cozy Iso Modular Male Character Kit (Idle, Walk, Sit) | klimmos.itch.io, autor Klimmos | commercial-paid (uso comercial OK; NAO redistribuir como asset standalone; credito opcional) | 2026-09-06 | Personagens isometricos modulares. Folhas PNG 512x320 (frame 64x80, 8 cols x 4 rows SW/SE/NE/NW). Camadas Body/Hair/Top/Bottom/Shoes por animacao. Runtime em `@microfirma/iso-characters` — sem `AssetEntry` de mobiliario. |
 
 ### Pendentes (nao automatizaveis por download direto)
 
