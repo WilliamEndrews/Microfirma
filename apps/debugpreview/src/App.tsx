@@ -10,6 +10,8 @@ import {
   type AgenciaMontada,
 } from './montar-agencia';
 import { saltAleatorio, type PedidoGeracao } from './selecionar-pedido';
+import type { Historia } from './tarefa-especial/historias';
+import { sortearHistoria } from './tarefa-especial/sortear';
 
 const HISTORICO_MAX = 8;
 const TENTATIVAS_MAX = 12;
@@ -19,18 +21,10 @@ export default function App() {
   const [agencia, setAgencia] = useState<AgenciaMontada | null>(null);
   const [vazioSemTemas, setVazioSemTemas] = useState(false);
   const [geracao, setGeracao] = useState(0);
+  const [tarefaEspecial, setTarefaEspecial] = useState<Historia | null>(null);
   const historicoRef = useRef<string[]>([]);
 
-  function onGerar(ev: FormEvent) {
-    ev.preventDefault();
-    const pedido: PedidoGeracao = {
-      salas: Math.max(1, Math.floor(Number(salas)) || 1),
-    };
-    setSalas(pedido.salas);
-
-    const proxima = geracao + 1;
-    setGeracao(proxima);
-
+  function gerarAgencia(pedido: PedidoGeracao, proxima: number): AgenciaMontada | null {
     let escolhida: AgenciaMontada | null = null;
     for (let t = 0; t < TENTATIVAS_MAX; t++) {
       const salt = saltAleatorio();
@@ -50,7 +44,35 @@ export default function App() {
         break;
       }
     }
+    return escolhida;
+  }
 
+  function onGerar(ev: FormEvent) {
+    ev.preventDefault();
+    const pedido: PedidoGeracao = {
+      salas: Math.max(1, Math.floor(Number(salas)) || 1),
+    };
+    setSalas(pedido.salas);
+    setTarefaEspecial(null);
+
+    const proxima = geracao + 1;
+    setGeracao(proxima);
+
+    const escolhida = gerarAgencia(pedido, proxima);
+    setAgencia(escolhida);
+    setVazioSemTemas(escolhida !== null && escolhida.slots.length === 0);
+  }
+
+  function onTarefaEspecial() {
+    const pedido: PedidoGeracao = { salas: 3 };
+    setSalas(3);
+    const proxima = geracao + 1;
+    setGeracao(proxima);
+
+    const salt = saltAleatorio();
+    const historia = sortearHistoria(salt);
+    const escolhida = gerarAgencia(pedido, proxima);
+    setTarefaEspecial(historia);
     setAgencia(escolhida);
     setVazioSemTemas(escolhida !== null && escolhida.slots.length === 0);
   }
@@ -60,6 +82,7 @@ export default function App() {
     setAgencia(null);
     setVazioSemTemas(false);
     setGeracao(0);
+    setTarefaEspecial(null);
     historicoRef.current = [];
   }
 
@@ -90,13 +113,25 @@ export default function App() {
           <button className="dash-gerar" type="submit">
             Gerar
           </button>
+          <button
+            className="dash-tarefa"
+            type="button"
+            onClick={onTarefaEspecial}
+            title="Sorteia uma historia colaborativa com 3 agentes"
+          >
+            Tarefa especial
+          </button>
           <button className="dash-reset" type="button" onClick={onResetar}>
             Resetar
           </button>
         </form>
       </header>
       <main className="stage-wrap">
-        <PreviewStage agencia={agencia} vazioSemTemas={vazioSemTemas} />
+        <PreviewStage
+          agencia={agencia}
+          vazioSemTemas={vazioSemTemas}
+          tarefaEspecial={tarefaEspecial}
+        />
       </main>
     </div>
   );

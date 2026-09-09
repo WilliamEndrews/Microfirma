@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BIBLIA_TEMAS, gradeDoProto } from '@microfirma/world-engine';
-import { compilarCenaIso, validarCenaIso } from './cena-isometrica';
+import { compilarCenaIso, passoDoTrecho, validarCenaIso } from './cena-isometrica';
 import { montarAgencia, type AgenciaMontada } from './montar-agencia';
 import {
   iso,
@@ -124,6 +124,24 @@ describe('cena isometrica global', () => {
       expect(ordem[a.layer]).toBeLessThanOrEqual(ordem[b.layer]);
       if (a.layer === b.layer) expect(a.depth).toBeLessThanOrEqual(b.depth);
     }
+  });
+
+  it('passo do trecho liga vertices consecutivos da mesma face', () => {
+    // A extensao da mascara do ator desliza por este vetor. Coincidir com a
+    // aresta da face e o que garante que a reta de topo da parede nao muda.
+    const vx = 3;
+    const vy = 7;
+    const l = passoDoTrecho('L');
+    expect(l.x).toBeCloseTo(iso(vx, vy + 1).x - iso(vx, vy).x);
+    expect(l.y).toBeCloseTo(iso(vx, vy + 1).y - iso(vx, vy).y);
+
+    const r = passoDoTrecho('R');
+    expect(r.x).toBeCloseTo(iso(vx + 1, vy).x - iso(vx, vy).x);
+    expect(r.y).toBeCloseTo(iso(vx + 1, vy).y - iso(vx, vy).y);
+
+    // Sentido da camera: as duas faces avancam para baixo na tela.
+    expect(l.y).toBeGreaterThan(0);
+    expect(r.y).toBeGreaterThan(0);
   });
 
   it('mantem snapshot estrutural para uma seed fixa', () => {

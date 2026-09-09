@@ -12,6 +12,10 @@ export type SpecAsset = {
   papel?: string;
   uso?: string;
   camadas?: { assetId: string; dx?: number; dy?: number }[];
+  /** Footprint real (celulas de grade). Ausente = 1x1 - ver AssetEntry.footprint. */
+  footprint?: { w: number; h: number };
+  /** Decisao explicita de colisao no NavGrid. Ausente = default por kind. */
+  colide?: boolean;
 };
 
 export type TilesetLab = {
@@ -63,6 +67,8 @@ export function resolverSpecLab(assetId: string) {
     papel: s.papel,
     uso: s.uso,
     camadas: s.camadas,
+    footprint: s.footprint,
+    colide: s.colide,
   };
 }
 

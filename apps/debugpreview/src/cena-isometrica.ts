@@ -22,7 +22,18 @@ import {
   specPorId,
   type SpecAsset,
 } from './proto-blit/catalogo';
-import { faceParedeIso, DIR_TILES, PORTA_VIDRO, iso, origemDoItem, type Pt } from './proto-blit/iso';
+import {
+  ALTURA_TILE,
+  faceParedeIso,
+  losangoPisoDaFace,
+  prismaFaceColuna,
+  DIR_TILES,
+  LARGURA_TILE,
+  PORTA_VIDRO,
+  iso,
+  origemDoItem,
+  type Pt,
+} from './proto-blit/iso';
 import { peDaFace, verticeDaFace } from './proto-blit/parede-blit';
 import type { PecaPalcoItem } from './proto-blit/types';
 
@@ -136,7 +147,7 @@ export type OpcoesCena = {
   stripParedeL?: boolean;
 };
 
-type Bounds = { minX: number; minY: number; maxX: number; maxY: number };
+export type Bounds = { minX: number; minY: number; maxX: number; maxY: number };
 
 const LAYER_ORDER: Record<Layer, number> = { floor: 0, vertical: 1, overlay: 2 };
 const SUBLAYER_ORDER: Record<Sublayer, number> = { structure: 0, mount: 1, prop: 2 };
@@ -602,6 +613,14 @@ export async function prepararCenaIso(
   return { ...cena, bounds, width, height, origem, strips };
 }
 
+function tracePoligono(ctx: CanvasRenderingContext2D, origem: Pt, poly: readonly Pt[]): void {
+  ctx.moveTo(origem.x + poly[0]!.x, origem.y + poly[0]!.y);
+  for (let i = 1; i < poly.length; i++) {
+    ctx.lineTo(origem.x + poly[i]!.x, origem.y + poly[i]!.y);
+  }
+  ctx.closePath();
+}
+
 function clipFaceEstrutura(
   ctx: CanvasRenderingContext2D,
   origem: Pt,
@@ -612,12 +631,157 @@ function clipFaceEstrutura(
 ): void {
   const poly = faceParedeIso(face, vx, vy, alturaPx);
   ctx.beginPath();
-  ctx.moveTo(origem.x + poly[0]!.x, origem.y + poly[0]!.y);
-  for (let i = 1; i < poly.length; i++) {
-    ctx.lineTo(origem.x + poly[i]!.x, origem.y + poly[i]!.y);
-  }
-  ctx.closePath();
+  tracePoligono(ctx, origem, poly);
   ctx.clip();
+}
+
+/**
+ * Clip da MASCARA do ator: o mesmo prisma do painter, furado no losango do
+ * piso. O PNG da parede pinta o chao do tile; no painter isso e textura da
+ * peca, na mascara isso fura o agente nas encruzilhadas. Even-odd tira so
+ * o piso — a parede em pe continua inteira. Nao e usado por `renderizarCenaIso`.
+ */
+function clipMascaraVertical(
+  ctx: CanvasRenderingContext2D,
+  origem: Pt,
+  face: 'L' | 'R',
+  vx: number,
+  vy0: number,
+  vy1: number,
+  alturaPx: number,
+): void {
+  ctx.beginPath();
+  tracePoligono(ctx, origem, prismaFaceColuna(face, vx, vy0, vy1, alturaPx));
+  tracePoligono(ctx, origem, losangoPisoDaFace(face, vx, vy0, vy1));
+  ctx.clip('evenodd');
+}
+
+/**
+ * Peca de parede reexecutavel de forma sincrona, fora do painter.
+ *
+ * Nao e um caminho de desenho alternativo: `desenhar` replica exatamente o
+ * mesmo blit que `renderizarCenaIso` ja fez na cena estatica, com a mesma
+ * geometria e o mesmo clip. Serve para recortar o ator contra as paredes que
+ * o painter global colocou na frente dele — nenhuma regra de ordenacao,
+ * profundidade ou composicao da cena e alterada por isso.
+ */
+export type OclusorParede = {
+  id: string;
+  depth: number;
+  /** Bounds em coordenadas de cena (sem a origem de tela). */
+  bounds: Bounds;
+  /**
+   * Deslocamento de tela de UMA celula ao longo do trecho de parede, no sentido
+   * em que a profundidade cresce. Presente so nos tiles estruturais de face.
+   *
+   * Serve para prolongar a MASCARA do ator na ultima celula do trecho. O sprite
+   * tem 1,2 celula de largura — largura de arte, nao de ocupacao — enquanto a
+   * face cobre exatamente 1 celula. Na ponta do trecho nao existe a face
+   * seguinte para cobrir esse excedente e metade do ator vaza para fora da
+   * parede. Prolongar ao longo da propria inclinacao da face resolve sem
+   * inventar geometria: o recorte segue a mesma reta de topo.
+   */
+  extensao?: Pt;
+  /**
+   * Comprimento da face em celulas no sentido em que a profundidade cresce.
+   * O painter grava `depth` no vertice de TRAS (norte na L, oeste na R). A
+   * face em si ocupa este intervalo a frente desse ponto — e isso que o
+   * recorte do ator precisa enxergar, sem mudar o sort da cena estatica.
+   *
+   * Tile estrutural: 1. Faixa pre-composta: a coluna inteira (`vy1 - vy0`).
+   * Anexo: 0 (decora a face, nao a define).
+   */
+  alcanceDepth: number;
+  desenhar(ctx: CanvasRenderingContext2D, origem: Pt): void;
+};
+
+/**
+ * Passo de uma celula ao longo do trecho, no sentido de profundidade crescente:
+ * +vy na face L, +vx na face R. Por ser exatamente o vetor entre dois vertices
+ * consecutivos da face, deslizar a mascara por ele mantem a reta de topo.
+ */
+export function passoDoTrecho(face: 'L' | 'R'): Pt {
+  return face === 'L'
+    ? { x: -LARGURA_TILE / 2, y: ALTURA_TILE / 2 }
+    : { x: LARGURA_TILE / 2, y: ALTURA_TILE / 2 };
+}
+
+/**
+ * Extrai apenas as pecas verticais de parede (estrutura + anexos da propria
+ * face) da cena ja preparada, com as imagens resolvidas para uso sincrono no
+ * loop de animacao. Props e piso ficam de fora deliberadamente: dentro das
+ * salas o ator continua na frente da mobilia.
+ */
+export async function prepararOclusoresParede(
+  cena: CenaIsoPreparada,
+): Promise<OclusorParede[]> {
+  const out: OclusorParede[] = [];
+
+  for (const command of cena.commands) {
+    if (command.kind === 'strip') {
+      const baked = cena.strips.get(command.id);
+      if (!baked) continue;
+      out.push({
+        id: command.id,
+        depth: command.depth,
+        bounds: await commandBounds(command),
+        extensao: passoDoTrecho(command.face),
+        alcanceDepth: command.vy1 - command.vy0,
+        desenhar: (ctx, origem) => {
+          ctx.save();
+          clipMascaraVertical(
+            ctx,
+            origem,
+            command.face,
+            command.vx,
+            command.vy0,
+            command.vy1,
+            command.pe.y + CLIP_H_PAD,
+          );
+          ctx.drawImage(baked.canvas, origem.x + baked.ox, origem.y + baked.oy);
+          ctx.restore();
+        },
+      });
+      continue;
+    }
+    if (command.kind !== 'vertex') continue;
+    if (command.sublayer !== 'structure' && command.sublayer !== 'mount') continue;
+
+    // Anexos de parede nao se prolongam: eles decoram a face, nao a definem.
+    const face =
+      command.sublayer === 'structure' && (command.face === 'L' || command.face === 'R')
+        ? command.face
+        : null;
+    const img = await carregar(command.src);
+    out.push({
+      id: command.id,
+      depth: command.depth,
+      bounds: await commandBounds(command),
+      alcanceDepth: face ? 1 : 0,
+      ...(face ? { extensao: passoDoTrecho(face) } : {}),
+      desenhar: (ctx, origem) => {
+        const altura = command.clipH ?? command.pe.y + CLIP_H_PAD;
+        if (face) {
+          ctx.save();
+          clipMascaraVertical(ctx, origem, face, command.vx, command.vy, command.vy + 1, altura);
+        } else if (command.clipFace === 'L') {
+          ctx.save();
+          clipFaceEstrutura(ctx, origem, 'L', command.vx, command.vy, command.clipH!);
+        }
+        blitNaVertice(
+          ctx,
+          img,
+          { x: origem.x + command.dx, y: origem.y + command.dy },
+          command.vx,
+          command.vy,
+          command.pe,
+        );
+        if (face || command.clipFace === 'L') ctx.restore();
+      },
+    });
+  }
+
+  return out;
 }
 
 /** Render final deterministico da cena preparada. */

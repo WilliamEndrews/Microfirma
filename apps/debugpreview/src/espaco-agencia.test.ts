@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { isWalkable } from '@microfirma/world-engine';
+import { footprintCells, isWalkable } from '@microfirma/world-engine';
 import { montarAgencia } from './montar-agencia';
-import { construirEspacoAgencia, celulasWalkableNaSala } from './espaco-agencia';
+import {
+  celulasOcupadasPorProps,
+  celulasWalkableNaSala,
+  construirEspacoAgencia,
+  KINDS_INTERESSE,
+} from './espaco-agencia';
 import { seedDoPedido } from './selecionar-pedido';
 
 describe('construirEspacoAgencia', () => {
@@ -49,6 +54,46 @@ describe('construirEspacoAgencia', () => {
     expect(cenario.layout.corridors.length).toBeGreaterThan(0);
     for (const c of cenario.layout.corridors) {
       expect(isWalkable(cenario.nav, c)).toBe(true);
+    }
+  });
+
+  it('ponto de interesse fica em frente ao objeto, nunca sobre ele', () => {
+    const seed = seedDoPedido({ salas: 3 });
+    const agencia = montarAgencia({ salas: 3 }, seed)!;
+    const cenario = construirEspacoAgencia(agencia);
+    const ocupadas = celulasOcupadasPorProps(cenario.layout.props);
+
+    let total = 0;
+    for (const agente of cenario.agentes) {
+      for (const poi of agente.pontosInteresse) {
+        total += 1;
+        expect(KINDS_INTERESSE).toContain(poi.kind);
+        expect(isWalkable(cenario.nav, poi.cell)).toBe(true);
+        expect(ocupadas.has(`${poi.cell.x},${poi.cell.y}`)).toBe(false);
+
+        const prop = cenario.layout.props.find((p) => p.propId === poi.propId)!;
+        const encostado = footprintCells(prop).some(
+          (c) => Math.abs(c.x - poi.cell.x) + Math.abs(c.y - poi.cell.y) === 1,
+        );
+        expect(encostado).toBe(true);
+      }
+    }
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it('celulas de passeio nao caem sobre mobiliario nem na porta', () => {
+    const seed = seedDoPedido({ salas: 3 });
+    const agencia = montarAgencia({ salas: 3 }, seed)!;
+    const cenario = construirEspacoAgencia(agencia);
+    const ocupadas = celulasOcupadasPorProps(cenario.layout.props);
+
+    for (const agente of cenario.agentes) {
+      expect(agente.passeio.length).toBeGreaterThan(0);
+      for (const c of agente.passeio) {
+        expect(isWalkable(cenario.nav, c)).toBe(true);
+        expect(ocupadas.has(`${c.x},${c.y}`)).toBe(false);
+        expect(c.x === agente.door.x && c.y === agente.door.y).toBe(false);
+      }
     }
   });
 

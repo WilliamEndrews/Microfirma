@@ -78,27 +78,53 @@ export function faceParedeIso(
     ? { out: FACE_PAD_OUT, in: FACE_PAD_IN }
     : FACE_PAD_R,
 ): Pt[] {
+  return prismaFaceColuna(face, vx, vy, vy + 1, alturaPx, pad);
+}
+
+/**
+ * Losango do piso da face (base do prisma). O PNG da parede pinta este
+ * losango com textura de chao — no painter isso e correto; na mascara do
+ * ator, nao: o piso nao pode destination-out o agente.
+ */
+export function losangoPisoDaFace(
+  face: 'L' | 'R',
+  vx: number,
+  vy0: number,
+  vy1: number = vy0 + 1,
+  pad: number | { out?: number; in?: number } = face === 'L'
+    ? { out: FACE_PAD_OUT, in: FACE_PAD_IN }
+    : FACE_PAD_R,
+): Pt[] {
   if (face === 'L') {
     const padOut = typeof pad === 'number' ? pad : (pad.out ?? FACE_PAD_OUT);
     const padIn = typeof pad === 'number' ? FACE_PAD_IN : (pad.in ?? FACE_PAD_IN);
-    const nw = iso(vx - padOut, vy);
-    const sw = iso(vx - padOut, vy + 1);
-    const se = iso(vx + padIn, vy + 1);
-    const ne = iso(vx + padIn, vy);
     return [
-      { x: sw.x, y: sw.y },
-      { x: se.x, y: se.y },
-      { x: ne.x, y: ne.y },
-      { x: ne.x, y: ne.y - alturaPx },
-      { x: nw.x, y: nw.y - alturaPx },
-      { x: sw.x, y: sw.y - alturaPx },
+      iso(vx - padOut, vy1),
+      iso(vx + padIn, vy1),
+      iso(vx + padIn, vy0),
+      iso(vx - padOut, vy0),
     ];
   }
   const padR = typeof pad === 'number' ? pad : FACE_PAD_R;
-  const nw = iso(vx, vy);
-  const ne = iso(vx + 1, vy);
-  const se = iso(vx + 1, vy + padR);
-  const sw = iso(vx, vy + padR);
+  return [iso(vx, vy0 + padR), iso(vx + 1, vy0 + padR), iso(vx + 1, vy0), iso(vx, vy0)];
+}
+
+/** Prisma da face ao longo de `vy0..vy1`. Um tile e `vy1 = vy0 + 1`. */
+export function prismaFaceColuna(
+  face: 'L' | 'R',
+  vx: number,
+  vy0: number,
+  vy1: number,
+  alturaPx: number,
+  pad: number | { out?: number; in?: number } = face === 'L'
+    ? { out: FACE_PAD_OUT, in: FACE_PAD_IN }
+    : FACE_PAD_R,
+): Pt[] {
+  const piso = losangoPisoDaFace(face, vx, vy0, vy1, pad);
+  const sw = piso[0]!;
+  const se = piso[1]!;
+  const ne = piso[2]!;
+  const nw = piso[3]!;
   return [
     { x: sw.x, y: sw.y },
     { x: se.x, y: se.y },
@@ -107,6 +133,21 @@ export function faceParedeIso(
     { x: nw.x, y: nw.y - alturaPx },
     { x: sw.x, y: sw.y - alturaPx },
   ];
+}
+
+/** Dentro da parede em pe, fora do losango do piso. */
+export function pontoNaMascaraVertical(
+  p: Pt,
+  face: 'L' | 'R',
+  vx: number,
+  vy0: number,
+  vy1: number,
+  alturaPx: number,
+): boolean {
+  return (
+    pontoNoPoligono(p, prismaFaceColuna(face, vx, vy0, vy1, alturaPx)) &&
+    !pontoNoPoligono(p, losangoPisoDaFace(face, vx, vy0, vy1))
+  );
 }
 
 /** Inverte gy local (0..h-1) quando a sala espelha para a porta ficar no corredor. */

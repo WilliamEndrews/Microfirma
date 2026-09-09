@@ -1,6 +1,6 @@
 {
   "versao": "1.0",
-  "data": "2026-09-05",
+  "data": "2026-09-08",
   "notas": "Combinacoes do laboratorio. Ordem das camadas = atras para frente. Cole em combinacoes-laboratorio.json. Ainda nao entra no solver.",
   "combinacoes": [
     {
@@ -493,6 +493,313 @@
           "assetId": "kitchen-rug",
           "dx": 36,
           "dy": 23
+        }
+      ]
+    },
+    {
+      "assetId": "carton-box-combo",
+      "nome": "Caixas de papelao",
+      "kind": "cabinet",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "carton-box",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "assetId": "carton-box",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "assetId": "carton-box",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "assetId": "carton-box",
+          "dx": 15,
+          "dy": 6
+        },
+        {
+          "assetId": "carton-box",
+          "dx": -18,
+          "dy": 10
+        },
+        {
+          "assetId": "carton-box",
+          "dx": -14,
+          "dy": -4
+        },
+        {
+          "assetId": "kitchen-box",
+          "dx": 0,
+          "dy": 17
+        }
+      ]
+    },
+    {
+      "assetId": "kitchen-box-combo",
+      "nome": "Armario estagio 1",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "japanese-shelf",
+          "dx": 18,
+          "dy": 13
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 1,
+          "dy": -54
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 6,
+          "dy": -53
+        },
+        {
+          "assetId": "ring-binder-dark",
+          "dx": 11,
+          "dy": -50
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 16,
+          "dy": -47
+        },
+        {
+          "assetId": "ring-binder-dark",
+          "dx": 22,
+          "dy": -44
+        },
+        {
+          "assetId": "notebooks",
+          "dx": 23,
+          "dy": -42
+        }
+      ]
+    },
+    {
+      "assetId": "lounge-chair-a-combo",
+      "nome": "Mesa estagio 1",
+      "kind": "chair",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "desk-1",
+          "dx": 3,
+          "dy": -3
+        },
+        {
+          "assetId": "lounge-chair-a",
+          "dx": -28,
+          "dy": 15
+        },
+        {
+          "assetId": "lamp-floor-a",
+          "dx": 28,
+          "dy": -17
+        },
+        {
+          "assetId": "macbook-closed",
+          "dx": -5,
+          "dy": -30
+        }
+      ]
+    },
+    {
+      "assetId": "armario-estagio-3",
+      "nome": "Armario estagio 3",
+      "kind": "bookshelf",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "desk-1",
+          "dx": 3,
+          "dy": -3
+        },
+        {
+          "assetId": "lounge-chair-a",
+          "dx": -28,
+          "dy": 15
+        },
+        {
+          "assetId": "lamp-floor-a",
+          "dx": 28,
+          "dy": -17
+        },
+        {
+          "assetId": "macbook-open",
+          "dx": -2,
+          "dy": -32
+        },
+        {
+          "assetId": "office-paper-1",
+          "dx": 13,
+          "dy": -26
+        },
+        {
+          "assetId": "office-paper-1",
+          "dx": 15,
+          "dy": -22
+        }
+      ]
+    },
+    {
+      "assetId": "desk-notebook",
+      "nome": "mesa estagio 3",
+      "kind": "desk",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "desk-1",
+          "dx": 3,
+          "dy": -3
+        },
+        {
+          "assetId": "lounge-chair-a",
+          "dx": -28,
+          "dy": 15
+        },
+        {
+          "assetId": "lamp-floor",
+          "dx": 22,
+          "dy": -18
+        },
+        {
+          "assetId": "macbook-open",
+          "dx": -11,
+          "dy": -31
+        },
+        {
+          "assetId": "office-paper-1",
+          "dx": 4,
+          "dy": -18
+        },
+        {
+          "assetId": "office-paper-1",
+          "dx": 6,
+          "dy": -14
+        }
+      ]
+    },
+    {
+      "assetId": "armario-livros",
+      "nome": "Armario estagio 2",
+      "kind": "bookshelf",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "japanese-shelf",
+          "dx": 18,
+          "dy": 13
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 1,
+          "dy": -54
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 6,
+          "dy": -53
+        },
+        {
+          "assetId": "ring-binder-dark",
+          "dx": 11,
+          "dy": -50
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 16,
+          "dy": -47
+        },
+        {
+          "assetId": "ring-binder-dark",
+          "dx": 22,
+          "dy": -44
+        },
+        {
+          "assetId": "notebooks",
+          "dx": 23,
+          "dy": -42
+        },
+        {
+          "assetId": "ring-binder",
+          "dx": 3,
+          "dy": -14
+        },
+        {
+          "assetId": "ring-binder-dark",
+          "dx": 22,
+          "dy": -4
+        }
+      ]
+    },
+    {
+      "assetId": "living-table-10-combo",
+      "nome": "Mesa de centro",
+      "kind": "coffee",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "living-table-10",
+          "dx": 4,
+          "dy": 32
+        },
+        {
+          "assetId": "kitchen-kettle",
+          "dx": 0,
+          "dy": -21
+        },
+        {
+          "assetId": "kitchen-mug-green",
+          "dx": 18,
+          "dy": -12
+        }
+      ]
+    },
+    {
+      "assetId": "caixa-floor",
+      "nome": "Caixas simples",
+      "kind": "cabinet",
+      "papel": "prop",
+      "uso": "aleatorio",
+      "camadas": [
+        {
+          "assetId": "carton-box",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "assetId": "carton-box",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "assetId": "carton-box",
+          "dx": 0,
+          "dy": 0
+        },
+        {
+          "assetId": "carton-box",
+          "dx": -17,
+          "dy": 8
+        },
+        {
+          "assetId": "carton-box",
+          "dx": 2,
+          "dy": 20
         }
       ]
     }

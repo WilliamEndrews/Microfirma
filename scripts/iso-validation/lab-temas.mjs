@@ -76,7 +76,42 @@ export function normalizarPostosTrabalho(postos) {
       qy: typeof p.qy === 'number' ? p.qy : 0,
       passo: typeof p.passo === 'number' ? p.passo : 1,
       facing: [0, 1, 2, 3].includes(p.facing) ? p.facing : 2,
+      facingOrigem:
+        p.facingOrigem === 'manual' || p.facingOrigem === 'olhar_mesa'
+          ? p.facingOrigem
+          : 'padrao_norte',
+      ...(typeof p.deskAssetId === 'string' ? { deskAssetId: p.deskAssetId } : {}),
     }));
+}
+
+/** Cardinal dominante para o assento olhar para a mesa. */
+export function facingOlhandoPara(de, para) {
+  const dx = para.x - de.x;
+  const dy = para.y - de.y;
+  if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) return 2;
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 3 : 1;
+  return dy > 0 ? 0 : 2;
+}
+
+/** Mesa mais proxima, considerando o centro visual da subcelula. */
+export function mesaMaisProximaDoPosto(posto, mesas) {
+  const p = postoParaGrid(posto);
+  return [...(mesas || [])].sort((a, b) => {
+    const da = Math.hypot(a.gx + 0.5 - p.x, a.gy + 0.5 - p.y);
+    const db = Math.hypot(b.gx + 0.5 - p.x, b.gy + 0.5 - p.y);
+    return da - db;
+  })[0];
+}
+
+export function inferirFacingAssento(posto, mesa) {
+  if (!mesa || (mesa.gx === posto.gx && mesa.gy === posto.gy)) {
+    return { facing: 2, facingOrigem: 'padrao_norte' };
+  }
+  const de = postoParaGrid(posto);
+  return {
+    facing: facingOlhandoPara(de, { x: mesa.gx + 0.5, y: mesa.gy + 0.5 }),
+    facingOrigem: 'olhar_mesa',
+  };
 }
 
 /** Converte posto (subcelula) para coordenada fracionaria de grid. */

@@ -4,24 +4,40 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { ActorState } from '@microfirma/contracts';
+import { PersonagemKit } from '@microfirma/iso-characters';
 import { prepararCenaIso } from './cena-isometrica';
 import { desenharAgencia } from './desenhar-agencia';
 import { desenharAtores, desenharDebugOverlay } from './desenhar-atores';
 import { construirEspacoAgencia, type CenarioEspacial } from './espaco-agencia';
 import type { AgenciaMontada } from './montar-agencia';
+import { OclusaoCorredor } from './oclusao-parede';
 import { RosaVentos } from './RosaVentos';
 import { SimulacaoAgentes } from './simulacao-agentes';
+import type { Historia } from './tarefa-especial/historias';
+import {
+  SimulacaoTarefaEspecial,
+  type StatusTarefa,
+} from './tarefa-especial/simulacao-tarefa';
 
 type Props = {
   agencia: AgenciaMontada | null;
   vazioSemTemas?: boolean;
+  tarefaEspecial?: Historia | null;
 };
 
 function contarAtividades(atores: ActorState[]): string {
   const walking = atores.filter((a) => a.activity === 'walking').length;
   const working = atores.filter((a) => a.activity === 'working').length;
   const resting = atores.filter((a) => a.activity === 'resting').length;
-  return `${atores.length} agente(s) · ${walking} walking · ${working} working · ${resting} resting`;
+  const talking = atores.filter((a) => a.activity === 'talking').length;
+  const parts = [
+    `${atores.length} agente(s)`,
+    `${walking} walking`,
+    `${working} working`,
+    `${resting} resting`,
+  ];
+  if (talking > 0) parts.push(`${talking} talking`);
+  return parts.join(' · ');
 }
 
 function limparCanvas(canvas: HTMLCanvasElement, mensagem?: string): void {
@@ -38,7 +54,11 @@ function limparCanvas(canvas: HTMLCanvasElement, mensagem?: string): void {
   }
 }
 
-export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
+export function PreviewStage({
+  agencia,
+  vazioSemTemas = false,
+  tarefaEspecial = null,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef(0);
   const generationRef = useRef(0);
@@ -47,6 +67,7 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [debugOverlay, setDebugOverlay] = useState(false);
   const [stripParedeL, setStripParedeL] = useState(false);
+  const [painelTarefa, setPainelTarefa] = useState<StatusTarefa | null>(null);
 
   debugRef.current = debugOverlay;
 
@@ -65,6 +86,7 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
 
     const generationId = ++generationRef.current;
     cancelAnimationFrame(rafRef.current);
+    setPainelTarefa(null);
 
     if (!agencia || agencia.slots.length === 0) {
       limparCanvas(canvas);
@@ -97,7 +119,22 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
         if (cancelado || generationId !== generationRef.current) return;
 
         const cenario: CenarioEspacial = construirEspacoAgencia(agencia);
-        const sim = new SimulacaoAgentes(cenario, agencia.seed);
+        const kit = await PersonagemKit.carregar({
+          agentIdsExtras: cenario.agentes.map((a) => a.agentId),
+        });
+        if (cancelado || generationId !== generationRef.current) return;
+
+        const oclusao = await OclusaoCorredor.preparar(cena, cenario.layout.corridors);
+        if (cancelado || generationId !== generationRef.current) return;
+
+        const modoTarefa = Boolean(tarefaEspecial) && cenario.agentes.length >= 3;
+        const simAmbient = modoTarefa
+          ? null
+          : new SimulacaoAgentes(cenario, agencia.seed);
+        const simTarefa =
+          modoTarefa && tarefaEspecial
+            ? new SimulacaoTarefaEspecial(cenario, tarefaEspecial, agencia.seed)
+            : null;
 
         canvas.width = cena.width;
         canvas.height = cena.height;
@@ -109,16 +146,23 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
 
-          const atores = sim.tick(Math.min(100, agora - ultimo));
+          const dt = Math.min(100, agora - ultimo);
           ultimo = agora;
+          const atores = simTarefa
+            ? simTarefa.tick(dt)
+            : (simAmbient as SimulacaoAgentes).tick(dt);
+          const debug = simTarefa
+            ? simTarefa.debugInfo()
+            : (simAmbient as SimulacaoAgentes).debugInfo();
+
           ctx.imageSmoothingEnabled = false;
           ctx.drawImage(staticCanvas, 0, 0);
-          desenharAtores(ctx, cena.origem, atores, agora);
+          desenharAtores(ctx, cena.origem, atores, agora, kit, oclusao);
           if (debugRef.current) {
-            desenharDebugOverlay(ctx, cena.origem, { cenario, debug: sim.debugInfo() });
+            desenharDebugOverlay(ctx, cena.origem, { cenario, debug });
           }
 
-          if (agora - ultimoStatus >= 500) {
+          if (agora - ultimoStatus >= 400) {
             const nBoss = agencia.slots.filter((s) => s.proto.zonaKind === 'boss_room').length;
             const nPriv = agencia.slots.filter((s) => s.proto.zonaKind === 'private').length;
             const nCopas = agencia.slots.filter((s) => s.proto.zonaKind === 'break').length;
@@ -127,9 +171,14 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
             const debugTxt = debugRef.current ? ' · debug (D)' : '';
             const stripTxt = stripParedeL ? ' · stripL (W)' : ' · clipL (W)';
             const warningTxt = cena.warnings.length ? ` · ${cena.warnings.length} aviso(s)` : '';
+            const tarefaTxt = simTarefa
+              ? ` · tarefa especial · ${tarefaEspecial!.id}`
+              : '';
             setStatus(
-              `agencia ${nBoss} Boss + ${nPriv} priv. + ${nCopas} copa · ${contarAtividades(atores)}${geracaoTxt}${seedTxt}${debugTxt}${stripTxt}${warningTxt}`,
+              `agencia ${nBoss} Boss + ${nPriv} priv. + ${nCopas} copa · ${contarAtividades(atores)}${geracaoTxt}${seedTxt}${debugTxt}${stripTxt}${tarefaTxt}${warningTxt}`,
             );
+            if (simTarefa) setPainelTarefa(simTarefa.status());
+            else setPainelTarefa(null);
             ultimoStatus = agora;
           }
           rafRef.current = requestAnimationFrame(loop);
@@ -149,7 +198,7 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
       cancelado = true;
       cancelAnimationFrame(rafRef.current);
     };
-  }, [agencia, vazioSemTemas, stripParedeL]);
+  }, [agencia, vazioSemTemas, stripParedeL, tarefaEspecial]);
 
   return (
     <section className="stage" aria-label="Palco blueprint">
@@ -158,6 +207,20 @@ export function PreviewStage({ agencia, vazioSemTemas = false }: Props) {
           <canvas ref={canvasRef} className="stage-canvas" />
           {erro ? <p className="stage-erro">{erro}</p> : null}
           <p className="stage-status">{status}</p>
+          {painelTarefa ? (
+            <aside className="tarefa-painel" aria-live="polite">
+              <p className="tarefa-painel-titulo">{painelTarefa.titulo}</p>
+              <p className="tarefa-painel-resumo">{painelTarefa.resumo}</p>
+              <p className="tarefa-painel-batida">
+                {painelTarefa.papelAtivo} · {painelTarefa.nomeAtivo}
+                {painelTarefa.falaAtiva ? `: “${painelTarefa.falaAtiva}”` : ''}
+                <span className="tarefa-painel-prog">
+                  {' '}
+                  · {painelTarefa.batidaIndex + 1}/{painelTarefa.batidaTotal}
+                </span>
+              </p>
+            </aside>
+          ) : null}
         </div>
       </div>
       <RosaVentos />

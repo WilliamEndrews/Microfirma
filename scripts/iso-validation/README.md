@@ -95,12 +95,25 @@ UI atual do laboratorio (2026-09):
    chao vazio **nao** captura grade — so pecas sao selecionaveis.
 4. **Piso, parede e decor empilham** no mesmo slot (um asset novo nao
    substitui o anterior). Arraste a peca selecionada para reposicionar.
-5. **Ctrl+Z** / **Ctrl+Y** (ou Ctrl+Shift+Z) desfaz/refaz acoes do
-   canvas. **Delete** remove a peca selecionada.
-6. Diagnostico (grade azul / ancoras) fica **desligado** por padrao;
+   **Combos** plantados (borda verde no catalogo) selecionam, arrastam e
+   apagam (Del / chip remover) como assets simples.
+5. **Atalhos do canvas**
+   - **Ctrl+Z** / **Ctrl+Y** (ou Ctrl+Shift+Z) desfaz/refaz.
+   - **Delete** ou **Ctrl+Del** (Mac: Cmd+Del) remove a peca/camada
+     selecionada. Backspace tambem.
+   - **Esc** limpa a selecao (no modo assento, Esc cancela o modo).
+   - **[** / **]** (ou PageDown / PageUp) muda z-order entre vizinhos
+     (palco e Combinar).
+   - **Setas** em anexo de parede: ajustam `dx`/`dy` em 1 px.
+6. Chip da peca selecionada (camadas locais) tem botao **remover** (piso e
+   parede). Chips da lista de parede tambem.
+7. Diagnostico (grade azul / ancoras) fica **desligado** por padrao;
    ligue so quando precisar medir.
-7. Persistencia: `localStorage` + `lab-server` (temas/combos no disco).
+8. Persistencia: `localStorage` + `lab-server` (temas/combos no disco).
    **resetar JSON do repo** volta ao arquivo.
+
+Ideias futuras (nao neste ciclo): Ctrl+D duplicar, lista unificada
+piso+parede, multi-select, toggle de snap na grade.
 
 ## Plantar na parede (face + drag)
 
@@ -113,7 +126,7 @@ da peca e olho-metro, como as `camadas` do combinador.
 2. Nasce com `dx: 0` e `dy` numa fracao da subida medida (`pe.y − bbox.y`).
 3. Arraste no palco. O que vale e `{ face, gx, gy, dx, dy }` no item.
 4. Chips da lista: **remover**, **espelhar** (L↔R quando elegivel).
-   Delete tambem remove.
+   **Delete** / **Ctrl+Del** tambem remove. Setas finas ajustam offset.
 
 Persistido no palco (e portanto no tema):
 
@@ -129,12 +142,14 @@ relativos permanecem. No Construtor, pecas `papel: wall` do tema viram
 
 1. Escolha piso/parede, tamanho do palco, andares e plante a mobilia
    (piso e/ou parede).
-2. Nomeie. **zona** e o `ZoneRequest.kind` (+ `corridor`): private, break
-   (copa), boss_room (Boss Room / gerente), open, meeting, reception,
-   war_room, corridor. Default `private`.
+2. Nomeie. **zona** e o `ZoneRequest.kind` (+ `corridor`) mais **Landing**:
+   private, break (copa), boss_room (Boss Room / gerente), open, meeting,
+   reception, war_room, corridor, e **landing** (cena handcrafted de marketing;
+   nao entra no space-program / Demo). Default `private`.
    **prioridade** (1-9) e **unico na agencia** sao dicas para o Construtor:
    maior prioridade entra primeiro; unico = no maximo uma sala com aquele
-   tema por cliente. O Construtor ja consome isso.
+   tema por cliente. O Construtor ja consome isso (exceto `landing`, reservado
+   para a landing page).
 3. **salvar tema** grava tileset + pecas (incluindo parede) + `zonaKind` +
    `grade` + `andares` + `subidaAndar` + subdivisao + `postosTrabalho` (assentos
    marcados no lab) + um recorte da calibracao GRAVADA como referencia. Tambem
@@ -150,13 +165,16 @@ relativos permanecem. No Construtor, pecas `papel: wall` do tema viram
 Politica de pisos/paredes (`politicaTiles`) continua sendo do **escritorio
 inteiro** por zona; o tema e a **mobilia + palco modelo** daquela zona.
 Quando o Construtor consome isto: `room.kind === tema.zonaKind`, depois
-`prioridade`, depois `unicoNaAgencia`. Ja ligado em `solveLayout`.
+`prioridade`, depois `unicoNaAgencia`. Ja ligado em `solveLayout`. Temas
+`landing` ficam na biblia para consumo futuro da landing; o gerador de
+agencia os ignora.
 
 ## Pisos e paredes por zona
 
 Camada acima dos temas: o Construtor recebe uma **politica** por zona
 (`corridor`, `break`/copa, `private`, `boss_room`, `open`, `meeting`, `reception`,
-`war_room` — os kinds do `ZoneRequest` mais o corredor-espinha).
+`war_room`, `landing` — kinds do `ZoneRequest` + corredor-espinha + cena de
+marketing).
 
 - **default** — usa o piso/parede do tema do arquiteto daquela sala.
 - **unico** — uma cor so (ex. corredor sempre `Concrete`).

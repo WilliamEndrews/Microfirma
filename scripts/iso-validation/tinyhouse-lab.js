@@ -5,6 +5,8 @@
  */
 import {
   anexoParedeValido,
+  inferirFacingAssento,
+  mesaMaisProximaDoPosto,
   mesclarCombos,
   normalizarPostosTrabalho,
   postoParaGrid,
@@ -519,6 +521,7 @@ const ZONAS_TILE = [
   { id: 'meeting', nome: 'reuniao' },
   { id: 'reception', nome: 'recepcao' },
   { id: 'war_room', nome: 'war room' },
+  { id: 'landing', nome: 'Landing' },
 ];
 
 function slotTilesPadrao() {
@@ -642,6 +645,10 @@ function resumoPolitica(politica) {
   let filtroPapel = '';
   let arrasteCatalogo = null;
   let bookAberto = true;
+  /** Modo "marcar assento": grade subdividida clicavel; nao persiste no localStorage. */
+  let marcandoAssento = false;
+  /** Hover da subcelula sob o mouse enquanto marca assento (null fora da grade). */
+  let assentoHover = null;
   const UNDO_MAX = 60;
   let historicoUndo = [];
   let historicoRedo = [];
@@ -664,6 +671,124 @@ function resumoPolitica(politica) {
     if (spec.espelhavel === false) return false;
     if (spec.espelhavel === true) return true;
     return !ESPELHAVEL_OFF.has(spec.assetId);
+  }
+
+  function agentSlotAssento() {
+    const zonaEl = document.getElementById('tema-zona');
+    return zonaEl && zonaEl.value === 'boss_room' ? 'agent-boss' : 'default';
+  }
+
+  function mesmaSubcelula(a, b) {
+    if (!a || !b) return false;
+    return (
+      a.gx === b.gx &&
+      a.gy === b.gy &&
+      (a.qx || 0) === (b.qx || 0) &&
+      (a.qy || 0) === (b.qy || 0)
+    );
+  }
+
+  function atualizarBotaoAssento() {
+    const btn = document.getElementById('btn-marcar-assento');
+    if (!btn) return;
+    btn.classList.toggle('ativo', marcandoAssento);
+    btn.textContent = marcandoAssento ? 'cancelar assento' : 'marcar assento';
+    btn.title = marcandoAssento
+      ? 'Sair (Esc). Q/E gira manualmente a orientacao do assento travado.'
+      : 'Clique para travar; a mesa mais proxima define a direcao automaticamente.';
+    canvas.classList.toggle('marcando-assento', marcandoAssento);
+  }
+
+  function setMarcandoAssento(ativo) {
+    marcandoAssento = !!ativo;
+    if (!marcandoAssento) assentoHover = null;
+    atualizarBotaoAssento();
+    atualizarCelulaTxt();
+    desenharPalco();
+  }
+
+  function travarAssentoEm(cel) {
+    if (!cel) return;
+    if (cel.gx < 0 || cel.gy < 0 || cel.gx >= gradeW() || cel.gy >= gradeH()) return;
+    const slot = agentSlotAssento();
+    const base = {
+      agentSlot: slot,
+      gx: cel.gx,
+      gy: cel.gy,
+      qx: cel.qx || 0,
+      qy: cel.qy || 0,
+      passo: 0.5,
+    };
+    const mesas = estado.palco
+      .filter((peca) => specPorId(peca.assetId)?.kind === 'desk')
+      .map((peca) => ({ assetId: peca.assetId, gx: peca.gx, gy: peca.gy }));
+    const mesa = mesaMaisProximaDoPosto(base, mesas);
+    const inferido = inferirFacingAssento(base, mesa);
+    const entry = {
+      ...base,
+      ...inferido,
+      ...(mesa ? { deskAssetId: mesa.assetId } : {}),
+    };
+    estado.postosTrabalho = estado.postosTrabalho.filter((p) => p.agentSlot !== slot);
+    estado.postosTrabalho.push(entry);
+    estado.postosTrabalho = normalizarPostosTrabalho(estado.postosTrabalho);
+    estado.celula = { gx: cel.gx, gy: cel.gy, qx: cel.qx || 0, qy: cel.qy || 0 };
+    gravarEstado(estado);
+    atualizarCelulaTxt();
+    const status = document.getElementById('tema-persist-status');
+    if (status) {
+      status.dataset.ok = '1';
+      status.textContent =
+        'assento travado em ' +
+        cel.gx +
+        ',' +
+        cel.gy +
+        ' q' +
+        (cel.qx || 0) +
+        (cel.qy || 0) +
+        ' — salve o tema para gravar na biblia';
+    }
+    desenharPalco();
+  }
+
+  function celulaAssentoSobPonto(px, py) {
+    const g = telaParaGrade(px, py, true);
+    if (g.gx < 0 || g.gy < 0 || g.gx >= gradeW() || g.gy >= gradeH()) return null;
+    return { gx: g.gx, gy: g.gy, qx: g.qx || 0, qy: g.qy || 0 };
+  }
+
+  function desenharSetaFacingPosto(ctx, posto) {
+    const vetores = [
+      { x: 0, y: 1 },
+      { x: -1, y: 0 },
+      { x: 0, y: -1 },
+      { x: 1, y: 0 },
+    ];
+    const v = vetores[posto.facing] || vetores[2];
+    const g = postoParaGrid(posto);
+    const aIso = iso(g.x, g.y);
+    const bIso = iso(g.x + v.x * 0.38, g.y + v.y * 0.38);
+    const ax = ORIGEM.x + aIso.x;
+    const ay = ORIGEM.y + aIso.y;
+    const bx = ORIGEM.x + bIso.x;
+    const by = ORIGEM.y + bIso.y;
+    const ang = Math.atan2(by - ay, bx - ax);
+
+    ctx.save();
+    ctx.strokeStyle = posto.facingOrigem === 'manual' ? '#f5d76e' : '#34d399';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx - Math.cos(ang - 0.55) * 7, by - Math.sin(ang - 0.55) * 7);
+    ctx.lineTo(bx - Math.cos(ang + 0.55) * 7, by - Math.sin(ang + 0.55) * 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   function peDaFace(face) {
@@ -715,6 +840,64 @@ function resumoPolitica(politica) {
       h: bbox.h,
     };
   }
+  /** Camadas de um combo com bbox ja cacheada (apos o 1o blit). */
+  function bboxCamadas(spec) {
+    const out = [];
+    if (!spec || !spec.camadas) return out;
+    for (const cam of spec.camadas) {
+      const layerSpec = specPorId(cam.assetId);
+      if (!layerSpec || layerSpec.camadas || !layerSpec.fileName) continue;
+      if (!bboxPorSrc.has(layerSpec.fileName)) continue;
+      out.push({
+        bbox: bboxPorSrc.get(layerSpec.fileName),
+        dx: cam.dx || 0,
+        dy: cam.dy || 0,
+        layerSpec,
+      });
+    }
+    return out;
+  }
+  function unirRects(rects) {
+    if (!rects.length) return null;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const r of rects) {
+      minX = Math.min(minX, r.x);
+      minY = Math.min(minY, r.y);
+      maxX = Math.max(maxX, r.x + r.w);
+      maxY = Math.max(maxY, r.y + r.h);
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  /** Retangulo de hit/destaque: asset simples ou uniao das camadas do combo. */
+  function rectPecaSpec(item, spec) {
+    if (!item || !spec) return null;
+    if (spec.camadas && spec.camadas.length) {
+      const cams = bboxCamadas(spec);
+      if (!cams.length) return null;
+      const rects = [];
+      if (itemEParede(item)) {
+        for (const cam of cams) {
+          rects.push(rectPecaParede({
+            ...item,
+            dx: (item.dx || 0) + cam.dx,
+            dy: (item.dy || 0) + cam.dy,
+          }, cam.bbox));
+        }
+      } else {
+        for (const cam of cams) {
+          const r = rectPecaPiso(item, cam.bbox, cam.layerSpec);
+          rects.push({ x: r.x + cam.dx, y: r.y + cam.dy, w: r.w, h: r.h });
+        }
+      }
+      return unirRects(rects);
+    }
+    if (!spec.fileName || !bboxPorSrc.has(spec.fileName)) return null;
+    const bbox = bboxPorSrc.get(spec.fileName);
+    return itemEParede(item) ? rectPecaParede(item, bbox) : rectPecaPiso(item, bbox, spec);
+  }
   function pontoNoRect(px, py, r) {
     return px >= r.x && py >= r.y && px <= r.x + r.w && py <= r.y + r.h;
   }
@@ -758,10 +941,8 @@ function resumoPolitica(politica) {
     for (let i = estado.palco.length - 1; i >= 0; i--) {
       const p = estado.palco[i];
       if (!itemEParede(p)) continue;
-      const spec = specPorId(p.assetId);
-      const src = spec && spec.fileName;
-      if (!src || !bboxPorSrc.has(src)) continue;
-      if (pontoNoRect(px, py, rectPecaParede(p, bboxPorSrc.get(src)))) return i;
+      const r = rectPecaSpec(p, specPorId(p.assetId));
+      if (r && pontoNoRect(px, py, r)) return i;
     }
     return -1;
   }
@@ -769,10 +950,8 @@ function resumoPolitica(politica) {
     for (let i = estado.palco.length - 1; i >= 0; i--) {
       const p = estado.palco[i];
       if (itemEParede(p)) continue;
-      const spec = specPorId(p.assetId);
-      const src = spec && spec.fileName;
-      if (!src || !bboxPorSrc.has(src)) continue;
-      if (pontoNoRect(px, py, rectPecaPiso(p, bboxPorSrc.get(src), spec))) return i;
+      const r = rectPecaSpec(p, specPorId(p.assetId));
+      if (r && pontoNoRect(px, py, r)) return i;
     }
     return -1;
   }
@@ -1011,24 +1190,30 @@ function resumoPolitica(politica) {
     const wrap = document.getElementById('camadas-locais');
     const root = document.getElementById('lista-camadas-locais');
     if (!wrap || !root) return;
-    if (estado.combinando || paredePecaIx < 0) {
+    if (estado.combinando || paredePecaIx < 0 || !estado.palco[paredePecaIx]) {
       wrap.hidden = true;
       root.innerHTML = '';
       return;
     }
     const viz = vizinhosRelevantes(paredePecaIx);
-    if (!viz.length) {
-      wrap.hidden = true;
-      root.innerHTML = '';
-      return;
-    }
     wrap.hidden = false;
     root.innerHTML = '';
     const self = estado.palco[paredePecaIx];
     const selfSpec = specPorId(self.assetId);
     const chipSelf = document.createElement('div');
     chipSelf.className = 'chip sel';
-    chipSelf.textContent = (selfSpec ? selfSpec.nome : self.assetId) + ' (selecionado)';
+    const nomeSelf = document.createElement('span');
+    nomeSelf.textContent = (selfSpec ? selfSpec.nome : self.assetId) + ' (selecionado)';
+    const rmSelf = document.createElement('button');
+    rmSelf.type = 'button';
+    rmSelf.textContent = 'remover';
+    rmSelf.title = 'Remove a peca selecionada (Delete / Ctrl+Del)';
+    rmSelf.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      removerPecaPalco(paredePecaIx);
+    });
+    chipSelf.appendChild(nomeSelf);
+    chipSelf.appendChild(rmSelf);
     root.appendChild(chipSelf);
     for (const i of viz) {
       const p = estado.palco[i];
@@ -1059,6 +1244,36 @@ function resumoPolitica(politica) {
     }
   }
 
+  function limparSelecaoEditor() {
+    if (estado.combinando) {
+      if (composeSel < 0) return false;
+      composeSel = -1;
+      pintarListaCamadas();
+      desenharCompose();
+      return true;
+    }
+    if (paredePecaIx < 0) return false;
+    paredePecaIx = -1;
+    pintarListaParede();
+    pintarCamadasLocais();
+    desenharPalco();
+    return true;
+  }
+
+  function nudgeAnexoSelecionado(ddx, ddy) {
+    if (estado.combinando || paredePecaIx < 0) return false;
+    const peca = estado.palco[paredePecaIx];
+    if (!peca || !itemEParede(peca)) return false;
+    marcarUndo();
+    peca.dx = (peca.dx || 0) + ddx;
+    peca.dy = (peca.dy || 0) + ddy;
+    gravarEstado(estado);
+    pintarListaParede();
+    pintarCamadasLocais();
+    desenharPalco();
+    return true;
+  }
+
   function setBookOpen(on) {
     bookAberto = !!on;
     document.body.classList.toggle('book-open', bookAberto);
@@ -1081,6 +1296,7 @@ function resumoPolitica(politica) {
 
   function setModoLab(modo) {
     const combinar = modo === 'combinar';
+    if (combinar && marcandoAssento) setMarcandoAssento(false);
     setCombinando(combinar);
   }
 
@@ -1107,7 +1323,7 @@ function resumoPolitica(politica) {
       versao: '1.5',
       data: hoje,
       notas:
-        'Cada zonaKind e um ProtoComodo completo (grade + tileset + palco + calibracao). Persistido automaticamente pelo lab em packages/world-engine/src/biblia/temas-arquiteto.json.',
+        'Cada zonaKind e um ProtoComodo completo (grade + tileset + palco + calibracao). Persistido automaticamente pelo lab em packages/world-engine/src/biblia/temas-arquiteto.json. zonaKind landing = proto handcrafted para marketing/landing; nao entra no space-program nem na geracao do escritorio da Demo.',
       temas: estado.temas,
       politicaTiles: estado.politicaTiles,
     };
@@ -1211,6 +1427,22 @@ function resumoPolitica(politica) {
     const el = document.getElementById('celula-txt');
     if (estado.combinando) {
       el.textContent = 'modo combinar: clique um card para adicionar no preview de baixo, depois arraste.';
+      pintarListaParede();
+      return;
+    }
+    if (marcandoAssento) {
+      const h = assentoHover;
+      const posto = (estado.postosTrabalho || []).find((p) => p.agentSlot === agentSlotAssento());
+      const hoverTxt = h
+        ? 'hover ' + h.gx + ',' + h.gy + ' q' + (h.qx || 0) + (h.qy || 0)
+        : 'passe o mouse sobre um quarto do piso';
+      const travadoTxt = posto
+        ? ' · travado ' + posto.gx + ',' + posto.gy + ' q' + (posto.qx || 0) + (posto.qy || 0)
+        : ' · nenhum assento travado';
+      el.textContent =
+        'marcar assento: clique esquerdo para travar, outra celula troca · Esc cancela modo · salve o tema depois. ' +
+        hoverTxt +
+        travadoTxt;
       pintarListaParede();
       return;
     }
@@ -1499,37 +1731,59 @@ function resumoPolitica(politica) {
       for (const posto of estado.postosTrabalho) {
         const g = postoParaGrid(posto);
         losango(ctx, g.x, g.y, '#34d399', 'rgba(52, 211, 153, 0.25)', posto.passo || 1);
+        desenharSetaFacingPosto(ctx, posto);
       }
     }
 
     atualizarAvisoPalco(estado.palco);
 
-    // Grade / quartos / ancoras: so no diagnostico. No modo normal o palco fica limpo
-    // para nao atrapalhar drag-and-drop.
-    if (estado.diagnostico) {
+    // Grade / quartos: diagnostico tecnico OU modo marcar assento (selecao visual).
+    if (estado.diagnostico || marcandoAssento) {
       for (const c of celulas) {
         for (let qy = 0; qy < 2; qy++) {
           for (let qx = 0; qx < 2; qx++) {
-            const sel = c.gx === estado.celula.gx && c.gy === estado.celula.gy &&
-              qx === (estado.celula.qx || 0) && qy === (estado.celula.qy || 0);
-            losango(
-              ctx,
-              c.gx + qx * 0.5,
-              c.gy + qy * 0.5,
-              sel ? '#7ec8ff' : 'rgba(80, 160, 255, 0.55)',
-              sel ? 'rgba(80, 160, 255, 0.14)' : null,
-              0.5,
+            const slot = { gx: c.gx, gy: c.gy, qx, qy };
+            const hover = marcandoAssento && mesmaSubcelula(slot, assentoHover);
+            const sel =
+              estado.diagnostico &&
+              c.gx === estado.celula.gx &&
+              c.gy === estado.celula.gy &&
+              qx === (estado.celula.qx || 0) &&
+              qy === (estado.celula.qy || 0);
+            const postoTravado = (estado.postosTrabalho || []).some(
+              (p) =>
+                p.gx === c.gx &&
+                p.gy === c.gy &&
+                (p.qx || 0) === qx &&
+                (p.qy || 0) === qy,
             );
+            let stroke = marcandoAssento
+              ? 'rgba(52, 211, 153, 0.45)'
+              : 'rgba(80, 160, 255, 0.55)';
+            let fill = null;
+            if (postoTravado) {
+              stroke = '#34d399';
+              fill = 'rgba(52, 211, 153, 0.28)';
+            } else if (hover) {
+              stroke = '#f5d76e';
+              fill = 'rgba(245, 215, 110, 0.32)';
+            } else if (sel) {
+              stroke = '#7ec8ff';
+              fill = 'rgba(80, 160, 255, 0.14)';
+            }
+            losango(ctx, c.gx + qx * 0.5, c.gy + qy * 0.5, stroke, fill, 0.5);
           }
         }
-        const p = iso(c.gx + 0.5, c.gy + 0.5);
-        ctx.fillStyle = '#ff3b3b';
-        ctx.beginPath();
-        ctx.arc(ORIGEM.x + p.x, ORIGEM.y + p.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(200, 230, 255, 0.85)';
-        ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
-        ctx.fillText(c.gx + ',' + c.gy, ORIGEM.x + p.x + 4, ORIGEM.y + p.y - 4);
+        if (estado.diagnostico) {
+          const p = iso(c.gx + 0.5, c.gy + 0.5);
+          ctx.fillStyle = '#ff3b3b';
+          ctx.beginPath();
+          ctx.arc(ORIGEM.x + p.x, ORIGEM.y + p.y, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(200, 230, 255, 0.85)';
+          ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+          ctx.fillText(c.gx + ',' + c.gy, ORIGEM.x + p.x + 4, ORIGEM.y + p.y - 4);
+        }
       }
     }
     perimetroGrade(ctx, w, h);
@@ -1537,13 +1791,8 @@ function resumoPolitica(politica) {
     // Destaque so da peca selecionada (nao da malha do piso).
     if (paredePecaIx >= 0 && paredePecaIx < estado.palco.length) {
       const peca = estado.palco[paredePecaIx];
-      const specP = specPorId(peca.assetId);
-      const src = specP && specP.fileName;
-      const bboxPeca = src ? bboxPorSrc.get(src) : null;
-      if (bboxPeca && specP) {
-        const rP = itemEParede(peca)
-          ? rectPecaParede(peca, bboxPeca)
-          : rectPecaPiso(peca, bboxPeca, specP);
+      const rP = rectPecaSpec(peca, specPorId(peca.assetId));
+      if (rP) {
         ctx.strokeStyle = '#c4a35a';
         ctx.lineWidth = 2;
         ctx.strokeRect(rP.x - 0.5, rP.y - 0.5, rP.w + 1, rP.h + 1);
@@ -2086,6 +2335,7 @@ function resumoPolitica(politica) {
   }
 
   function aplicarTema(tema) {
+    if (marcandoAssento) setMarcandoAssento(false);
     const t = normalizarTema(tema);
 
     estado.previewZona = null;
@@ -2666,6 +2916,18 @@ function resumoPolitica(politica) {
 
   canvas.addEventListener('pointerdown', (ev) => {
     if (estado.combinando) return;
+    if (marcandoAssento) {
+      // No modo assento o clique no chao (e sobre pecas) trava a subcelula;
+      // nao inicia arraste de pecas.
+      const pt = pontoDoCanvas(canvas, ev);
+      const cel = celulaAssentoSobPonto(pt.x, pt.y);
+      if (cel) {
+        travarAssentoEm(cel);
+        pulouClickPalco = true;
+      }
+      ev.preventDefault();
+      return;
+    }
     const pt = pontoDoCanvas(canvas, ev);
     const ix = pecaPalcoSobPonto(pt.x, pt.y);
     if (ix < 0) return;
@@ -2699,6 +2961,22 @@ function resumoPolitica(politica) {
     desenharPalco();
     ev.preventDefault();
   });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!marcandoAssento || arrastePiso || arrasteParede || arrasteCatalogo) return;
+    const pt = pontoDoCanvas(canvas, ev);
+    const cel = celulaAssentoSobPonto(pt.x, pt.y);
+    if (mesmaSubcelula(cel, assentoHover)) return;
+    assentoHover = cel;
+    atualizarCelulaTxt();
+    desenharPalco();
+  });
+  canvas.addEventListener('pointerleave', () => {
+    if (!marcandoAssento || !assentoHover) return;
+    assentoHover = null;
+    atualizarCelulaTxt();
+    desenharPalco();
+  });
+
   window.addEventListener('pointermove', (ev) => {
     if (arrasteCatalogo) {
       const dx = ev.clientX - arrasteCatalogo.x0;
@@ -2714,7 +2992,9 @@ function resumoPolitica(politica) {
         document.body.appendChild(ghost);
         arrasteCatalogo.ghost = ghost;
         const spec = arrasteCatalogo.spec;
-        if (spec.fileName) {
+        if (spec.camadas && spec.camadas.length) {
+          void preencherThumbCombo(ghost, spec);
+        } else if (spec.fileName) {
           carregar(spec.fileName).then((img) => {
             const b = medirBbox(img);
             const t = thumb(img, b, 96, 64);
@@ -2839,6 +3119,13 @@ function resumoPolitica(politica) {
       return;
     }
     if (estado.combinando) return;
+    if (marcandoAssento) {
+      // Fallback: se o pointerdown nao capturou, trava pelo click.
+      const pt = pontoDoCanvas(canvas, ev);
+      const cel = celulaAssentoSobPonto(pt.x, pt.y);
+      if (cel) travarAssentoEm(cel);
+      return;
+    }
     const pt = pontoDoCanvas(canvas, ev);
     const ix = pecaPalcoSobPonto(pt.x, pt.y);
     if (ix >= 0) {
@@ -3019,29 +3306,31 @@ function resumoPolitica(politica) {
   }
   const btnMarcarAssento = document.getElementById('btn-marcar-assento');
   if (btnMarcarAssento) {
+    atualizarBotaoAssento();
     btnMarcarAssento.addEventListener('click', () => {
-      const passo = estado.subdiv ? 0.5 : 1;
-      const zonaEl = document.getElementById('tema-zona');
-      const slot =
-        zonaEl && zonaEl.value === 'boss_room'
-          ? 'agent-boss'
-          : 'default';
-      const entry = {
-        agentSlot: slot,
-        gx: estado.celula.gx,
-        gy: estado.celula.gy,
-        qx: estado.subdiv ? (estado.celula.qx || 0) : 0,
-        qy: estado.subdiv ? (estado.celula.qy || 0) : 0,
-        passo,
-        facing: 2,
-      };
-      estado.postosTrabalho = estado.postosTrabalho.filter((p) => p.agentSlot !== slot);
-      estado.postosTrabalho.push(entry);
-      estado.postosTrabalho = normalizarPostosTrabalho(estado.postosTrabalho);
-      gravarEstado(estado);
-      desenharPalco();
+      setMarcandoAssento(!marcandoAssento);
     });
   }
+  window.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && marcandoAssento) {
+      setMarcandoAssento(false);
+      ev.preventDefault();
+      return;
+    }
+    if (marcandoAssento && (ev.key === 'q' || ev.key === 'Q' || ev.key === 'e' || ev.key === 'E')) {
+      const slot = agentSlotAssento();
+      const posto = estado.postosTrabalho.find((p) => p.agentSlot === slot);
+      if (!posto) return;
+      const giro = ev.key === 'q' || ev.key === 'Q' ? -1 : 1;
+      posto.facing = (posto.facing + giro + 4) % 4;
+      posto.facingOrigem = 'manual';
+      estado.postosTrabalho = normalizarPostosTrabalho(estado.postosTrabalho);
+      gravarEstado(estado);
+      atualizarCelulaTxt();
+      desenharPalco();
+      ev.preventDefault();
+    }
+  });
   document.getElementById('btn-copiar-temas').addEventListener('click', async () => {
     const txt = JSON.stringify(jsonTemas(), null, 2);
     try {
@@ -3164,11 +3453,21 @@ function resumoPolitica(politica) {
       refazer();
       return;
     }
+    // Escape limpa selecao (modo assento tem o outro listener).
+    if (ev.key === 'Escape' && !marcandoAssento) {
+      if (limparSelecaoEditor()) ev.preventDefault();
+      return;
+    }
+    const isDel = ev.key === 'Delete' || ev.key === 'Backspace';
+    if (isDel) {
+      // Delete, Backspace, Ctrl+Del / Cmd+Del: remove o selecionado.
+      if (estado.combinando) removerCamada();
+      else removerPecaPalco();
+      ev.preventDefault();
+      return;
+    }
     if (estado.combinando) {
-      if (ev.key === 'Delete' || ev.key === 'Backspace') {
-        removerCamada();
-        ev.preventDefault();
-      } else if (ev.key === '[' || ev.key === 'PageDown') {
+      if (ev.key === '[' || ev.key === 'PageDown') {
         moverCamada(-1);
         ev.preventDefault();
       } else if (ev.key === ']' || ev.key === 'PageUp') {
@@ -3177,9 +3476,22 @@ function resumoPolitica(politica) {
       }
       return;
     }
-    if (ev.key === 'Delete' || ev.key === 'Backspace') {
-      removerPecaPalco();
+    // Palco: z-order com [ ] / PageUp/PageDown (igual Combinar).
+    if (paredePecaIx >= 0 && (ev.key === '[' || ev.key === 'PageDown')) {
+      moverPecaPalco(paredePecaIx, -1);
       ev.preventDefault();
+      return;
+    }
+    if (paredePecaIx >= 0 && (ev.key === ']' || ev.key === 'PageUp')) {
+      moverPecaPalco(paredePecaIx, 1);
+      ev.preventDefault();
+      return;
+    }
+    // Anexo de parede: setas ajustam dx/dy em 1 px.
+    if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight' || ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+      const ddx = ev.key === 'ArrowLeft' ? -1 : ev.key === 'ArrowRight' ? 1 : 0;
+      const ddy = ev.key === 'ArrowUp' ? -1 : ev.key === 'ArrowDown' ? 1 : 0;
+      if (nudgeAnexoSelecionado(ddx, ddy)) ev.preventDefault();
     }
   });
   const btnComposeSalvar = document.getElementById('btn-compose-salvar');

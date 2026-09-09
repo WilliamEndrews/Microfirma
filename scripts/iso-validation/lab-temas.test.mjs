@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import {
+  facingOlhandoPara,
+  inferirFacingAssento,
+  mesaMaisProximaDoPosto,
   mesclarCombos,
   normalizarPostosTrabalho,
   postoParaGrid,
@@ -63,6 +66,24 @@ describe('postosTrabalho', () => {
     expect(g.x).toBeCloseTo(1.25);
     expect(g.y).toBeCloseTo(2.75);
     expect(g.facing).toBe(0);
+    expect(postos[0].facingOrigem).toBe('padrao_norte');
+  });
+
+  it('infere mesa proxima, cardinal e fallback norte', () => {
+    const posto = { gx: 2, gy: 2, qx: 0, qy: 0, passo: 0.5 };
+    const mesa = mesaMaisProximaDoPosto(posto, [
+      { assetId: 'longe', gx: 7, gy: 7 },
+      { assetId: 'perto', gx: 2, gy: 1 },
+    ]);
+    expect(mesa.assetId).toBe('perto');
+    expect(inferirFacingAssento(posto, mesa)).toEqual({
+      facing: 2,
+      facingOrigem: 'olhar_mesa',
+    });
+    expect(
+      inferirFacingAssento(posto, { assetId: 'mesma', gx: 2, gy: 2 }),
+    ).toEqual({ facing: 2, facingOrigem: 'padrao_norte' });
+    expect(facingOlhandoPara({ x: 0, y: 0 }, { x: 1, y: 0 })).toBe(3);
   });
 });
 

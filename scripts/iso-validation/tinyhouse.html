@@ -145,6 +145,7 @@
     cursor: grab;
   }
   canvas.palco.arrastando { cursor: grabbing; }
+  canvas.palco.marcando-assento { cursor: crosshair; }
   canvas#palco-compose { cursor: grab; }
   .stage-canvas-slot canvas[hidden] { display: none !important; }
 
@@ -538,7 +539,7 @@
         <button type="button" id="btn-padrao">cenario mesa+cadeira</button>
         <button type="button" id="btn-limpar">limpar palco</button>
         <button type="button" id="btn-reset">resetar JSON</button>
-        <span class="atalho-hint" title="Desfazer a ultima acao do canvas"><kbd>Ctrl+Z</kbd> desfaz</span>
+        <span class="atalho-hint" title="Desfazer; remover peca selecionada (Del ou Ctrl+Del)"><kbd>Ctrl+Z</kbd> · <kbd>Del</kbd> · <kbd>Ctrl+Del</kbd></span>
       </div>
 
       <div class="stage-canvas-slot">
@@ -733,10 +734,18 @@
     <h2 id="help-title">Como funciona</h2>
     <ul>
       <li><strong>Palco Principal</strong> — arraste assets do caderninho para montar o escritorio. Perto da parede NW o Lab ancora como anexo; no centro ancora no piso (quarteis internos, sem UI de subdivisao). Clique no chao vazio nao seleciona grade — so pecas sao selecionaveis/arrastaveis. Piso, parede e decor empilham: um asset novo nao substitui o anterior.</li>
+      <li><strong>Marcar assento</strong> — o botao entra num modo: o piso aparece subdividido em quartos. Passe o mouse para destacar, clique esquerdo para travar (verde). Clique outra subcelula para trocar. <kbd>Esc</kbd> ou o botao de novo cancela o modo. A marca so vai para a biblia quando voce <strong>salvar tema</strong>. No modo assento: <kbd>Q</kbd> / <kbd>E</kbd> giram o facing.</li>
+      <li><strong>Atalhos do canvas</strong> —
+        <kbd>Delete</kbd> ou <kbd>Ctrl+Del</kbd> (Mac: <kbd>Cmd+Del</kbd>) remove a peca/camada selecionada;
+        <kbd>Esc</kbd> limpa a selecao;
+        <kbd>[</kbd> / <kbd>]</kbd> (ou PageDown / PageUp) muda z-order entre vizinhos (palco e Combinar);
+        setas ←↑→↓ ajustam <code>dx</code>/<code>dy</code> de anexo de parede em 1 px;
+        <kbd>Ctrl+Z</kbd> desfaz; <kbd>Ctrl+Y</kbd> ou <kbd>Ctrl+Shift+Z</kbd> refaz.
+      </li>
       <li><strong>Desfazer</strong> — <kbd>Ctrl+Z</kbd> volta a ultima acao do canvas (plantar, mover, remover, limpar). <kbd>Ctrl+Y</kbd> ou <kbd>Ctrl+Shift+Z</kbd> refaz.</li>
       <li><strong>Combinar assets</strong> — monte sprites compostos (ex.: notebook no tampo). Salvo, vira card do catalogo.</li>
       <li><strong>Caderninho</strong> — Assets, Ambiente (tiles/pisos/paredes/zonas) e Temas do arquiteto.</li>
-      <li><strong>Camadas</strong> — com uma peca selecionada, ajuste frente/atras so entre vizinhos proximos.</li>
+      <li><strong>Camadas</strong> — com uma peca selecionada, o chip mostra <strong>remover</strong>; ajuste frente/atras so entre vizinhos proximos (botoes ou <kbd>[</kbd>/<kbd>]</kbd>).</li>
       <li><strong>Espelho</strong> — em anexos elegiveis, botao no chip troca face L↔R.</li>
       <li><strong>Diagnostico</strong> — mostra quartos azuis, ancoras e pe. Desligado por padrao para nao atrapalhar o DnD.</li>
       <li>Temas gravados alimentam <code>temas-arquiteto.json</code> via <code>pnpm lab:iso</code>. O botao <strong>i</strong> mostra pe/ancora e diagnostico tecnico.</li>
