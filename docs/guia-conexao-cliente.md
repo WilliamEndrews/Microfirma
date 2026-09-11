@@ -1,19 +1,19 @@
 # Guia de conexao do cliente — MicroFirma
 
-Documentacao **completa** para conectar o sistema do cliente ao escritorio:
-todas as variantes, o que configurar do lado deles, e como validar.
+Documento unico para **conectar um sistema agentico ao escritorio**.
+Serve para demo na mesa do cliente, piloto tecnico e onboarding self-service.
 
-Leituras curtas relacionadas:
+Documentos relacionados (mais curtos / especializados):
 
 - Logica da ponte (codigo vs JWT): [`conexao-telemetria.md`](conexao-telemetria.md)
-- Runbook / aceite OTLP local: [`telemetria-otlp.md`](telemetria-otlp.md)
-- Deploy e env: [`deploy.md`](deploy.md)
+- Runbook de teste local / fixture: [`telemetria-otlp.md`](telemetria-otlp.md)
+- Deploy e envs: [`deploy.md`](deploy.md)
 
 ---
 
 ## 1. Ideia em uma frase
 
-MicroFirma **nao entra no codigo deles para “rodar tenant”**.  
+MicroFirma **nao entra no codigo do cliente para “rodar tenant”**.  
 Eles (ou voce na integracao) configuram **uma fonte de eventos** que manda
 dados para o server; o browser so **abre o escritorio** com um JWT.
 
@@ -44,20 +44,22 @@ Humano no browser   →  JWT                            →  mesmo escritorio
 
 Suba (local):
 
-| Servico | URL tipica |
-|---------|------------|
-| Server | `http://127.0.0.1:8787` |
-| Landing | `http://localhost:5174` |
-| Demo | `http://localhost:5173` |
+| Servico | URL tipica | Como subir |
+|---------|------------|------------|
+| Server | `http://127.0.0.1:8787` | `npx pnpm --filter @microfirma/server dev` |
+| Landing | `http://localhost:5174` | `npx pnpm --filter @microfirma/landing dev` |
+| Demo | `http://localhost:5173` | `npx pnpm --filter @microfirma/demo dev` |
 
-Variaveis uteis:
+### Variaveis de ambiente
 
 | Variavel | Quem | Default | Funcao |
 |----------|------|---------|--------|
-| `MICROFIRMA_HOST` / `MICROFIRMA_PORT` | Server | `127.0.0.1` / `8787` | Bind do API/OTLP/WS |
+| `MICROFIRMA_HOST` | Server | `127.0.0.1` | Bind do API/OTLP/WS |
+| `MICROFIRMA_PORT` | Server | `8787` | Porta HTTP/WS |
 | `VITE_MICROFIRMA_API` | Landing | `http://127.0.0.1:8787` | Para onde a ponte POSTA |
 | `VITE_MICROFIRMA_DEMO_URL` | Landing | `http://localhost:5173` | Link “entrar no escritorio” |
 | `VITE_MICROFIRMA_WS` | Demo (legado) | — | WS fixo sem `?token=` |
+| `VITE_MICROFIRMA_TOKEN` | Demo (legado) | — | Token embutido via `.env.local` |
 
 **Limite atual:** tenants ficam **em memoria**. Reiniciar o server apaga o
 codigo. Em piloto real, o server precisa ficar estavel (persistencia duravel
@@ -77,19 +79,13 @@ ainda e gap — ver [`plano-mestre-mvp.md`](plano-mestre-mvp.md)).
 
 Voltar depois: **Ja tenho codigo** → mesmo `tenantId` → novo JWT.
 
-API equivalente (sem UI):
+APIs equivalentes (sem UI):
 
 ```http
 POST /api/public/onboard
-content-type: application/json
-
 { "displayName": "Acme" }
-```
 
-```http
 POST /api/public/conectar
-content-type: application/json
-
 { "codigo": "<tenantId>" }
 ```
 
@@ -105,6 +101,14 @@ content-type: application/json
 4. **Entrar no escritorio**
 
 Nao configura nada no projeto do cliente.
+
+Via terminal (PowerShell), com o codigo da ponte:
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:8787/api/public/simular" `
+  -Method POST -ContentType "application/json" `
+  -Body (@{ codigo = "SEU_TENANT_ID" } | ConvertTo-Json)
+```
 
 ---
 
@@ -122,7 +126,7 @@ No exportador / Collector / SDK deles:
 | Header | `x-tenant-id: <codigo-da-ponte>` | Sem isso → 404 / sala errada |
 | Content-Type | `application/json` | |
 
-Exemplo mental (env comum em SDKs — nomes variam por SDK):
+Exemplo mental (env comum em SDKs — nomes variam por biblioteca):
 
 ```bash
 OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:8787/v1/traces
@@ -130,7 +134,7 @@ OTEL_EXPORTER_OTLP_PROTOCOL=http/json
 OTEL_EXPORTER_OTLP_HEADERS=x-tenant-id=<CODIGO>
 ```
 
-O **efeito** tem que ser o da tabela; o nome exato da env depende do SDK.
+O **efeito** precisa ser: POST JSON em `/v1/traces` com o header `x-tenant-id`.
 
 ### 6.2 Collector OpenTelemetry (YAML tipico)
 
@@ -186,7 +190,7 @@ O adaptador ignora conteudo, mas melhor nem mandar.
 
 ### 6.5 Teste manual (PowerShell)
 
-No PowerShell use `curl.exe` (nao o alias `curl` = `Invoke-WebRequest`):
+No PowerShell, use `curl.exe` (nao o alias `curl` = `Invoke-WebRequest`):
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:8787/v1/traces `
@@ -259,12 +263,13 @@ content-type: application/json
 | `approval.requested` | `agentId`, `question`, `approvalId?` |
 | `queue.observed` | `agentId`, `depth` |
 
-O server preenche `eventId`, `tsReal` e envelope interno
-(`apps/server/src/eventos-nativos.ts`).
+O server preenche `eventId`, `tsReal` e o envelope interno (`DomainEvent`).
 
 **O que configurar no sistema deles:** qualquer job/HTTP client que, em
-pontos-chave (agente criado, tool, erro, aprovacao), faca esse POST. Nao
-precisa de OpenTelemetry.
+pontos-chave (agente criado, tool, erro, aprovacao), faca esse POST.
+Nao precisa de OpenTelemetry.
+
+Implementacao: `apps/server/src/eventos-nativos.ts`.
 
 ---
 
@@ -279,28 +284,27 @@ npm run telemetria:enviar
 npx pnpm --filter @microfirma/demo dev
 ```
 
-Util para engenharia; na mesa do cliente prefira landing + Simular ou
-OTLP / events.
-
 Validacao offline da fixture:
 
 ```powershell
 npm run telemetria:dry
 ```
 
+Util para engenharia; na mesa do cliente prefira landing + Simular ou OTLP/events.
+
 ---
 
-## 9. Checklist — o que pedir ao time tecnico deles
+## 9. Checklist — o que entregar ao time tecnico deles
 
-Entregue este pacote (Slack / e-mail / Notion):
+Pacote minimo (Slack / e-mail / Notion):
 
 1. **Codigo:** `xxxxxxxx-xxxx-…`
 2. **Escolha A ou B:**
    - **A – OTLP:** endpoint + header + JSON GenAI (secao 6)
    - **B – Webhook:** `POST /api/events` (secao 7)
 3. **Viewer:** link da Demo com token (ou “Ja tenho codigo” na landing)
-4. **Privacidade:** nao enviar prompts / completions
-5. **Rede:** firewall / VPN ate o host do MicroFirma `:8787` (ou HTTPS publico)
+4. **Privacidade:** nao enviar prompts/completions
+5. **Rede:** firewall/VPN ate o host do MicroFirma `:8787` (ou HTTPS publico)
 
 Perguntas para eles:
 
@@ -315,12 +319,12 @@ Perguntas para eles:
 
 | Sinal | Onde |
 |-------|------|
-| `[otlp] N eventos ingeridos` ou resposta `{ "eventos": N }` | Log server / HTTP |
+| `[otlp] N eventos ingeridos` ou `{ "eventos": N }` | Log server / HTTP |
 | Agentes aparecem; planta remesha (Boss + privativos + copa) | Demo |
 | Gerente em `waiting_approval` (fixture) | Demo / painel |
 | `404 codigo nao encontrado` | Tenant sumiu (restart) ou codigo errado |
 
-Criterios de aceite detalhados: [`telemetria-otlp.md`](telemetria-otlp.md).
+Criterios honestos da fixture: [`telemetria-otlp.md`](telemetria-otlp.md).
 
 ---
 
@@ -329,11 +333,11 @@ Criterios de aceite detalhados: [`telemetria-otlp.md`](telemetria-otlp.md).
 | O que desliga | Efeito | Proxima entrada |
 |---------------|--------|-----------------|
 | PC do **viewer** | So fecha o Demo | Landing → Ja tenho codigo → novo JWT |
-| Processo **agentico do cliente** | Para de mandar eventos | Ao subir de novo, mesma config OTLP / `/api/events` |
+| Processo **agentico do cliente** | Para de mandar eventos | Ao subir de novo, mesma config OTLP/`/api/events` |
 | **Server MicroFirma** | Perde tenant (hoje) | Nova empresa **ou** recriar + atualizar codigo no cliente |
 
-A config OTLP / events no disco **deles** persiste; o que nao persiste ainda e
-o registry **nosso**.
+A config OTLP/events no disco **deles** persiste; o que nao persiste ainda e o
+registry **nosso** (em memoria).
 
 ---
 
@@ -343,19 +347,37 @@ o registry **nosso**.
 Cliente na mesa?
   ├─ So mostrar o produto     → Simular (var. A)
   ├─ Tem OTel / Collector     → OTLP JSON + x-tenant-id (var. B)
-  ├─ Tem HTTP / webhook facil → /api/events (var. C)
-  └─ Nada ainda               → Simular agora + agendar integracao SDK / OTLP
+  ├─ Tem HTTP/webhook facil   → /api/events (var. C)
+  └─ Nada ainda               → Simular agora + agendar integracao SDK/OTLP
 ```
 
 ---
 
-## 13. Codigo de referencia
+## 13. Codigo de referencia no monorepo
 
-| Peça | Caminho |
+| Peca | Caminho |
 |------|---------|
-| Ponte landing | `apps/landing/src/Onboarding.tsx`, `apps/landing/src/api.ts` |
+| Ponte UI | `apps/landing/src/Onboarding.tsx`, `apps/landing/src/api.ts` |
 | Onboard / conectar | `apps/server/src/public-onboard.ts` |
-| Simular + events | `apps/server/src/eventos-nativos.ts` |
-| Receptor OTLP | `apps/server/src/server.ts` (`POST /v1/traces`) |
-| Traducao GenAI | `packages/contracts/src/otlp.ts` |
-| Fixture demo | `scripts/fixtures/agencia-3-agentes.otlp.json` |
+| Simular + `/api/events` | `apps/server/src/eventos-nativos.ts` |
+| Rotas HTTP | `apps/server/src/server.ts` |
+| Traducao OTLP → DomainEvent | `packages/contracts/src/otlp.ts` |
+| Fixture de 3 agentes | `scripts/fixtures/agencia-3-agentes.otlp.json` |
+| Harness CLI | `scripts/enviar-telemetria-agencia.ts` |
+
+---
+
+## 14. Respostas rapidas (FAQ)
+
+**Preciso de terminal no projeto deles?**  
+Nao no dia a dia. So na primeira integracao, para colar endpoint/header (ou
+webhook) na config deles.
+
+**Todo software agentico tem campo OTLP?**  
+Nao. Se nao tiver: use Simular, `/api/events`, ou um SDK/adaptador futuro.
+
+**O codigo muda toda vez?**  
+Nao, enquanto o server nao reiniciar. Reinicio = codigo antigo invalido (hoje).
+
+**JWT e o mesmo que codigo?**  
+Nao. Codigo = empresa (telemetria). JWT = voce assistindo o escritorio.

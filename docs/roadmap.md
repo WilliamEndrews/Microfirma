@@ -662,9 +662,6 @@ onboarding/cliente **antes** da telemetria iniciar.
    enviar spans.
 4. **Entrar no escritorio** abre `apps/demo?token=<JWT>`.
 
-Guia completo de conexao do cliente (Simular, OTLP, `/api/events`, checklist):
-[`guia-conexao-cliente.md`](guia-conexao-cliente.md).
-
 `Room.kind: landing` existe no contrato. `planSpaceProgram` / `montarMundoIso`
 nao emitem essa zona.
 

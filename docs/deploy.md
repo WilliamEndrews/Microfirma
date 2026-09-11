@@ -68,7 +68,7 @@ protobuf e **nao** `:4318`.
 Logica da ponte (codigo do cliente, JWT, `x-tenant-id`):
 [`docs/conexao-telemetria.md`](conexao-telemetria.md).
 
-Guia completo (variantes + config no sistema do cliente):
+Guia completo de conexao (todas as variantes + config no sistema do cliente):
 [`docs/guia-conexao-cliente.md`](guia-conexao-cliente.md).
 
 Runbook completo, criterios de aceite e gap de layout:

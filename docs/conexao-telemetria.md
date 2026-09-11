@@ -3,8 +3,8 @@
 Este topico explica **como o cliente se liga ao escritorio**: o que e o codigo,
 o que e o JWT, e por que OTLP e o browser usam caminhos diferentes.
 
-**Guia completo** (todas as variantes + o que configurar no sistema do cliente):
-[`guia-conexao-cliente.md`](guia-conexao-cliente.md).
+**Guia completo e detalhado** (variantes A–D, envs, Collector, checklist para o
+time tecnico do cliente): [`guia-conexao-cliente.md`](guia-conexao-cliente.md).
 
 Runbook de teste local (fixture, curl, aceite): [`telemetria-otlp.md`](telemetria-otlp.md).
 
