@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import {
   conectarCodigo,
   onboardEmpresa,
+  simularAgencia,
+  snippetEventos,
   snippetOtlp,
   urlDemoComToken,
   type RespostaPonte,
@@ -21,6 +23,8 @@ export default function Onboarding({ fase, sessao, onFase, onSessao }: Props) {
   const [codigo, setCodigo] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [simulando, setSimulando] = useState(false);
+  const [simOk, setSimOk] = useState<string | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
 
   async function copiar(rotulo: string, texto: string) {
@@ -60,6 +64,23 @@ export default function Onboarding({ fase, sessao, onFase, onSessao }: Props) {
       setErro(err instanceof Error ? err.message : 'codigo nao encontrado');
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function simular() {
+    if (!sessao) return;
+    setErro(null);
+    setSimOk(null);
+    setSimulando(true);
+    try {
+      const r = await simularAgencia(sessao.tenant.tenantId);
+      setSimOk(
+        `${r.eventos} eventos da agencia demo. Abra o escritorio para ver a planta.`,
+      );
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'falha ao simular');
+    } finally {
+      setSimulando(false);
     }
   }
 
@@ -146,7 +167,7 @@ export default function Onboarding({ fase, sessao, onFase, onSessao }: Props) {
           <h2 id="onboard-titulo">Ponte pronta</h2>
           <p className="onboard-lead">
             Escritorio de <strong>{sessao.tenant.displayName}</strong> no ar.
-            Telemetria so aparece quando o cliente enviar spans.
+            Simule agora ou aponte telemetria real depois.
           </p>
           <dl className="onboard-dl">
             <div>
@@ -163,7 +184,7 @@ export default function Onboarding({ fase, sessao, onFase, onSessao }: Props) {
               </dd>
             </div>
             <div>
-              <dt>OTLP</dt>
+              <dt>OTLP (cliente com OpenTelemetry)</dt>
               <dd>
                 <pre>{snippetOtlp(sessao.tenant.tenantId)}</pre>
                 <button
@@ -175,11 +196,35 @@ export default function Onboarding({ fase, sessao, onFase, onSessao }: Props) {
                 </button>
               </dd>
             </div>
+            <div>
+              <dt>Eventos nativos (sem OTLP)</dt>
+              <dd>
+                <pre>{snippetEventos(sessao.tenant.tenantId)}</pre>
+                <button
+                  type="button"
+                  className="onboard-copy"
+                  onClick={() => void copiar('events', snippetEventos(sessao.tenant.tenantId))}
+                >
+                  {copiado === 'events' ? 'copiado' : 'copiar'}
+                </button>
+              </dd>
+            </div>
           </dl>
           {erro && <p className="onboard-erro">{erro}</p>}
-          <a className="onboard-btn onboard-btn--link" href={urlDemoComToken(sessao.token)}>
-            entrar no escritorio
-          </a>
+          {simOk && <p className="onboard-ok">{simOk}</p>}
+          <div className="onboard-acoes onboard-acoes--ponte">
+            <button
+              type="button"
+              className="onboard-btn"
+              disabled={simulando}
+              onClick={() => void simular()}
+            >
+              {simulando ? 'simulando…' : 'Simular agencia'}
+            </button>
+            <a className="onboard-btn onboard-btn--link" href={urlDemoComToken(sessao.token)}>
+              entrar no escritorio
+            </a>
+          </div>
         </>
       )}
     </div>

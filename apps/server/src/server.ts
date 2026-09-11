@@ -17,6 +17,8 @@
  *   POST /api/auth/login           - emite JWT
  *   POST /api/public/onboard       - landing: cria tenant (sem x-api-key)
  *   POST /api/public/conectar      - landing: reconecta por tenantId
+ *   POST /api/public/simular       - landing: injeta fixture de 3 agentes
+ *   POST /api/events               - ingestao nativa (JSON compacto, sem OTLP)
  *   GET  /health                   - saude do servidor
  *   POST /v1/traces                - receptor OTLP (roteado por tenant)
  *
@@ -51,6 +53,7 @@ import {
   gerarId,
 } from './auth.js';
 import { conectarPublico, criarOnboardPublico } from './public-onboard.js';
+import { ingerirEventosPublicos, simularAgenciaPublica } from './eventos-nativos.js';
 
 const PORTA = Number(process.env.MICROFIRMA_PORT ?? 8787);
 const HOST = process.env.MICROFIRMA_HOST ?? '127.0.0.1';
@@ -155,6 +158,51 @@ const http = createServer(async (req, res) => {
       if (!r) {
         res.writeHead(404, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ error: 'codigo nao encontrado' }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(r));
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload invalido' }));
+    }
+    return;
+  }
+
+  if (pathPublico === '/api/public/simular' && req.method === 'POST') {
+    try {
+      const body = JSON.parse(await lerBody(req)) as { codigo?: unknown };
+      const codigo = typeof body.codigo === 'string' ? body.codigo : '';
+      const r = simularAgenciaPublica(registry, codigo);
+      if ('erro' in r) {
+        res.writeHead(r.status, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: r.erro }));
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(r));
+    } catch {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'payload invalido' }));
+    }
+    return;
+  }
+
+  // Ingestao nativa (sem OTLP) — body: { tenantId, events: EventoNativoCompacto[] }
+  if (pathPublico === '/api/events' && req.method === 'POST') {
+    try {
+      const body = JSON.parse(await lerBody(req)) as {
+        tenantId?: unknown;
+        events?: unknown;
+      };
+      const tenantId =
+        typeof body.tenantId === 'string'
+          ? body.tenantId
+          : (req.headers['x-tenant-id'] as string | undefined) ?? '';
+      const r = ingerirEventosPublicos(registry, tenantId, body.events);
+      if ('erro' in r) {
+        res.writeHead(r.status, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ error: r.erro }));
         return;
       }
       res.writeHead(200, { 'content-type': 'application/json' });

@@ -268,11 +268,23 @@ body,
 .onboard-btn--link {
   display: inline-block;
   text-decoration: none;
+  margin-top: 0;
+  text-align: center;
+}
+
+.onboard-acoes--ponte {
   margin-top: 0.8rem;
+  flex-wrap: wrap;
 }
 
 .onboard-erro {
   color: #9b2c2c;
+  font-size: 0.85rem;
+  margin: 0 0 0.6rem;
+}
+
+.onboard-ok {
+  color: #1f6b3a;
   font-size: 0.85rem;
   margin: 0 0 0.6rem;
 }

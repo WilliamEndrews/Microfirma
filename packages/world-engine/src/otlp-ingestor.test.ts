@@ -177,4 +177,37 @@ describe('OtlpIngestor', () => {
     // O primeiro evento deve ter tsReal menor (do span 'early')
     expect(eventos[0]!.tsReal).toBeLessThanOrEqual(eventos[eventos.length - 1]!.tsReal);
   });
+
+  it('ingerirEventos aceita DomainEvents nativos e descobre agentes', () => {
+    const ing = new OtlpIngestor({ tenantId: 't1' });
+    const n = ing.ingerirEventos([
+      {
+        type: 'agent.discovered',
+        eventId: 'e1',
+        tenantId: 't1',
+        tsReal: 1,
+        agent: {
+          agentId: 'a1',
+          displayName: 'Alpha',
+          role: 'analyst',
+          framework: 'native',
+          discoveredVia: 'sdk',
+          avatarSeed: 1,
+        },
+      },
+      {
+        type: 'tool.called',
+        eventId: 'e2',
+        tenantId: 't1',
+        tsReal: 2,
+        agentId: 'a1',
+        toolName: 'search',
+        durationMs: 10,
+        ok: true,
+      },
+    ]);
+    expect(n).toBe(2);
+    expect(ing.agents.map((a) => a.agentId)).toEqual(['a1']);
+    expect(ing.poll(0)).toHaveLength(2);
+  });
 });

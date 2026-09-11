@@ -14,7 +14,7 @@ export type RespostaPonte = {
   refresh: string;
 };
 
-async function postJson(path: string, body: unknown): Promise<RespostaPonte> {
+async function postJson<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -34,7 +34,7 @@ async function postJson(path: string, body: unknown): Promise<RespostaPonte> {
         : `HTTP ${res.status}`;
     throw new Error(erro);
   }
-  return parsed as RespostaPonte;
+  return parsed as T;
 }
 
 export function onboardEmpresa(displayName: string): Promise<RespostaPonte> {
@@ -43,6 +43,10 @@ export function onboardEmpresa(displayName: string): Promise<RespostaPonte> {
 
 export function conectarCodigo(codigo: string): Promise<RespostaPonte> {
   return postJson('/api/public/conectar', { codigo });
+}
+
+export function simularAgencia(codigo: string): Promise<{ eventos: number }> {
+  return postJson('/api/public/simular', { codigo });
 }
 
 export function urlDemoComToken(token: string): string {
@@ -56,5 +60,41 @@ export function snippetOtlp(tenantId: string): string {
     `POST ${API_BASE}/v1/traces`,
     `x-tenant-id: ${tenantId}`,
     'content-type: application/json',
+  ].join('\n');
+}
+
+/** Exemplo minimo de POST /api/events (sem OTLP). */
+export function snippetEventos(tenantId: string): string {
+  return [
+    `POST ${API_BASE}/api/events`,
+    'content-type: application/json',
+    '',
+    JSON.stringify(
+      {
+        tenantId,
+        events: [
+          {
+            type: 'agent.discovered',
+            agentId: 'agent_1',
+            name: 'Triador',
+            role: 'researcher',
+          },
+          {
+            type: 'tool.called',
+            agentId: 'agent_1',
+            toolName: 'busca',
+            ok: true,
+            durationMs: 120,
+          },
+          {
+            type: 'approval.requested',
+            agentId: 'agent_1',
+            question: 'Posso seguir?',
+          },
+        ],
+      },
+      null,
+      2,
+    ),
   ].join('\n');
 }

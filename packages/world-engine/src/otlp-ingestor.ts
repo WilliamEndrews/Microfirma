@@ -119,6 +119,36 @@ export class OtlpIngestor {
   }
 
   /**
+   * Injeta DomainEvents ja normalizados (webhook nativo / SDK / simulacao).
+   * Reusa deduplicacao e descoberta de agentes do caminho OTLP.
+   */
+  ingerirEventos(eventos: DomainEvent[]): number {
+    let adicionados = 0;
+    for (const evt of eventos) {
+      if (this.vistos.has(evt.eventId)) {
+        this.stats.spansDescartados++;
+        continue;
+      }
+      this.vistos.add(evt.eventId);
+
+      if (evt.type === 'agent.discovered') {
+        if (!this.redescobrir && this.agentesConhecidos.has(evt.agent.agentId)) {
+          continue;
+        }
+        this.agentesConhecidos.add(evt.agent.agentId);
+        this.agentesDescobertos.set(evt.agent.agentId, evt.agent);
+        this.stats.agentesConhecidos = this.agentesConhecidos.size;
+      }
+
+      this.buffer.push(evt);
+      adicionados++;
+      this.stats.eventosGerados++;
+    }
+    this.buffer.sort((a, b) => a.tsReal - b.tsReal);
+    return adicionados;
+  }
+
+  /**
    * Consome eventos acumulados. Igual ao `poll()` do SyntheticStream:
    * devolve todos os eventos pendentes e limpa o buffer.
    *
