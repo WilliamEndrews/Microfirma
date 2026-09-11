@@ -331,8 +331,9 @@ geometria deterministica por seed. O LLM nunca toca em coordenadas (ADR-0004).
 - Sem agentes andando na landing. Sem Three.js. Sem chave de onboarding no
   browser.
 - Logica da conexao (codigo vs JWT vs OTLP):
-  [`docs/conexao-telemetria.md`](conexao-telemetria.md). Runbook de teste:
-  [`docs/telemetria-otlp.md`](telemetria-otlp.md).
+  [`docs/conexao-telemetria.md`](conexao-telemetria.md). Guia completo para
+  conectar o cliente: [`docs/guia-conexao-cliente.md`](guia-conexao-cliente.md).
+  Runbook de teste: [`docs/telemetria-otlp.md`](telemetria-otlp.md).
 
 ### 6.4 Escritorio (sandbox)
 

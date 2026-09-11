@@ -3,6 +3,9 @@
 Este topico explica **como o cliente se liga ao escritorio**: o que e o codigo,
 o que e o JWT, e por que OTLP e o browser usam caminhos diferentes.
 
+**Guia completo** (todas as variantes + o que configurar no sistema do cliente):
+[`guia-conexao-cliente.md`](guia-conexao-cliente.md).
+
 Runbook de teste local (fixture, curl, aceite): [`telemetria-otlp.md`](telemetria-otlp.md).
 
 ## Duas identidades (nao misturar)
@@ -96,6 +99,54 @@ duravel de tenant/sessao ainda nao e este documento.
 
 1. Criar empresa na landing (ou reusar codigo).
 2. Guardar o **codigo** (`tenantId`).
-3. Configurar OTLP/HTTP JSON → `/v1/traces` com `x-tenant-id`.
+3. **Simular agencia** na ponte (fixture de 3 agentes) **ou** configurar OTLP/HTTP
+   JSON → `/v1/traces` com `x-tenant-id` **ou** `POST /api/events` (JSON nativo).
 4. Abrir o escritorio pelo link com JWT (ou colar o codigo depois e gerar outro token).
-5. So entao esperar agentes/mesas: telemetria chega **depois** da ponte.
+5. Telemetria real so e necessaria quando o cliente apontar a fonte dele.
+
+## Simular na ponte (sem terminal do cliente)
+
+Na tela **Ponte pronta**, o botao **Simular agencia** chama
+`POST /api/public/simular` `{ "codigo": "<tenantId>" }` e injeta a fixture
+`scripts/fixtures/agencia-3-agentes.otlp.json` no ingestor daquele tenant.
+Depois e so **entrar no escritorio**.
+
+## POST /api/events (shape minimo, sem OTLP)
+
+Para scripts / SDKs que nao falam OpenTelemetry:
+
+```http
+POST /api/events
+content-type: application/json
+```
+
+```json
+{
+  "tenantId": "<codigo>",
+  "events": [
+    {
+      "type": "agent.discovered",
+      "agentId": "agent_1",
+      "name": "Triador",
+      "role": "researcher"
+    },
+    {
+      "type": "tool.called",
+      "agentId": "agent_1",
+      "toolName": "busca",
+      "ok": true,
+      "durationMs": 120
+    },
+    {
+      "type": "approval.requested",
+      "agentId": "agent_1",
+      "question": "Posso seguir?"
+    }
+  ]
+}
+```
+
+Tipos aceitos: `agent.discovered`, `run.started`, `run.finished`, `tool.called`,
+`llm.completed`, `error.raised`, `approval.requested`, `queue.observed`.
+O servidor preenche `eventId`, `tsReal` e `tenantId` no DomainEvent interno.
+`tenantId` tambem pode ir no header `x-tenant-id`.

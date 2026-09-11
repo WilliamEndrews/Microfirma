@@ -7,6 +7,9 @@ cliente agentico real.
 Logica da ponte (codigo = `tenantId`, JWT vs OTLP, landing → Demo):
 [`conexao-telemetria.md`](conexao-telemetria.md).
 
+Guia completo de conexao do cliente (OTLP, `/api/events`, Simular, checklist):
+[`guia-conexao-cliente.md`](guia-conexao-cliente.md).
+
 ## Pipeline real (nao e stub)
 
 ```
