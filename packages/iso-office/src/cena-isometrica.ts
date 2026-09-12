@@ -203,8 +203,9 @@ function addAssetCommands(
       spec: child.spec,
       item,
       cal,
-      dx: child.dx,
-      dy: child.dy,
+      // Paridade com anexos de parede: checkpoint do item + offset da camada.
+      dx: (item.dx ?? 0) + child.dx,
+      dy: (item.dy ?? 0) + child.dy,
     });
   }
 }
