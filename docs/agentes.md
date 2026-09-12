@@ -330,12 +330,11 @@ geometria deterministica por seed. O LLM nunca toca em coordenadas (ADR-0004).
   ponte (`tenantId` + snippet OTLP) => demo com `?token=`.
 - Sem agentes andando na landing. Sem Three.js. Sem chave de onboarding no
   browser.
+- Guia completo de conexao (mesa do cliente, OTLP, `/api/events`, Simular):
+  [`docs/guia-conexao-cliente.md`](guia-conexao-cliente.md).
 - Logica da conexao (codigo vs JWT vs OTLP):
   [`docs/conexao-telemetria.md`](conexao-telemetria.md). Runbook de teste:
   [`docs/telemetria-otlp.md`](telemetria-otlp.md).
-- Guia completo para conectar o sistema do cliente (OTLP, `/api/events`,
-  Simular, checklist tecnico):
-  [`docs/guia-conexao-cliente.md`](guia-conexao-cliente.md).
 
 ### 6.4 Escritorio (sandbox)
 
