@@ -89,6 +89,8 @@ describe('cena isometrica global', () => {
             expect(command.item.qx).toBe(item.qx);
             expect(command.item.qy).toBe(item.qy);
             expect(command.item.passo).toBe(item.passo);
+            expect(command.dx).toBe(item.dx ?? 0);
+            expect(command.dy).toBe(item.dy ?? 0);
           } else if (command.kind === 'vertex') {
             expect(command.dx).toBe(item.dx ?? 0);
             expect(command.dy).toBe(item.dy ?? 0);
@@ -111,6 +113,77 @@ describe('cena isometrica global', () => {
         );
         expect(new Set(filhos.map((c) => c.depth)).size).toBe(1);
       }
+    }
+  });
+
+  it('aplica checkpoint dx/dy de peca de piso (e soma nas camadas de combo)', () => {
+    const base = BIBLIA_TEMAS.temas.find(
+      (t) => t.zonaKind === 'private' || t.zonaKind === 'break' || t.zonaKind === 'boss_room',
+    )!;
+    const { w, h } = gradeDoProto(base);
+    const propSimples = base.palco.find((p) => {
+      if (p.papel === 'wall' || p.face === 'R' || p.face === 'L') return false;
+      const s = specPorId(p.assetId);
+      return !!(s && !s.camadas?.length && s.fileName);
+    });
+    const propCombo = base.palco.find((p) => {
+      if (p.papel === 'wall' || p.face === 'R' || p.face === 'L') return false;
+      const s = specPorId(p.assetId);
+      return !!(s?.camadas?.length);
+    });
+    expect(propSimples).toBeDefined();
+
+    const tema = {
+      ...base,
+      id: `${base.id}-offset-livre`,
+      palco: [
+        { ...propSimples!, gx: 1, gy: 1, qx: 0, qy: 0, passo: 1, dx: 12, dy: -7 },
+        ...(propCombo
+          ? [{ ...propCombo, gx: 0, gy: 1, qx: 0, qy: 0, passo: 1, dx: 3, dy: 5 }]
+          : []),
+      ],
+    };
+    const agencia: AgenciaMontada = {
+      seed: 1,
+      grid: { width: w + 2, height: h + 3 },
+      corredorY: h + 1,
+      pisoCorredor: 'Concrete',
+      corridors: Array.from({ length: w }, (_, i) => ({ x: i + 1, y: h + 1 })),
+      slots: [
+        {
+          proto: {
+            key: `${tema.zonaKind}-${tema.id}`,
+            zonaKind: tema.zonaKind as 'private' | 'break' | 'boss_room',
+            tema,
+          },
+          rect: { x0: 1, y0: 1, x1: w + 1, y1: 1 + h },
+        },
+      ],
+    };
+    const cena = compilarCenaIso(agencia);
+    expect(validarCenaIso(agencia, cena)).toEqual([]);
+
+    const simples = cena.commands.find((c) => c.id.startsWith(`${tema.zonaKind}-${tema.id}:prop:0:layer:`));
+    expect(simples?.kind).toBe('catalog');
+    if (simples?.kind === 'catalog') {
+      expect(simples.dx).toBe(12);
+      expect(simples.dy).toBe(-7);
+    }
+
+    if (propCombo) {
+      const s = specPorId(propCombo.assetId)!;
+      const filhos = cena.commands.filter((c) =>
+        c.id.startsWith(`${tema.zonaKind}-${tema.id}:prop:1:layer:`),
+      );
+      const esperados = s.camadas!
+        .map((cam) => ({ cam, spec: specPorId(cam.assetId) }))
+        .filter((e) => e.spec?.fileName && !e.spec.camadas);
+      expect(filhos.map((c) => ('dx' in c ? c.dx : 0))).toEqual(
+        esperados.map((e) => 3 + (e.cam.dx ?? 0)),
+      );
+      expect(filhos.map((c) => ('dy' in c ? c.dy : 0))).toEqual(
+        esperados.map((e) => 5 + (e.cam.dy ?? 0)),
+      );
     }
   });
 

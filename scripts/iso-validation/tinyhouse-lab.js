@@ -78,6 +78,18 @@ function origemDoItem(p) {
   return { ox: p.gx + qx * passo, oy: p.gy + qy * passo, passo };
 }
 
+/** Ancora de tela da celula (centro do diamante) — referencia do checkpoint dx/dy. */
+function ancoraTelaCelula(gx, gy) {
+  const c = iso(gx + 0.5, gy + 0.5);
+  return { x: ORIGEM.x + c.x, y: ORIGEM.y + c.y };
+}
+
+/** Offset em px do ponto ate a ancora da celula (mesmo espaco das paredes). */
+function offsetPisoDoPonto(px, py, gx, gy) {
+  const a = ancoraTelaCelula(gx, gy);
+  return { dx: Math.round(px - a.x), dy: Math.round(py - a.y) };
+}
+
 function chaveSlot(p) {
   return p.gx + ',' + p.gy + ',' + (p.qx || 0) + ',' + (p.qy || 0);
 }
@@ -208,28 +220,34 @@ function specDoItem(spec, cal) {
 }
 
 function blitCatalogo(ctx, img, bbox, spec, item, cal, diagnostico) {
-  const o = specDoItem(spec, cal);
-  const { ox, oy, passo } = origemDoItem(item);
-  if (o && o.modo === 'canto' && o.pe) {
-    const r = blitNaVertice(ctx, img, ox, oy, o.pe);
-    if (diagnostico) {
-      ctx.strokeStyle = 'rgba(255, 80, 200, 0.9)';
-      ctx.strokeRect(r.x + bbox.x, r.y + bbox.y, bbox.w, bbox.h);
-      marcarPe(ctx, r.tela);
+  const dx = (item && item.dx) || 0;
+  const dy = (item && item.dy) || 0;
+  const draw = () => {
+    const o = specDoItem(spec, cal);
+    const { ox, oy, passo } = origemDoItem(item);
+    if (o && o.modo === 'canto' && o.pe) {
+      const r = blitNaVertice(ctx, img, ox, oy, o.pe);
+      if (diagnostico) {
+        ctx.strokeStyle = 'rgba(255, 80, 200, 0.9)';
+        ctx.strokeRect(r.x + bbox.x, r.y + bbox.y, bbox.w, bbox.h);
+        marcarPe(ctx, r.tela);
+      }
+      return;
     }
-    return;
-  }
-  if (o && o.modo === 'centro' && o.ancora) {
-    const r = blitTile(ctx, img, ox, oy, o.ancora, passo);
-    if (diagnostico) {
-      ctx.strokeStyle = 'rgba(255, 80, 200, 0.9)';
-      ctx.strokeRect(r.x + bbox.x, r.y + bbox.y, bbox.w, bbox.h);
-      const c = iso(ox + passo / 2, oy + passo / 2);
-      marcarPe(ctx, { x: ORIGEM.x + c.x, y: ORIGEM.y + c.y });
+    if (o && o.modo === 'centro' && o.ancora) {
+      const r = blitTile(ctx, img, ox, oy, o.ancora, passo);
+      if (diagnostico) {
+        ctx.strokeStyle = 'rgba(255, 80, 200, 0.9)';
+        ctx.strokeRect(r.x + bbox.x, r.y + bbox.y, bbox.w, bbox.h);
+        const c = iso(ox + passo / 2, oy + passo / 2);
+        marcarPe(ctx, { x: ORIGEM.x + c.x, y: ORIGEM.y + c.y });
+      }
+      return;
     }
-    return;
-  }
-  blitObjeto(ctx, img, bbox, ox, oy);
+    blitObjeto(ctx, img, bbox, ox, oy);
+  };
+  if (dx || dy) withOrigemOffset(dx, dy, draw);
+  else draw();
 }
 
 function losango(ctx, gx, gy, cor, preencher, tam) {
@@ -819,23 +837,25 @@ function resumoPolitica(politica) {
   }
   function rectPecaPiso(item, bbox, spec) {
     const { ox, oy, passo } = origemDoItem(item);
+    const dx = item.dx || 0;
+    const dy = item.dy || 0;
     const o = specDoItem(spec, cal);
     if (o && o.modo === 'canto' && o.pe) {
-      return rectFromBlit(posBlitVertice(ox, oy, o.pe, 0, 0), bbox);
+      return rectFromBlit(posBlitVertice(ox, oy, o.pe, dx, dy), bbox);
     }
     if (o && o.modo === 'centro' && o.ancora) {
       const c = iso(ox + passo / 2, oy + passo / 2);
       return {
-        x: ORIGEM.x + c.x - o.ancora.x + bbox.x,
-        y: ORIGEM.y + c.y - o.ancora.y + bbox.y,
+        x: ORIGEM.x + dx + c.x - o.ancora.x + bbox.x,
+        y: ORIGEM.y + dy + c.y - o.ancora.y + bbox.y,
         w: bbox.w,
         h: bbox.h,
       };
     }
     const c = iso(ox + 0.5, oy + 0.5);
     return {
-      x: ORIGEM.x + c.x - (bbox.x + bbox.w / 2) + bbox.x,
-      y: ORIGEM.y + c.y - (bbox.y + bbox.h) + bbox.y,
+      x: ORIGEM.x + dx + c.x - (bbox.x + bbox.w / 2) + bbox.x,
+      y: ORIGEM.y + dy + c.y - (bbox.y + bbox.h) + bbox.y,
       w: bbox.w,
       h: bbox.h,
     };
@@ -1089,7 +1109,7 @@ function resumoPolitica(politica) {
     return { tipo: 'piso', celula: g };
   }
 
-  function plantarNoPonto(spec, px, py) {
+  function plantarNoPonto(spec, px, py, snap) {
     if (!spec) return;
     if (estado.combinando) {
       adicionarAoCompose(spec);
@@ -1144,10 +1164,23 @@ function resumoPolitica(politica) {
       assetId: spec.assetId,
       gx: sel.gx,
       gy: sel.gy,
-      qx: sel.qx || 0,
-      qy: sel.qy || 0,
-      passo: 0.5,
+      qx: 0,
+      qy: 0,
+      passo: 1,
+      dx: 0,
+      dy: 0,
     };
+    if (spec.papel === 'decor') alvo.papel = 'decor';
+    if (snap) {
+      // Shift: snap legado aos quartis da celula (sem offset livre).
+      alvo.qx = sel.qx || 0;
+      alvo.qy = sel.qy || 0;
+      alvo.passo = 0.5;
+    } else {
+      const off = offsetPisoDoPonto(px, py, sel.gx, sel.gy);
+      alvo.dx = off.dx;
+      alvo.dy = off.dy;
+    }
     estado.palco.push(alvo);
     paredePecaIx = estado.palco.length - 1;
     desenharPalco();
@@ -1715,12 +1748,13 @@ function resumoPolitica(politica) {
     }
 
     const itens = estado.palco
-      .map((p) => ({ ...p, spec: specPorId(p.assetId) }))
+      .map((p, ix) => ({ ...p, spec: specPorId(p.assetId), _ix: ix }))
       .filter((p) => !itemEParede(p) && p.spec && p.gx >= 0 && p.gy >= 0 && p.gx < w && p.gy < h);
+    // Empate de depth: indice no palco (igual ao `order` do Painter global).
     itens.sort((a, b) => {
       const da = a.gx + a.gy + (a.spec.papel === 'decor' ? 0.5 : 0);
       const db = b.gx + b.gy + (b.spec.papel === 'decor' ? 0.5 : 0);
-      return da - db;
+      return da - db || a._ix - b._ix;
     });
     for (const item of itens) {
       if (eu !== geraPalco) return;
@@ -2280,15 +2314,17 @@ function resumoPolitica(politica) {
     }
     const sel = estado.celula;
     if (sel.gx < 0 || sel.gx >= gradeW() || sel.gy < 0 || sel.gy >= gradeH()) return;
-    const passo = 0.5;
     const alvo = {
       assetId: spec.assetId,
       gx: sel.gx,
       gy: sel.gy,
-      qx: sel.qx || 0,
-      qy: sel.qy || 0,
-      passo,
+      qx: 0,
+      qy: 0,
+      passo: 1,
+      dx: 0,
+      dy: 0,
     };
+    if (spec.papel === 'decor') alvo.papel = 'decor';
     marcarUndo();
     estado.palco.push(alvo);
     paredePecaIx = estado.palco.length - 1;
@@ -2948,10 +2984,10 @@ function resumoPolitica(politica) {
         idx: ix,
         x0: pt.x,
         y0: pt.y,
+        dx0: peca.dx || 0,
+        dy0: peca.dy || 0,
         gx0: peca.gx,
         gy0: peca.gy,
-        qx0: peca.qx || 0,
-        qy0: peca.qy || 0,
       };
       arrasteParede = null;
     }
@@ -3026,18 +3062,42 @@ function resumoPolitica(politica) {
       const peca = estado.palco[arrastePiso.idx];
       if (!peca || itemEParede(peca)) return;
       const pt = pontoDoCanvas(canvas, ev);
-      const g = telaParaGrade(pt.x, pt.y, true);
-      if (g.gx >= 0 && g.gx < gradeW() && g.gy >= 0 && g.gy < gradeH()) {
-        if (!undoDoArraste) {
-          marcarUndo();
-          undoDoArraste = true;
+      if (!undoDoArraste) {
+        marcarUndo();
+        undoDoArraste = true;
+      }
+      if (ev.shiftKey) {
+        // Shift: snap legado aos quartis.
+        const g = telaParaGrade(pt.x, pt.y, true);
+        if (g.gx >= 0 && g.gx < gradeW() && g.gy >= 0 && g.gy < gradeH()) {
+          peca.gx = g.gx;
+          peca.gy = g.gy;
+          peca.qx = g.qx || 0;
+          peca.qy = g.qy || 0;
+          peca.passo = 0.5;
+          peca.dx = 0;
+          peca.dy = 0;
+          estado.celula = { gx: g.gx, gy: g.gy, qx: g.qx || 0, qy: g.qy || 0 };
+          pulouClickPalco = true;
+          desenharPalco();
         }
+        return;
+      }
+      // Livre: pe acompanha o ponteiro relativo ao grab; rebaseia gx/gy.
+      const a0 = ancoraTelaCelula(arrastePiso.gx0, arrastePiso.gy0);
+      const footX = a0.x + arrastePiso.dx0 + (pt.x - arrastePiso.x0);
+      const footY = a0.y + arrastePiso.dy0 + (pt.y - arrastePiso.y0);
+      const g = telaParaGrade(footX, footY, false);
+      if (g.gx >= 0 && g.gx < gradeW() && g.gy >= 0 && g.gy < gradeH()) {
+        const off = offsetPisoDoPonto(footX, footY, g.gx, g.gy);
         peca.gx = g.gx;
         peca.gy = g.gy;
-        peca.qx = g.qx || 0;
-        peca.qy = g.qy || 0;
-        peca.passo = 0.5;
-        estado.celula = { gx: g.gx, gy: g.gy, qx: g.qx || 0, qy: g.qy || 0 };
+        peca.qx = 0;
+        peca.qy = 0;
+        peca.passo = 1;
+        peca.dx = off.dx;
+        peca.dy = off.dy;
+        estado.celula = { gx: g.gx, gy: g.gy, qx: 0, qy: 0 };
         pulouClickPalco = true;
         desenharPalco();
       }
@@ -3062,7 +3122,7 @@ function resumoPolitica(politica) {
             const px = (ev.clientX - r.left) * (alvo.width / r.width);
             const py = (ev.clientY - r.top) * (alvo.height / r.height);
             if (estado.combinando) adicionarAoCompose(drag.spec);
-            else plantarNoPonto(drag.spec, px, py);
+            else plantarNoPonto(drag.spec, px, py, ev.shiftKey);
             gravarEstado(estado);
             pintarListaParede();
             pintarCamadasLocais();
@@ -3463,6 +3523,14 @@ function resumoPolitica(politica) {
       // Delete, Backspace, Ctrl+Del / Cmd+Del: remove o selecionado.
       if (estado.combinando) removerCamada();
       else removerPecaPalco();
+      ev.preventDefault();
+      return;
+    }
+    // Ctrl/Cmd + ↑/↓: sobe/desce camada (palco e Combinar).
+    if (cmd && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown')) {
+      const dir = ev.key === 'ArrowUp' ? 1 : -1;
+      if (estado.combinando) moverCamada(dir);
+      else if (paredePecaIx >= 0) moverPecaPalco(paredePecaIx, dir);
       ev.preventDefault();
       return;
     }

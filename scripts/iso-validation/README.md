@@ -91,8 +91,9 @@ UI atual do laboratorio (2026-09):
    `todos` | `piso` | `parede` | `decor`. Arraste um card para o palco
    (ou clique para plantar na celula/face atual).
 3. Hit-test automatico: perto da parede NW ancora como anexo; no centro
-   ancora no piso (quarteis internos, sem UI de subdivisao). Clique no
-   chao vazio **nao** captura grade — so pecas sao selecionaveis.
+   o piso usa posicionamento livre (`gx`/`gy` + checkpoint `dx`/`dy`).
+   Segure **Shift** ao soltar/arrastar para snap nos quartis (legado).
+   Clique no chao vazio **nao** captura grade — so pecas sao selecionaveis.
 4. **Piso, parede e decor empilham** no mesmo slot (um asset novo nao
    substitui o anterior). Arraste a peca selecionada para reposicionar.
    **Combos** plantados (borda verde no catalogo) selecionam, arrastam e
@@ -104,6 +105,8 @@ UI atual do laboratorio (2026-09):
    - **Esc** limpa a selecao (no modo assento, Esc cancela o modo).
    - **[** / **]** (ou PageDown / PageUp) muda z-order entre vizinhos
      (palco e Combinar).
+   - **Ctrl+↑ / Ctrl+↓** (Mac: Cmd): sobe/desce a camada do asset
+     selecionado (palco e Combinar).
    - **Setas** em anexo de parede: ajustam `dx`/`dy` em 1 px.
 6. Chip da peca selecionada (camadas locais) tem botao **remover** (piso e
    parede). Chips da lista de parede tambem.
@@ -113,7 +116,8 @@ UI atual do laboratorio (2026-09):
    **resetar JSON do repo** volta ao arquivo.
 
 Ideias futuras (nao neste ciclo): Ctrl+D duplicar, lista unificada
-piso+parede, multi-select, toggle de snap na grade.
+piso+parede, multi-select, toggle persistente de snap na grade (hoje
+o snap e via Shift durante o arraste/drop).
 
 ## Plantar na parede (face + drag)
 

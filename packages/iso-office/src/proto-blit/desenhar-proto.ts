@@ -35,6 +35,7 @@ async function blitSpecNoPalco(
   item: PecaPalcoItem,
   cal: ReturnType<typeof calibracaoDoTema>,
 ): Promise<void> {
+  const base = { x: origem.x + (item.dx || 0), y: origem.y + (item.dy || 0) };
   if (spec.camadas && spec.camadas.length) {
     for (const cam of spec.camadas) {
       const s = specPorId(cam.assetId);
@@ -42,7 +43,7 @@ async function blitSpecNoPalco(
       try {
         const img = await carregar(s.fileName);
         const bbox = await bboxDe(s.fileName);
-        const o = { x: origem.x + (cam.dx || 0), y: origem.y + (cam.dy || 0) };
+        const o = { x: base.x + (cam.dx || 0), y: base.y + (cam.dy || 0) };
         blitCatalogo(ctx, img, bbox, s, item, cal, o);
       } catch {
         /* png ausente */
@@ -54,7 +55,7 @@ async function blitSpecNoPalco(
   try {
     const img = await carregar(spec.fileName);
     const bbox = await bboxDe(spec.fileName);
-    blitCatalogo(ctx, img, bbox, spec, item, cal, origem);
+    blitCatalogo(ctx, img, bbox, spec, item, cal, base);
   } catch {
     /* png ausente */
   }
