@@ -26,6 +26,11 @@ export { atividadeParaAnim } from './atividade.js';
 export {
   lookDoAgente,
   agentesPresetConhecidos,
+  validarLook,
+  normalizarLook,
+  lookAleatorio,
+  aleatorizarSlot,
+  LOOK_LIMITES,
   TOPS_ACIMA_CABELO,
   BODY_MAX,
   HAIR_MAX,
@@ -33,6 +38,7 @@ export {
   BOTTOM_MAX,
   SHOES_MAX,
   type LookKlimmos,
+  type SlotLook,
 } from './presets.js';
 
 export {
@@ -56,6 +62,9 @@ export {
   dimensoesPersonagem,
   offsetPeChao,
   offsetSentado,
+  retanguloPersonagem,
+  pontoNoRetangulo,
   type AtlasAgente,
   type OpcoesKit,
+  type RetanguloPersonagem,
 } from './kit.js';

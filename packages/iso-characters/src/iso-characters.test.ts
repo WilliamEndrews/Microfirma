@@ -4,6 +4,14 @@ import { ordemBlit, urlCamada } from './carregar.js';
 import { facingParaDirRow } from './facing.js';
 import { DIR_ROW, frameDeTempo, rectFrame } from './folha.js';
 import {
+  aleatorizarSlot,
+  lookAleatorio,
+  lookDoAgente,
+  normalizarLook,
+  validarLook,
+  TOPS_ACIMA_CABELO,
+} from './presets.js';
+import {
   ALTURA_PERSONAGEM_KLIMMOS,
   ESCALA_KLIMMOS_PADRAO,
   ALTURA_BASE_SENTADO,
@@ -12,8 +20,9 @@ import {
   dimensoesPersonagem,
   offsetPeChao,
   offsetSentado,
+  pontoNoRetangulo,
+  retanguloPersonagem,
 } from './kit.js';
-import { lookDoAgente, TOPS_ACIMA_CABELO } from './presets.js';
 
 describe('facingParaDirRow', () => {
   it('mapeia cardinais para diagonais Klimmos', () => {
@@ -140,5 +149,43 @@ describe('presets e layering', () => {
         indice: 11,
       }),
     ).toBe('/klimmos-iso-male/02_Walk/03_Top_Clothing/Male_TopClothing_11_Walk.png');
+  });
+});
+
+describe('look helpers', () => {
+  it('valida e normaliza looks', () => {
+    expect(validarLook(lookDoAgente('agent-boss'))).toBe(true);
+    expect(validarLook({ body: 0, hair: 1, top: 1, bottom: 1, shoes: 1 })).toBe(false);
+    expect(normalizarLook({ body: 99, hair: 0, top: -1, bottom: 5, shoes: 3 })).toEqual({
+      body: 3,
+      hair: 10,
+      top: 14,
+      bottom: 5,
+      shoes: 3,
+    });
+  });
+
+  it('gera look aleatorio deterministico com rng fixo', () => {
+    let i = 0;
+    const seq = [0, 0.5, 0.99, 0.25, 0.75];
+    const rng = () => seq[i++ % seq.length]!;
+    expect(lookAleatorio(rng)).toEqual({
+      body: 1,
+      hair: 6,
+      top: 15,
+      bottom: 3,
+      shoes: 8,
+    });
+    const base = lookDoAgente('agent-boss');
+    expect(aleatorizarSlot(base, 'top', () => 0.5).top).toBe(8);
+  });
+});
+
+describe('retanguloPersonagem', () => {
+  it('hit-test generoso ao redor do pe', () => {
+    const r = retanguloPersonagem(100, 200);
+    expect(pontoNoRetangulo(100, 150, r)).toBe(true);
+    expect(pontoNoRetangulo(100, 210, r)).toBe(true);
+    expect(pontoNoRetangulo(0, 0, r)).toBe(false);
   });
 });

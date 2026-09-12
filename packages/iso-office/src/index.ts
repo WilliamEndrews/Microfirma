@@ -83,7 +83,13 @@ export { desenharAgencia } from './desenhar-agencia';
 
 export { OclusaoCorredor, oclusorNaFrente, type RetanguloTela } from './oclusao-parede';
 
-export { desenharAtores, projetarAtorSentado } from './desenhar-atores';
+export {
+  desenharAtores,
+  escolherAgenteNoPonto,
+  nomeFallback,
+  projetarAtorSentado,
+  type OpcoesDesenharAtores,
+} from './desenhar-atores';
 
 export { iso, LARGURA_TILE, ALTURA_TILE, type Pt } from './proto-blit/iso';
 export { resolverSpecLab, calibracaoDoTema, coresDoTema } from './proto-blit/catalogo';

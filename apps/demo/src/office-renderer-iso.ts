@@ -6,13 +6,14 @@
  */
 
 import type { ActorState, OfficeLayout, WorldDelta, WorldSnapshot } from '@microfirma/contracts';
-import { PersonagemKit } from '@microfirma/iso-characters';
+import { PersonagemKit, type LookKlimmos } from '@microfirma/iso-characters';
 import {
   OclusaoCorredor,
   agenciaDeLayout,
   construirEspacoAgencia,
   desenharAgencia,
   desenharAtores,
+  escolherAgenteNoPonto,
   elencoIdsDoLayout,
   iso,
   prepararCenaIso,
@@ -20,12 +21,19 @@ import {
   type AgenteEspacial,
   type CenaIsoPreparada,
 } from '@microfirma/iso-office';
+import { carregarWardrobe } from './wardrobe-storage';
 
 export interface RendererHandle {
   push(frame: WorldSnapshot | WorldDelta): void;
   select(agentId: string | null): void;
   focusAgent(agentId: string | null): void;
   resetCamera(): void;
+  /** Hit-test em coordenadas de cliente (CSS pixels). */
+  pickAgent(clientX: number, clientY: number): string | null;
+  setNomes(nomes: ReadonlyMap<string, string>): void;
+  lookDe(agentId: string): LookKlimmos;
+  aplicarLook(agentId: string, look: LookKlimmos): Promise<void>;
+  setOnAgentClick(cb: ((agentId: string) => void) | null): void;
   destroy(): void;
 }
 
@@ -60,7 +68,13 @@ export async function criarRenderer(
   await desenharAgencia(ectx, agencia, cena, { fill: '#f4f1ea' });
 
   const oclusao = await OclusaoCorredor.preparar(cena, layout.corridors);
-  const personagens = await PersonagemKit.carregar({ agentIdsExtras: donos });
+  const salvo = carregarWardrobe();
+  const personagens = await PersonagemKit.carregar({
+    agentIdsExtras: donos,
+    looksIniciais: salvo.looks,
+  });
+  let nomes = new Map<string, string>(Object.entries(salvo.nomes));
+  let onAgentClick: ((agentId: string) => void) | null = null;
   const pendingBake = new Set<string>();
 
   const garantirAtores = (frame: WorldSnapshot | WorldDelta): void => {
@@ -83,10 +97,35 @@ export async function criarRenderer(
   let vivo = true;
   let raf = 0;
   let arrastando = false;
+  let dragMoved = false;
   let dragStartX = 0;
   let dragStartY = 0;
   let dragPanStartX = 0;
   let dragPanStartY = 0;
+
+  const clienteParaCena = (clientX: number, clientY: number): { x: number; y: number } => {
+    const rect = canvas.getBoundingClientRect();
+    const cx = clientX - rect.left;
+    const cy = clientY - rect.top;
+    const escalaEfetiva = escalaBase * camera.zoom;
+    return {
+      x: (cx - deslocX - camera.panX) / escalaEfetiva,
+      y: (cy - deslocY - camera.panY) / escalaEfetiva,
+    };
+  };
+
+  const pickAgent = (clientX: number, clientY: number): string | null => {
+    if (!quadro) return null;
+    const { x, y } = clienteParaCena(clientX, clientY);
+    return escolherAgenteNoPonto(
+      cena.origem,
+      quadro.actors,
+      tMs,
+      x,
+      y,
+      personagens.escalaPadrao,
+    );
+  };
 
   const ajustar = (): void => {
     dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -120,7 +159,9 @@ export async function criarRenderer(
   };
 
   const onPointerDown = (e: PointerEvent): void => {
+    if (e.button !== 0) return;
     arrastando = true;
+    dragMoved = false;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     dragPanStartX = camera.panX;
@@ -130,14 +171,27 @@ export async function criarRenderer(
 
   const onPointerMove = (e: PointerEvent): void => {
     if (!arrastando) return;
-    camera.panX = dragPanStartX + (e.clientX - dragStartX);
-    camera.panY = dragPanStartY + (e.clientY - dragStartY);
+    const dx = e.clientX - dragStartX;
+    const dy = e.clientY - dragStartY;
+    if (Math.hypot(dx, dy) > 6) dragMoved = true;
+    if (!dragMoved) return;
+    camera.panX = dragPanStartX + dx;
+    camera.panY = dragPanStartY + dy;
     camera.seguirAgente = null;
   };
 
   const onPointerUp = (e: PointerEvent): void => {
+    const foiClick = arrastando && !dragMoved;
     arrastando = false;
-    canvas.releasePointerCapture(e.pointerId);
+    try {
+      canvas.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (foiClick && onAgentClick) {
+      const id = pickAgent(e.clientX, e.clientY);
+      if (id) onAgentClick(id);
+    }
   };
 
   const onDoubleClick = (): void => {
@@ -202,21 +256,10 @@ export async function criarRenderer(
         const speech = falas.get(a.agentId);
         return speech ? { ...projetado, speech } : projetado;
       });
-      desenharAtores(ctx, cena.origem, atores, tMs, personagens, oclusao);
-
-      if (selecionado) {
-        const ator = atores.find((a) => a.agentId === selecionado);
-        if (ator) {
-          const p = iso(ator.x + 0.5, ator.y + 0.5);
-          const cx = cena.origem.x + p.x;
-          const cy = cena.origem.y + p.y;
-          ctx.strokeStyle = 'rgba(40, 90, 180, 0.7)';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy + 4, 18, 8, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-      }
+      desenharAtores(ctx, cena.origem, atores, tMs, personagens, oclusao, {
+        nomes,
+        selecionadoId: selecionado,
+      });
     }
 
     raf = requestAnimationFrame(laco);
@@ -240,6 +283,17 @@ export async function criarRenderer(
       camera.panY = 0;
       camera.seguirAgente = null;
       ajustar();
+    },
+    pickAgent,
+    setNomes: (m) => {
+      nomes = new Map(m);
+    },
+    lookDe: (id) => personagens.lookDe(id),
+    aplicarLook: async (id, look) => {
+      await personagens.definirLook(id, look);
+    },
+    setOnAgentClick: (cb) => {
+      onAgentClick = cb;
     },
     destroy: () => {
       vivo = false;

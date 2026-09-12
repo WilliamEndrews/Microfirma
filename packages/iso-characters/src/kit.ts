@@ -20,6 +20,8 @@ import {
 import {
   agentesPresetConhecidos,
   lookDoAgente,
+  normalizarLook,
+  validarLook,
   type LookKlimmos,
 } from './presets.js';
 
@@ -91,7 +93,43 @@ export type OpcoesKit = {
   agentIdsExtras?: readonly string[];
   /** Escala de desenho (default 1.2 = 76.8x96). */
   escalaPadrao?: number;
+  /** Looks iniciais (ex.: restore de localStorage) antes do bake. */
+  looksIniciais?: Readonly<Record<string, LookKlimmos>>;
 };
+
+/** Retangulo AABB do sprite com pe em (cx, cy) — util para hit-test. */
+export type RetanguloPersonagem = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+/**
+ * Caixa de toque generosa ao redor do personagem (sombra + sprite + bob).
+ * `cx`/`cy` = pe ancorado no centro do tile (mesmo contrato de `desenhar`).
+ */
+export function retanguloPersonagem(
+  cx: number,
+  cy: number,
+  escala = ESCALA_KLIMMOS_PADRAO,
+): RetanguloPersonagem {
+  const dimensoes = dimensoesPersonagem(escala);
+  return {
+    x: Math.floor(cx - dimensoes.largura / 2) - 4,
+    y: Math.floor(cy - dimensoes.altura) - 4,
+    w: Math.ceil(dimensoes.largura) + 8,
+    h: Math.ceil(dimensoes.altura) + 20,
+  };
+}
+
+export function pontoNoRetangulo(
+  px: number,
+  py: number,
+  r: RetanguloPersonagem,
+): boolean {
+  return px >= r.x && px < r.x + r.w && py >= r.y && py < r.y + r.h;
+}
 
 export class PersonagemKit {
   private readonly atlas = new Map<string, AtlasAgente>();
@@ -102,6 +140,11 @@ export class PersonagemKit {
   private constructor(opts: OpcoesKit) {
     this.escalaPadrao = opts.escalaPadrao ?? ESCALA_KLIMMOS_PADRAO;
     this.baseUrl = opts.baseUrl ?? KLIMMOS_BASE;
+    if (opts.looksIniciais) {
+      for (const [id, look] of Object.entries(opts.looksIniciais)) {
+        if (validarLook(look)) this.looks.set(id, { ...look });
+      }
+    }
   }
 
   static async carregar(opts: OpcoesKit = {}): Promise<PersonagemKit> {
@@ -109,6 +152,7 @@ export class PersonagemKit {
     const ids = new Set<string>([
       ...agentesPresetConhecidos(),
       ...(opts.agentIdsExtras ?? []),
+      ...Object.keys(opts.looksIniciais ?? {}),
     ]);
     await Promise.all([...ids].map((id) => kit.garantir(id)));
     return kit;
@@ -120,7 +164,18 @@ export class PersonagemKit {
       look = lookDoAgente(agentId);
       this.looks.set(agentId, look);
     }
-    return look;
+    return { ...look };
+  }
+
+  /**
+   * Define (ou redefine) o look de um agente, invalida o atlas e rebakeia.
+   * Indices invalidos sao normalizados para o intervalo do pack.
+   */
+  async definirLook(agentId: string, look: LookKlimmos): Promise<AtlasAgente> {
+    const normalizado = validarLook(look) ? { ...look } : normalizarLook(look);
+    this.looks.set(agentId, normalizado);
+    this.atlas.delete(agentId);
+    return this.garantir(agentId);
   }
 
   async garantir(agentId: string): Promise<AtlasAgente> {
