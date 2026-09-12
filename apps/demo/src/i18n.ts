@@ -65,6 +65,25 @@ const ptBR: Dict = {
   'agentes.internaTitulo': 'Equipe interna',
   'agentes.notaInterna': 'Zelador e Tecnico sao behavior trees deterministicas, sem LLM: chamar um modelo para decidir "ir varrer" seria custo sem beneficio.',
 
+  // Wardrobe Klimmos
+  'wardrobe.abrir': 'Personalizar',
+  'wardrobe.eyebrow': 'Vestuario Klimmos',
+  'wardrobe.titulo': 'Agente {nome}',
+  'wardrobe.fechar': 'Fechar',
+  'wardrobe.categorias': 'Categorias',
+  'wardrobe.cat.body': 'Corpo',
+  'wardrobe.cat.hair': 'Cabelo',
+  'wardrobe.cat.top': 'Camisa',
+  'wardrobe.cat.bottom': 'Calca',
+  'wardrobe.cat.shoes': 'Calcado',
+  'wardrobe.cat.nome': 'Nome',
+  'wardrobe.nomeLabel': 'Nome do agente',
+  'wardrobe.aleatorioSlot': 'Sortear desta categoria',
+  'wardrobe.aleatorioTudo': 'Sortear look',
+  'wardrobe.cancelar': 'Cancelar',
+  'wardrobe.aplicar': 'Aplicar',
+  'wardrobe.salvando': 'Aplicando…',
+
   // Atividades
   'atividade.idle': 'disponivel',
   'atividade.walking': 'deslocando',
@@ -168,6 +187,25 @@ const enUS: Dict = {
   'agentes.internaTitulo': 'Internal team',
   'agentes.notaInterna': 'Janitor and Technician are deterministic behavior trees, no LLM: calling a model to decide "go sweep" would be cost without benefit.',
 
+  // Wardrobe Klimmos
+  'wardrobe.abrir': 'Customize',
+  'wardrobe.eyebrow': 'Klimmos wardrobe',
+  'wardrobe.titulo': 'Agent {nome}',
+  'wardrobe.fechar': 'Close',
+  'wardrobe.categorias': 'Categories',
+  'wardrobe.cat.body': 'Body',
+  'wardrobe.cat.hair': 'Hair',
+  'wardrobe.cat.top': 'Shirt',
+  'wardrobe.cat.bottom': 'Pants',
+  'wardrobe.cat.shoes': 'Shoes',
+  'wardrobe.cat.nome': 'Name',
+  'wardrobe.nomeLabel': 'Agent name',
+  'wardrobe.aleatorioSlot': 'Randomize category',
+  'wardrobe.aleatorioTudo': 'Randomize look',
+  'wardrobe.cancelar': 'Cancel',
+  'wardrobe.aplicar': 'Apply',
+  'wardrobe.salvando': 'Applying…',
+
   // Atividades
   'atividade.idle': 'available',
   'atividade.walking': 'moving',
@@ -270,6 +308,25 @@ const esES: Dict = {
   'agentes.titulo': 'Agentes',
   'agentes.internaTitulo': 'Equipo interno',
   'agentes.notaInterna': 'El Conserje y el Tecnico son behavior trees deterministicos, sin LLM: llamar a un modelo para decidir "ir a barrer" seria costo sin beneficio.',
+
+  // Wardrobe Klimmos
+  'wardrobe.abrir': 'Personalizar',
+  'wardrobe.eyebrow': 'Vestuario Klimmos',
+  'wardrobe.titulo': 'Agente {nome}',
+  'wardrobe.fechar': 'Cerrar',
+  'wardrobe.categorias': 'Categorias',
+  'wardrobe.cat.body': 'Cuerpo',
+  'wardrobe.cat.hair': 'Pelo',
+  'wardrobe.cat.top': 'Camisa',
+  'wardrobe.cat.bottom': 'Pantalon',
+  'wardrobe.cat.shoes': 'Calzado',
+  'wardrobe.cat.nome': 'Nombre',
+  'wardrobe.nomeLabel': 'Nombre del agente',
+  'wardrobe.aleatorioSlot': 'Aleatorio en categoria',
+  'wardrobe.aleatorioTudo': 'Look aleatorio',
+  'wardrobe.cancelar': 'Cancelar',
+  'wardrobe.aplicar': 'Aplicar',
+  'wardrobe.salvando': 'Aplicando…',
 
   // Actividades
   'atividade.idle': 'disponible',

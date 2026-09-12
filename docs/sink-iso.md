@@ -68,7 +68,15 @@ _(vazio — nenhuma mudanca enfileirada)_
 
 ## Aplicados
 
-_(vazio)_
+### sink-20260912-1629 — hit-test + nameplates Klimmos
+- status: aplicado
+- decisao: agora
+- origem: apps/debugpreview/src/desenhar-atores.ts
+- destino: packages/iso-office/src/desenhar-atores.ts
+- resumo: `escolherAgenteNoPonto`, nameplates pixel, anel de selecao e opcoes `nomes`/`selecionadoId` no painter de atores. Sem sync do shell do lab.
+- adaptacoes: seed demo / labels off / fill claro / elenco real — sem mudanca adicional (so camada dinamica)
+- testes: tsc packages/iso-office; vitest packages/iso-characters
+- chat/data: wardrobe Klimmos
 
 ---
 

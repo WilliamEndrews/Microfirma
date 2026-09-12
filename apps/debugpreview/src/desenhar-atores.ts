@@ -5,6 +5,8 @@
 import type { ActorState, Cell } from '@microfirma/contracts';
 import {
   dimensoesPersonagem,
+  pontoNoRetangulo,
+  retanguloPersonagem,
   type PersonagemKit,
 } from '@microfirma/iso-characters';
 import type { CenarioEspacial } from './espaco-agencia';
@@ -45,6 +47,43 @@ function retanguloAtor(
   };
 }
 
+export type OpcoesDesenharAtores = {
+  nomes?: ReadonlyMap<string, string> | null;
+  selecionadoId?: string | null;
+  nameplates?: boolean;
+};
+
+function centroAtor(
+  origem: Pt,
+  ator: ActorState,
+  tMs: number,
+): { cx: number; cy: number } {
+  const bob = Math.sin(tMs * 0.012) * 2;
+  const p = iso(ator.x + 0.5, ator.y + 0.5);
+  return {
+    cx: origem.x + p.x,
+    cy: origem.y + p.y + (ator.activity === 'walking' ? bob : 0),
+  };
+}
+
+export function escolherAgenteNoPonto(
+  origem: Pt,
+  atores: readonly ActorState[],
+  tMs: number,
+  px: number,
+  py: number,
+  escala?: number,
+): string | null {
+  const ordenados = [...atores].sort((a, b) => a.x + a.y - (b.x + b.y));
+  let achado: string | null = null;
+  for (const ator of ordenados) {
+    const { cx, cy } = centroAtor(origem, ator, tMs);
+    const r = retanguloPersonagem(cx, cy, escala);
+    if (pontoNoRetangulo(px, py, r)) achado = ator.agentId;
+  }
+  return achado;
+}
+
 export function desenharAtores(
   ctx: CanvasRenderingContext2D,
   origem: Pt,
@@ -52,22 +91,24 @@ export function desenharAtores(
   tMs: number,
   kit: PersonagemKit | null = null,
   oclusao: OclusaoCorredor | null = null,
+  opcoes: OpcoesDesenharAtores = {},
 ): void {
+  const nomes = opcoes.nomes ?? null;
+  const selecionadoId = opcoes.selecionadoId ?? null;
+  const nameplates = opcoes.nameplates !== false;
+
   ctx.imageSmoothingEnabled = false;
-  const bob = Math.sin(tMs * 0.012) * 2;
   const dimensoes = dimensoesPersonagem(kit?.escalaPadrao);
 
   const ordenados = [...atores].sort((a, b) => a.x + a.y - (b.x + b.y));
 
   for (const ator of ordenados) {
-    const p = iso(ator.x + 0.5, ator.y + 0.5);
-    const cx = origem.x + p.x;
-    const cy = origem.y + p.y + (ator.activity === 'walking' ? bob : 0);
+    const { cx, cy } = centroAtor(origem, ator, tMs);
 
     let desenhado = false;
 
     // Sombra + corpo formam a silhueta que a parede pode recortar. Os HUDs
-    // (halo, barra, balao) ficam fora: informacao de leitura nunca some.
+    // (halo, barra, balao, nameplate) ficam fora: informacao de leitura nunca some.
     const corpo = (alvo: CanvasRenderingContext2D): void => {
       alvo.imageSmoothingEnabled = false;
       alvo.fillStyle = 'rgba(0,0,0,0.35)';
@@ -119,8 +160,16 @@ export function desenharAtores(
       corpo(ctx);
     }
 
+    if (selecionadoId === ator.agentId) {
+      ctx.strokeStyle = 'rgba(40, 90, 180, 0.75)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + 4, 18, 8, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     if (desenhado && (ator.activity === 'talking' || ator.activity === 'waiting_approval')) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.strokeStyle = 'rgba(40, 30, 20, 0.55)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(cx, cy - dimensoes.altura * 0.55, 15, 7, 0, 0, Math.PI * 2);
@@ -141,16 +190,54 @@ export function desenharAtores(
       ctx.fillRect(x, y, w * ator.progress, h);
     }
 
+    if (nameplates) {
+      const nome = nomes?.get(ator.agentId) ?? nomeFallback(ator.agentId);
+      desenharNameplate(ctx, cx, cy - dimensoes.altura - (ator.speech ? 22 : 6), nome);
+    }
+
     if (ator.speech) {
       desenharBalao(ctx, cx, cy - dimensoes.altura - 10, ator.speech);
     }
   }
 }
 
+export function nomeFallback(agentId: string): string {
+  const limpo = agentId.replace(/^agent-/, '').replace(/^microfirma-/, '');
+  if (!limpo) return agentId;
+  return limpo.charAt(0).toUpperCase() + limpo.slice(1);
+}
+
+function desenharNameplate(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  texto: string,
+): void {
+  const maxChars = 14;
+  const t = texto.length > maxChars ? texto.slice(0, maxChars - 1) + '…' : texto;
+  ctx.imageSmoothingEnabled = false;
+  ctx.font = 'bold 11px "IBM Plex Mono", ui-monospace, monospace';
+  const metrics = ctx.measureText(t);
+  const padX = 5;
+  const padY = 3;
+  const tw = metrics.width;
+  const th = 11;
+  const bw = Math.ceil(tw + padX * 2);
+  const bh = th + padY * 2;
+  const bx = Math.round(cx - bw / 2);
+  const by = Math.round(cy - bh);
+
+  ctx.fillStyle = 'rgba(20, 18, 14, 0.72)';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = '#f5f0e6';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(t, bx + padX, by + bh / 2);
+}
+
 function desenharBalao(ctx: CanvasRenderingContext2D, cx: number, cy: number, texto: string): void {
   const maxChars = 28;
-  const t = texto.length > maxChars ? texto.slice(0, maxChars - 1) + '…' : texto;
-  ctx.font = '10px "IBM Plex Mono", ui-monospace, monospace';
+  const t = texto.length > maxChars ? texto.slice(0, maxChars - 1) + '...' : texto;
+  ctx.font = '10px ui-sans-serif, system-ui, sans-serif';
   const metrics = ctx.measureText(t);
   const padX = 6;
   const padY = 4;
@@ -161,8 +248,8 @@ function desenharBalao(ctx: CanvasRenderingContext2D, cx: number, cy: number, te
   const bx = Math.round(cx - bw / 2);
   const by = Math.round(cy - bh);
 
-  ctx.fillStyle = 'rgba(8, 18, 32, 0.92)';
-  ctx.strokeStyle = 'rgba(126, 200, 255, 0.55)';
+  ctx.fillStyle = 'rgba(255, 252, 245, 0.94)';
+  ctx.strokeStyle = 'rgba(80, 70, 55, 0.35)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.roundRect(bx, by, bw, bh, 4);
@@ -176,10 +263,11 @@ function desenharBalao(ctx: CanvasRenderingContext2D, cx: number, cy: number, te
   ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = '#c8e4f5';
+  ctx.fillStyle = '#3a3228';
   ctx.textBaseline = 'middle';
   ctx.fillText(t, bx + padX, by + bh / 2);
 }
+
 
 export type OpcoesDebugOverlay = {
   cenario: CenarioEspacial;

@@ -28,6 +28,14 @@ import {
 import { useI18n } from './use-i18n';
 import { IDIOMAS, ROTULO_IDIOMA, type Idioma } from './i18n';
 import { simular, type SimularResult } from './api';
+import { WardrobeSheet } from './WardrobeSheet';
+import {
+  carregarWardrobe,
+  lookInicial,
+  salvarWardrobe,
+} from './wardrobe-storage';
+import type { LookKlimmos } from '@microfirma/iso-characters';
+import { nomeFallback } from '@microfirma/iso-office';
 
 /**
  * Endereco do servidor autoritativo. Ausente = simula no navegador.
@@ -101,6 +109,9 @@ export default function App() {
 
   const [seed, setSeed] = useState(20260802);
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [wardrobeAberto, setWardrobeAberto] = useState(false);
+  const [nomesCustom, setNomesCustom] = useState<Record<string, string>>(() => carregarWardrobe().nomes);
+  const [looksCustom, setLooksCustom] = useState<Record<string, LookKlimmos>>(() => carregarWardrobe().looks);
   const [painel, setPainel] = useState<EstadoPainel | null>(null);
   const [historicoKpis, setHistoricoKpis] = useState<WorldKpis[]>([]);
   const [violacoes, setViolacoes] = useState<Violacao[]>([]);
@@ -168,6 +179,11 @@ export default function App() {
         return;
       }
       rendererRef.current = handle;
+      handle.setNomes(new Map(Object.entries(nomesCustom)));
+      handle.setOnAgentClick((id) => {
+        setSelecionado(id);
+        setWardrobeAberto(true);
+      });
       let officeIdAtual = criada.layout.officeId;
 
       // ---- consumo de quadros ----
@@ -194,6 +210,11 @@ export default function App() {
             handle = novo;
             rendererRef.current = novo;
             novo.select(selecionadoRef.current);
+            novo.setNomes(new Map(Object.entries(nomesCustom)));
+            novo.setOnAgentClick((id) => {
+              setSelecionado(id);
+              setWardrobeAberto(true);
+            });
             novo.push(quadro);
           })();
           return;
@@ -249,6 +270,10 @@ export default function App() {
     rendererRef.current?.select(selecionado);
     rendererRef.current?.focusAgent(selecionado);
   }, [selecionado]);
+
+  useEffect(() => {
+    rendererRef.current?.setNomes(new Map(Object.entries(nomesCustom)));
+  }, [nomesCustom]);
 
   const aprovacoes = useMemo(
     () => (painel?.atores ?? []).filter((a) => a.activity === 'waiting_approval'),
@@ -371,9 +396,18 @@ export default function App() {
                   onClick={() => setSelecionado(selecionado === a.agentId ? null : a.agentId)}
                 >
                   <span className={`ponto saude-${a.health}`} aria-hidden="true" />
-                  <span className="nome">{nomeCurto(a.agentId)}</span>
+                  <span className="nome">{nomeCurto(a.agentId, nomesCustom)}</span>
                   <span className="atividade">{t(CHAVE_ATIVIDADE[a.activity])}</span>
                 </button>
+                {selecionado === a.agentId && (
+                  <button
+                    type="button"
+                    className="btn-wardrobe"
+                    onClick={() => setWardrobeAberto(true)}
+                  >
+                    {t('wardrobe.abrir')}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -523,7 +557,7 @@ export default function App() {
         </section>
       </aside>
 
-      <main className="palco">
+      <main className={`palco${wardrobeAberto ? ' wardrobe-blur' : ''}`}>
         <canvas ref={canvasRef} aria-label={t('canvas.ariaLabel')} role="img" />
         <div className="controles-camera">
           <button onClick={() => rendererRef.current?.resetCamera()} title={t('camera.reset')}>
@@ -532,6 +566,27 @@ export default function App() {
           <span className="dica-camera">{t('camera.dica')}</span>
         </div>
       </main>
+
+      {selecionado && (
+        <WardrobeSheet
+          agentId={selecionado}
+          nomeAtual={nomeCurto(selecionado, nomesCustom)}
+          lookAtual={lookInicial(selecionado, looksCustom)}
+          aberto={wardrobeAberto}
+          t={t}
+          onFechar={() => setWardrobeAberto(false)}
+          onAplicar={async (nome, look) => {
+            const id = selecionado;
+            await rendererRef.current?.aplicarLook(id, look);
+            const looks = { ...looksCustom, [id]: look };
+            const nomes = { ...nomesCustom, [id]: nome };
+            setLooksCustom(looks);
+            setNomesCustom(nomes);
+            salvarWardrobe({ looks, nomes });
+            setWardrobeAberto(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -595,9 +650,9 @@ function descreverEvento(
   }
 }
 
-function nomeCurto(agentId: string): string {
-  const bruto = agentId.replace(/^agent-/, '').replace(/^microfirma-/, '');
-  return bruto.charAt(0).toUpperCase() + bruto.slice(1);
+function nomeCurto(agentId: string, custom?: Record<string, string>): string {
+  if (custom?.[agentId]) return custom[agentId]!;
+  return nomeFallback(agentId);
 }
 
 function formatarNumero(n: number): string {
